@@ -1,7 +1,7 @@
 [project]
 name = "erp"
 version = "0.1.0"
-description = "Add your description here"
+description = "Senken ERP: empanelment module"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -10,12 +10,9 @@ dependencies = [
     "psycopg[binary]>=3.3.6",
 ]
 
-[project.scripts]
-erp = "erp:main"
-
-[build-system]
-requires = ["uv_build>=0.12.23,<0.13.0"]
-build-backend = "uv_build"
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+python_files = ["test_*.py", "tests.py"]
 
 [dependency-groups]
 dev = [
