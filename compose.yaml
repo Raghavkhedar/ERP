@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16
+    container_name: senken_erp_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: senken_erp
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: senken_erp
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U senken_erp"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pgdata:
