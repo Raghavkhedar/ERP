@@ -1,0 +1,20 @@
+[project]
+name = "erp"
+version = "0.1.0"
+description = "Senken ERP: empanelment module"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "django>=5.2,<5.3",
+    "django-environ>=0.14.0",
+    "psycopg[binary]>=3.3.6",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+python_files = ["test_*.py", "tests.py"]
+
+[dependency-groups]
+dev = [
+    "pytest-django>=4.14.0",
+]

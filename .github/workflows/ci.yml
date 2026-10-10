@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [production]
+  push:
+    branches: [production]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: senken_erp
+          POSTGRES_PASSWORD: ci-password
+          POSTGRES_DB: senken_erp
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U senken_erp"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+    env:
+      DEBUG: "False"
+      SECRET_KEY: ci-only-not-a-real-secret
+      DATABASE_URL: postgres://senken_erp:ci-password@localhost:5432/senken_erp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - run: uv run python manage.py check
+      - run: uv run python manage.py makemigrations --check --dry-run
+      - run: uv run pytest
