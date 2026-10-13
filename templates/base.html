@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Senken ERP{% endblock %}</title>
+</head>
+<body>
+  <header>
+    <a href="{% url 'home' %}">Senken ERP</a>
+    {% if user.is_authenticated %}
+      <form method="post" action="{% url 'logout' %}">
+        {% csrf_token %}
+        <button type="submit">Log out ({{ user.username }})</button>
+      </form>
+    {% endif %}
+  </header>
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
