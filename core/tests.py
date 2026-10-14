@@ -61,3 +61,10 @@ def test_logout_logs_the_user_out(client, user):
     assert response.status_code == 302
     assert response.url == reverse("login")
     assert client.get(reverse("home")).status_code == 302
+
+
+def test_base_layout_links_frontend_assets(client):
+    html = client.get(reverse("login")).content.decode()
+    assert "css/app.css" in html
+    assert "vendor/htmx.min.js" in html
+    assert "vendor/alpine.min.js" in html

@@ -1,12 +1,16 @@
+{% load static %}
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Senken ERP{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <script src="{% static 'vendor/htmx.min.js' %}" defer></script>
+  <script src="{% static 'vendor/alpine.min.js' %}" defer></script>
 </head>
-<body>
-  <header>
+<body class="bg-gray-100 text-gray-900">
+  <header class="bg-white shadow p-4 flex justify-between items-center">
     <a href="{% url 'home' %}">Senken ERP</a>
     {% if user.is_authenticated %}
       <form method="post" action="{% url 'logout' %}">
@@ -16,7 +20,7 @@
     {% endif %}
   </header>
 
-  <main>
+  <main class="container mx-auto p-4">
     {% block content %}{% endblock %}
   </main>
 </body>
