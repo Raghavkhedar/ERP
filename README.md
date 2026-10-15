@@ -88,6 +88,29 @@ Only one copy of this project can run its database at a time (the container name
 and port are fixed). If you have another copy running, stop it first with
 `docker compose stop`.
 
+## Code style and pre-commit hooks
+
+Code is linted and formatted with [Ruff](https://docs.astral.sh/ruff/), and
+`.editorconfig` sets the basics (indentation, final newline) for editors.
+Ruff's settings live in `pyproject.toml`.
+
+Run this **once after cloning**. Git does not share hooks, so each clone needs it:
+
+    uv run pre-commit install
+
+From then on, every `git commit` automatically fixes trailing whitespace and
+missing final newlines, checks YAML and TOML syntax, and runs Ruff on the
+Python files. If a hook changes a file, the commit is **refused**: run
+`git add` on the changed files and commit again. Nothing is committed on a failure.
+
+| Task | Command |
+| --- | --- |
+| Run all hooks on every file | `uv run pre-commit run --all-files` |
+| Lint | `uv run ruff check .` |
+| Lint and apply the safe fixes | `uv run ruff check --fix .` |
+| Format | `uv run ruff format .` |
+| Check formatting without changing files | `uv run ruff format --check .` |
+
 ## Frontend
 
 There is no Node or JavaScript build step.
@@ -132,9 +155,11 @@ Branch names: `feature/...` for new work, `fix/...` for bug fixes.
 On every pull request into `production`, GitHub Actions starts a PostgreSQL 16
 service and runs:
 
-1. `manage.py check`, which catches broken settings or models
-2. `manage.py makemigrations --check --dry-run`, which fails if a model change has no migration
-3. `pytest`, which runs the tests against a real database
+1. `ruff check`, which catches lint errors such as unused imports
+2. `ruff format --check`, which fails if code is not formatted
+3. `manage.py check`, which catches broken settings or models
+4. `manage.py makemigrations --check --dry-run`, which fails if a model change has no migration
+5. `pytest`, which runs the tests against a real database
 
 If you change a model, commit its migration file too. CI does not build the CSS;
 the tests do not need it.
@@ -191,6 +216,7 @@ from the first-time setup (step 6). If a new class has no effect, rebuild.
 
 **Tests or CI fail on a missing migration**
 Run `uv run python manage.py makemigrations`, then commit the new migration file.
+
 ## Change history
 
 Every business model must keep an audit trail with
