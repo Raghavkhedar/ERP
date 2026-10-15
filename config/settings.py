@@ -4,7 +4,6 @@ from pathlib import Path
 
 import environ
 
-
 """
 Django settings for config project.
 
