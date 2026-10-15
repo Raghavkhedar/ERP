@@ -68,3 +68,18 @@ def test_base_layout_links_frontend_assets(client):
     assert "css/app.css" in html
     assert "vendor/htmx.min.js" in html
     assert "vendor/alpine.min.js" in html
+
+
+def test_user_changes_are_recorded_in_history(user):
+    user.email = "caller@example.com"
+    user.save()
+
+    assert user.history.count() == 2
+    assert user.history.last().history_type == "+"
+    latest = user.history.first()
+    assert latest.history_type == "~"
+    assert latest.email == "caller@example.com"
+
+
+def test_user_history_does_not_store_password_hash(user):
+    assert not hasattr(user.history.first(), "password")
