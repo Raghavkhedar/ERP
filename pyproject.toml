@@ -17,6 +17,7 @@ python_files = ["test_*.py", "tests.py"]
 
 [dependency-groups]
 dev = [
+    "pre-commit>=4.7.0",
     "pytest-django>=4.14.0",
     "ruff>=0.17.0",
 ]
