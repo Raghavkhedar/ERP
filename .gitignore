@@ -9,6 +9,11 @@ dist/
 wheels/
 *.egg-info
 
+# css files
+static/css/app.css
+bin/
+
+
 #secrets
 .env
 
