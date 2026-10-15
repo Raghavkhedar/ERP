@@ -191,3 +191,22 @@ from the first-time setup (step 6). If a new class has no effect, rebuild.
 
 **Tests or CI fail on a missing migration**
 Run `uv run python manage.py makemigrations`, then commit the new migration file.
+## Change history
+
+Every business model must keep an audit trail with
+[django-simple-history](https://django-simple-history.readthedocs.io/):
+
+    from simple_history.models import HistoricalRecords
+
+    class Something(models.Model):
+        ...
+        history = HistoricalRecords()
+
+- It writes a row to a `Historical<Model>` table on every create, update and delete,
+  including who made the change (the logged-in user, via `HistoryRequestMiddleware`).
+- Leave out sensitive or noisy fields with `excluded_fields=[...]`. The `User` model
+  excludes `password` and `last_login`.
+- A model that already has data when history is switched on needs a one-time
+  back-fill: `uv run python manage.py populate_history --auto`
+- Never store values that can be calculated (last call date, interview status and
+  so on). Calculate them from the records and their history when shown.
