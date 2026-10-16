@@ -7,21 +7,6 @@ from .services import conversation_title, visible_conversations
 pytestmark = pytest.mark.django_db
 
 
-@pytest.fixture
-def alice(django_user_model):
-    return django_user_model.objects.create_user(username="alice", password="pw")
-
-
-@pytest.fixture
-def bob(django_user_model):
-    return django_user_model.objects.create_user(username="bob", password="pw")
-
-
-@pytest.fixture
-def carol(django_user_model):
-    return django_user_model.objects.create_user(username="carol", password="pw")
-
-
 def make_channel(name, created_by, members=(), is_private=False):
     channel = Conversation.objects.create(
         kind=ConversationKind.CHANNEL,
