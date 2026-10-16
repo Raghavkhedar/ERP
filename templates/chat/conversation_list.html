@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block title %}Chat · Senken ERP{% endblock %}
+
+{% block content %}
+  <div class="flex gap-4">
+    {% include "chat/_sidebar.html" %}
+    <section class="flex-1 rounded bg-white p-6 text-gray-500 shadow">
+      Pick a conversation on the left.
+    </section>
+  </div>
+{% endblock %}
