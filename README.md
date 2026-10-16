@@ -45,8 +45,7 @@ password is fixed at the moment the database is first created.
 | --- | --- |
 | `DEBUG` | `True` for local development |
 | `SECRET_KEY` | A generated key. Create one with the command below. |
-| `DB_PASSWORD` | A password for the database. Letters and digits only. |
-| `DATABASE_URL` | `postgres://senken_erp:PASSWORD@localhost:5432/senken_erp` |
+| `DB_PASSWORD` | A password for the database. Generate oe with the command below. |
 
 Generate a secret key:
 
@@ -56,11 +55,14 @@ Generate a database password:
 
     tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 24; echo
 
-> **Important: the database password appears twice.**
-> The same password must be written in **both** `DB_PASSWORD` and inside
-> `DATABASE_URL` (where `PASSWORD` is in the example above). If they differ,
-> Django cannot log in to the database.
-> Do not leave angle brackets, quotes or spaces in the values.
+> **Note: the database password is set once.**
+> Write it only in `DB_PASSWORD`. Docker uses it to create the database and
+> Django uses it to log in, so there is nothing else to keep in sync. Do not
+> leave angle brackets, quotes or spaces in the values.
+>
+> The password is fixed when the database is first created, so choose it before
+> starting the database. Changing it later means recreating the database with
+> `docker compose down -v`, which deletes all its data.
 >
 > Before starting the database, run `grep -n "change-me" .env`. It should print
 > nothing. If it prints a line, that placeholder has not been replaced yet.
@@ -182,9 +184,8 @@ the tests do not need it.
 ## Troubleshooting
 
 **`password authentication failed for user "senken_erp"`**
-The database was created with a different password from the one Django is
-sending. Check that `DB_PASSWORD` and the password inside `DATABASE_URL` are
-identical. If the database holds nothing you need, recreate it:
+The database was created with a different password from the `DB_PASSWORD` in
+your `.env` now. If the database holds nothing you need, recreate it:
 
     docker compose down -v
     docker compose up -d
