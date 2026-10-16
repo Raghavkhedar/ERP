@@ -26,7 +26,7 @@ jobs:
     env:
       DEBUG: "False"
       SECRET_KEY: ci-only-not-a-real-secret
-      DATABASE_URL: postgres://senken_erp:ci-password@localhost:5432/senken_erp
+      DB_PASSWORD: ci-password
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
