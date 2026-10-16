@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} · Chat{% endblock %}
+
+{% block content %}
+  <div class="flex gap-4">
+    {% include "chat/_sidebar.html" %}
+    <section class="flex flex-1 flex-col rounded bg-white shadow">
+      <header class="border-b px-4 py-3 font-semibold">{{ title }}</header>
+      <ol class="flex-1 space-y-3 p-4">
+        {% for message in chat_messages %}
+          <li>
+            <div class="text-sm">
+              <span class="font-semibold">{{ message.author.username }}</span>
+              <time class="text-xs text-gray-500" datetime="{{ message.created_at|date:'c' }}">{{ message.created_at|date:"j M, H:i" }}</time>
+            </div>
+            <p class="whitespace-pre-wrap">{{ message.body }}</p>
+          </li>
+        {% empty %}
+          <li class="text-gray-500">No messages yet.</li>
+        {% endfor %}
+      </ol>
+    </section>
+  </div>
+{% endblock %}
