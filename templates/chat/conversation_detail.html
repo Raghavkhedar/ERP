@@ -7,12 +7,13 @@
     {% include "chat/_sidebar.html" %}
     <section class="flex flex-1 flex-col rounded bg-white shadow">
       <header class="border-b px-4 py-3 font-semibold">{{ title }}</header>
-            <ol id="messages" class="flex-1 space-y-3 p-4">
-        {% for message in chat_messages %}
-          {% include "chat/_message.html" %}
-        {% empty %}
-          <li class="hidden text-gray-500 only:block">No messages yet.</li>
-        {% endfor %}
+          <ol id="messages" class="flex-1 space-y-3 p-4"
+          hx-get="{% url 'chat:latest_messages' conversation.pk %}"
+          hx-trigger="every 3s"
+          hx-swap="innerMorph"
+          hx-status:4xx="swap:none"
+          hx-status:5xx="swap:none">
+        {% include "chat/_message_list.html" %}
       </ol>
       {% if can_send %}
         <form method="post" action="{% url 'chat:send_message' conversation.pk %}"

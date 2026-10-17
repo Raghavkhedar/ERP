@@ -115,12 +115,13 @@ def test_sending_requires_login(client, alice):
 
 def test_message_box_is_shown_to_members_only(client, alice, bob):
     general = make_channel("general", alice, members=[alice])
+    form_action = f'action="{send_url(general)}"'
 
     client.force_login(alice)
-    assert send_url(general) in client.get(detail_url(general)).content.decode()
+    assert form_action in client.get(detail_url(general)).content.decode()
 
     client.force_login(bob)
-    assert send_url(general) not in client.get(detail_url(general)).content.decode()
+    assert form_action not in client.get(detail_url(general)).content.decode()
 
 
 def test_sending_works_with_csrf_checks_on(alice):

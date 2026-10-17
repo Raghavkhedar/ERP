@@ -1,7 +1,7 @@
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseBadRequest, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from .forms import MessageForm
 from .models import ConversationKind
@@ -25,6 +25,11 @@ def _sidebar(user):
     }
 
 
+def _latest_messages(conversation):
+    latest = conversation.messages.select_related("author").order_by("-id")
+    return reversed(latest[:MESSAGE_LIMIT])
+
+
 @login_required
 def conversation_list(request):
     return render(request, "chat/conversation_list.html", _sidebar(request.user))
@@ -33,14 +38,24 @@ def conversation_list(request):
 @login_required
 def conversation_detail(request, pk):
     conversation = get_object_or_404(visible_conversations(request.user), pk=pk)
-    latest = conversation.messages.select_related("author").order_by("-id")
     context = _sidebar(request.user) | {
         "conversation": conversation,
         "title": conversation_title(conversation, request.user),
-        "chat_messages": reversed(latest[:MESSAGE_LIMIT]),
+        "chat_messages": _latest_messages(conversation),
         "can_send": is_member(conversation, request.user),
     }
     return render(request, "chat/conversation_detail.html", context)
+
+
+@login_required
+@require_GET
+def latest_messages(request, pk):
+    conversation = get_object_or_404(visible_conversations(request.user), pk=pk)
+    return render(
+        request,
+        "chat/_message_list.html",
+        {"chat_messages": _latest_messages(conversation)},
+    )
 
 
 @login_required

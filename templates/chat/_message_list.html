@@ -1,0 +1,5 @@
+{% for message in chat_messages %}
+  {% include "chat/_message.html" %}
+{% empty %}
+  <li class="hidden text-gray-500 only:block">No messages yet.</li>
+{% endfor %}
