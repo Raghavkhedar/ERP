@@ -7,19 +7,32 @@
     {% include "chat/_sidebar.html" %}
     <section class="flex flex-1 flex-col rounded bg-white shadow">
       <header class="border-b px-4 py-3 font-semibold">{{ title }}</header>
-      <ol class="flex-1 space-y-3 p-4">
+            <ol id="messages" class="flex-1 space-y-3 p-4">
         {% for message in chat_messages %}
-          <li>
-            <div class="text-sm">
-              <span class="font-semibold">{{ message.author.username }}</span>
-              <time class="text-xs text-gray-500" datetime="{{ message.created_at|date:'c' }}">{{ message.created_at|date:"j M, H:i" }}</time>
-            </div>
-            <p class="whitespace-pre-wrap">{{ message.body }}</p>
-          </li>
+          {% include "chat/_message.html" %}
         {% empty %}
-          <li class="text-gray-500">No messages yet.</li>
+          <li class="hidden text-gray-500 only:block">No messages yet.</li>
         {% endfor %}
       </ol>
+      {% if can_send %}
+        <form method="post" action="{% url 'chat:send_message' conversation.pk %}"
+              hx-post="{% url 'chat:send_message' conversation.pk %}"
+              hx-target="#messages" hx-swap="beforeend"
+              hx-status:4xx="target:#send-error swap:innerHTML"
+              hx-on::after:swap="if (ctx.response.status < 400) { this.reset(); document.getElementById('send-error').textContent = '' }"
+              class="border-t p-4">
+          {% csrf_token %}
+          <div class="flex gap-2">
+            <textarea name="body" rows="2" maxlength="4000" required
+                      placeholder="Message {{ title }}"
+                      class="flex-1 rounded border p-2"></textarea>
+            <button type="submit" class="rounded bg-blue-600 px-4 text-white">Send</button>
+          </div>
+          <p id="send-error" class="mt-1 text-sm text-red-600"></p>
+        </form>
+      {% else %}
+        <p class="border-t p-4 text-sm text-gray-500">You're not a member of this conversation.</p>
+      {% endif %}
     </section>
   </div>
 {% endblock %}

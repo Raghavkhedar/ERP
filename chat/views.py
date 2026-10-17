@@ -38,6 +38,7 @@ def conversation_detail(request, pk):
         "conversation": conversation,
         "title": conversation_title(conversation, request.user),
         "chat_messages": reversed(latest[:MESSAGE_LIMIT]),
+        "can_send": is_member(conversation, request.user),
     }
     return render(request, "chat/conversation_detail.html", context)
 
