@@ -1,4 +1,4 @@
-<li>
+<li id="message-{{ message.pk }}">
   <div class="text-sm">
     <span class="font-semibold">{{ message.author.username }}</span>
     <time class="text-xs text-gray-500" datetime="{{ message.created_at|date:'c' }}">{{ message.created_at|date:"j M, H:i" }}</time>
