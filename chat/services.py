@@ -20,3 +20,7 @@ def conversation_title(conversation, viewer):
         return f"#{conversation.name}"
     others = [m.user for m in conversation.memberships.all() if m.user_id != viewer.id]
     return others[0].username if others else viewer.username
+
+
+def is_member(conversation, user):
+    return conversation.memberships.filter(user=user).exists()

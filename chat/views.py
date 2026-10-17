@@ -1,8 +1,11 @@
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import get_object_or_404, render
+from django.http import HttpResponseBadRequest, HttpResponseForbidden
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
+from .forms import MessageForm
 from .models import ConversationKind
-from .services import conversation_title, visible_conversations
+from .services import conversation_title, is_member, visible_conversations
 
 MESSAGE_LIMIT = 200
 
@@ -37,3 +40,21 @@ def conversation_detail(request, pk):
         "chat_messages": reversed(latest[:MESSAGE_LIMIT]),
     }
     return render(request, "chat/conversation_detail.html", context)
+
+
+@login_required
+@require_POST
+def send_message(request, pk):
+    conversation = get_object_or_404(visible_conversations(request.user), pk=pk)
+    if not is_member(conversation, request.user):
+        return HttpResponseForbidden("Join this conversation to send messages.")
+    form = MessageForm(request.POST)
+    if not form.is_valid():
+        return HttpResponseBadRequest("A message needs text, up to 4000 characters.")
+    message = form.save(commit=False)
+    message.conversation = conversation
+    message.author = request.user
+    message.save()
+    if request.headers.get("HX-Request"):
+        return render(request, "chat/_message.html", {"message": message})
+    return redirect("chat:conversation_detail", pk=conversation.pk)
