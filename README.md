@@ -175,7 +175,7 @@ the tests do not need it.
 | `templates/` | Shared HTML templates (`base.html`, login, home) |
 | `static/css/` | `input.css` (Tailwind source); `app.css` is generated |
 | `static/vendor/` | Pinned htmx and Alpine.js, with `VERSIONS.md` |
-| `scripts/` | Helper scripts, such as the Tailwind installer |
+| `scripts/` | Helper scripts: the Tailwind installer, and 'ship.sh' (check, push, PR, wait for CI, merge, sync) |
 | `compose.yaml` | PostgreSQL 16 for local development |
 | `.env.example` | Template for your private `.env` file |
 | `pyproject.toml`, `uv.lock` | Dependencies and their pinned versions |
