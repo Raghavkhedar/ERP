@@ -1,3 +1,8 @@
-<nav class="w-60 shrink-0 space-y-4 rounded bg-white p-3 shadow">
+<nav class="w-60 shrink-0 space-y-4 rounded bg-white p-3 shadow"
+     hx-get="{% url 'chat:sidebar' %}{% if current_id %}?current={{ current_id }}{% endif %}"
+     hx-trigger="every 5s"
+     hx-swap="innerMorph"
+     hx-status:4xx="swap:none"
+     hx-status:5xx="swap:none">
   {% include "chat/_sidebar_items.html" %}
 </nav>
