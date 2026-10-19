@@ -58,6 +58,7 @@ MIDDLEWARE = [
     "simple_history.middleware.HistoryRequestMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "core.middleware.HtmxLoginRedirectMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
