@@ -1,0 +1,9 @@
+<li>
+  <a href="{% url 'chat:conversation_detail' c.pk %}"
+     class="flex items-center justify-between gap-2 rounded px-2 py-1 hover:bg-gray-100 {% if c.pk == current_id %}bg-gray-200 font-semibold{% elif c.unread %}font-semibold{% endif %}">
+    <span>{{ c.title }}{% if c.is_private %} <span class="text-xs font-normal text-gray-500">(private)</span>{% endif %}</span>
+    {% if c.unread and c.pk != current_id %}
+      <span class="rounded-full bg-blue-600 px-2 text-xs text-white">{{ c.unread }}</span>
+    {% endif %}
+  </a>
+</li>

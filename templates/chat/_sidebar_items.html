@@ -1,0 +1,20 @@
+<div>
+  <h2 class="mb-1 text-xs font-semibold uppercase text-gray-500">Channels</h2>
+  <ul>
+    {% for c in channels %}
+      {% include "chat/_sidebar_link.html" %}
+    {% empty %}
+      <li class="px-2 text-sm text-gray-500">No channels yet</li>
+    {% endfor %}
+  </ul>
+</div>
+<div>
+  <h2 class="mb-1 text-xs font-semibold uppercase text-gray-500">Direct messages</h2>
+  <ul>
+    {% for c in direct_messages %}
+      {% include "chat/_sidebar_link.html" %}
+    {% empty %}
+      <li class="px-2 text-sm text-gray-500">No direct messages yet</li>
+    {% endfor %}
+  </ul>
+</div>

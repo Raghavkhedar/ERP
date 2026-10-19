@@ -1,32 +1,8 @@
-<nav class="w-60 shrink-0 space-y-4 rounded bg-white p-3 shadow">
-  <div>
-    <h2 class="mb-1 text-xs font-semibold uppercase text-gray-500">Channels</h2>
-    <ul>
-      {% for c in channels %}
-        <li>
-          <a href="{% url 'chat:conversation_detail' c.pk %}"
-             class="block rounded px-2 py-1 hover:bg-gray-100 {% if c.pk == conversation.pk %}bg-gray-200 font-semibold{% endif %}">
-            {{ c.title }}{% if c.is_private %} <span class="text-xs text-gray-500">(private)</span>{% endif %}
-          </a>
-        </li>
-      {% empty %}
-        <li class="px-2 text-sm text-gray-500">No channels yet</li>
-      {% endfor %}
-    </ul>
-  </div>
-  <div>
-    <h2 class="mb-1 text-xs font-semibold uppercase text-gray-500">Direct messages</h2>
-    <ul>
-      {% for c in direct_messages %}
-        <li>
-          <a href="{% url 'chat:conversation_detail' c.pk %}"
-             class="block rounded px-2 py-1 hover:bg-gray-100 {% if c.pk == conversation.pk %}bg-gray-200 font-semibold{% endif %}">
-            {{ c.title }}
-          </a>
-        </li>
-      {% empty %}
-        <li class="px-2 text-sm text-gray-500">No direct messages yet</li>
-      {% endfor %}
-    </ul>
-  </div>
+<nav class="w-60 shrink-0 space-y-4 rounded bg-white p-3 shadow"
+     hx-get="{% url 'chat:sidebar' %}{% if current_id %}?current={{ current_id }}{% endif %}"
+     hx-trigger="every 5s"
+     hx-swap="innerMorph"
+     hx-status:4xx="swap:none"
+     hx-status:5xx="swap:none">
+  {% include "chat/_sidebar_items.html" %}
 </nav>

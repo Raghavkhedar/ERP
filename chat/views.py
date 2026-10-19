@@ -5,23 +5,32 @@ from django.views.decorators.http import require_GET, require_POST
 
 from .forms import MessageForm
 from .models import ConversationKind
-from .services import conversation_title, is_member, visible_conversations
+from .services import (
+    conversation_title,
+    is_member,
+    mark_read,
+    unread_counts,
+    visible_conversations,
+)
 
 MESSAGE_LIMIT = 200
 
 
-def _sidebar(user):
+def _sidebar(user, current_id=None):
     conversations = list(
         visible_conversations(user).prefetch_related("memberships__user")
     )
+    unread = unread_counts(user)
     for conversation in conversations:
         conversation.title = conversation_title(conversation, user)
+        conversation.unread = unread.get(conversation.pk, 0)
     conversations.sort(key=lambda c: c.title.lower())
     return {
         "channels": [c for c in conversations if c.kind == ConversationKind.CHANNEL],
         "direct_messages": [
             c for c in conversations if c.kind == ConversationKind.DIRECT
         ],
+        "current_id": current_id,
     }
 
 
@@ -36,9 +45,20 @@ def conversation_list(request):
 
 
 @login_required
+@require_GET
+def sidebar(request):
+    current = request.GET.get("current", "")
+    current_id = int(current) if current.isdigit() else None
+    return render(
+        request, "chat/_sidebar_items.html", _sidebar(request.user, current_id)
+    )
+
+
+@login_required
 def conversation_detail(request, pk):
     conversation = get_object_or_404(visible_conversations(request.user), pk=pk)
-    context = _sidebar(request.user) | {
+    mark_read(conversation, request.user)
+    context = _sidebar(request.user, current_id=conversation.pk) | {
         "conversation": conversation,
         "title": conversation_title(conversation, request.user),
         "chat_messages": _latest_messages(conversation),
@@ -51,6 +71,7 @@ def conversation_detail(request, pk):
 @require_GET
 def latest_messages(request, pk):
     conversation = get_object_or_404(visible_conversations(request.user), pk=pk)
+    mark_read(conversation, request.user)
     return render(
         request,
         "chat/_message_list.html",
