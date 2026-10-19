@@ -65,8 +65,15 @@ class Membership(models.Model):
         related_name="chat_memberships",
     )
     joined_at = models.DateTimeField(auto_now_add=True)
+    last_read_message = models.ForeignKey(
+        "Message",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
 
-    history = HistoricalRecords()
+    history = HistoricalRecords(excluded_fields=["last_read_message"])
 
     class Meta:
         constraints = [
