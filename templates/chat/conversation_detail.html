@@ -6,7 +6,12 @@
   <div class="flex gap-4">
     {% include "chat/_sidebar.html" %}
     <section class="flex flex-1 flex-col rounded bg-white shadow">
-      <header class="border-b px-4 py-3 font-semibold">{{ title }}</header>
+      <header class="flex items-center justify-between border-b px-4 py-3">
+        <span class="font-semibold">{{ title }}</span>
+        {% if can_add_people %}
+          <a href="{% url 'chat:add_people' conversation.pk %}" class="text-sm text-blue-600 hover:underline">Add people</a>
+        {% endif %}
+      </header>
       {% if is_member %}
         <ol id="messages" class="flex-1 space-y-3 p-4"
             hx-get="{% url 'chat:latest_messages' conversation.pk %}"

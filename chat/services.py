@@ -41,6 +41,30 @@ def join(conversation, user):
         )
 
 
+def can_add_people(conversation, user):
+    """Only a private channel's creator and Office admins add its members."""
+    if conversation.kind != ConversationKind.CHANNEL or not conversation.is_private:
+        return False
+    return (
+        conversation.created_by_id == user.pk
+        or user.is_superuser
+        or user.groups.filter(name="Office admin").exists()
+    )
+
+
+@transaction.atomic
+def add_member(conversation, added_by, user):
+    """Add someone and announce it. Adding a member twice does nothing."""
+    _, created = Membership.objects.get_or_create(conversation=conversation, user=user)
+    if created:
+        Message.objects.create(
+            conversation=conversation,
+            author=added_by,
+            kind=MessageKind.SYSTEM,
+            body=f"added {user.username}",
+        )
+
+
 @transaction.atomic
 def create_channel(user, name, is_private):
     """A new channel with its creator as the first member."""

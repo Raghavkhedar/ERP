@@ -7,6 +7,8 @@ from django.views.decorators.http import require_GET, require_POST
 from .forms import ChannelForm, MessageForm
 from .models import ConversationKind
 from .services import (
+    add_member,
+    can_add_people,
     conversation_title,
     create_channel,
     get_or_create_dm,
@@ -67,6 +69,7 @@ def conversation_detail(request, pk):
         "conversation": conversation,
         "title": conversation_title(conversation, request.user),
         "is_member": member,
+        "can_add_people": can_add_people(conversation, request.user),
         "chat_messages": _latest_messages(conversation) if member else [],
     }
     return render(request, "chat/conversation_detail.html", context)
@@ -142,3 +145,33 @@ def new_channel(request):
         return redirect("chat:conversation_detail", pk=channel.pk)
     context = _sidebar(request.user) | {"form": form}
     return render(request, "chat/new_channel.html", context)
+
+
+@login_required
+def add_people(request, pk):
+    conversation = get_object_or_404(visible_conversations(request.user), pk=pk)
+    if not can_add_people(conversation, request.user):
+        return HttpResponseForbidden("Only the creator and Office admins add people.")
+    people = (
+        get_user_model()
+        .objects.filter(is_active=True)
+        .exclude(chat_memberships__conversation=conversation)
+        .order_by("username")
+    )
+    context = _sidebar(request.user, current_id=conversation.pk) | {
+        "conversation": conversation,
+        "title": conversation_title(conversation, request.user),
+        "people": people,
+    }
+    return render(request, "chat/add_people.html", context)
+
+
+@login_required
+@require_POST
+def add_person(request, pk, user_id):
+    conversation = get_object_or_404(visible_conversations(request.user), pk=pk)
+    if not can_add_people(conversation, request.user):
+        return HttpResponseForbidden("Only the creator and Office admins add people.")
+    person = get_object_or_404(get_user_model(), pk=user_id, is_active=True)
+    add_member(conversation, request.user, person)
+    return redirect("chat:add_people", pk=conversation.pk)
