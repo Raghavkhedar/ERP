@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block main_class %}mx-auto max-w-4xl px-4 py-6{% endblock %}
+
+{% block content %}
+  <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <h1 class="text-2xl font-bold">{% block heading %}Meetings{% endblock %}</h1>
+    <nav class="flex gap-1 text-sm">
+      {% url 'meetings:schedule' as schedule_url %}
+      {% url 'meetings:open_slots' as open_url %}
+      <a href="{{ schedule_url }}" class="rounded px-3 py-1.5 {% if request.path == schedule_url %}bg-slate-900 text-white{% else %}hover:bg-gray-200{% endif %}">My schedule</a>
+      <a href="{{ open_url }}" class="rounded px-3 py-1.5 {% if request.path == open_url %}bg-slate-900 text-white{% else %}hover:bg-gray-200{% endif %}">Open slots</a>
+    </nav>
+  </div>
+  {% block page %}{% endblock %}
+{% endblock %}
