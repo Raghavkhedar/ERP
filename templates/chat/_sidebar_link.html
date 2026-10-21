@@ -1,9 +1,18 @@
 <li>
   <a href="{% url 'chat:conversation_detail' c.pk %}"
-     class="flex items-center justify-between gap-2 rounded px-2 py-1 hover:bg-gray-100 {% if c.pk == current_id %}bg-gray-200 font-semibold{% elif c.unread %}font-semibold{% endif %}">
-    <span>{{ c.title }}{% if c.is_private %} <span class="text-xs font-normal text-gray-500">(private)</span>{% endif %}</span>
+     class="flex items-center gap-2 rounded px-2 py-1 text-[15px] {% if c.pk == current_id %}bg-blue-600 text-white{% elif c.unread %}font-semibold text-white hover:bg-slate-800{% else %}hover:bg-slate-800 hover:text-white{% endif %}">
+    {% if c.kind == "direct" %}
+      {% include "chat/_avatar.html" with name=c.title size="size-5 text-xs" %}
+    {% elif c.is_private %}
+      <svg class="size-5 shrink-0 p-0.5 opacity-70" viewBox="0 0 20 20" fill="currentColor" aria-label="private">
+        <path fill-rule="evenodd" d="M10 1a4.5 4.5 0 0 0-4.5 4.5V9H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-.5V5.5A4.5 4.5 0 0 0 10 1Zm3 8V5.5a3 3 0 1 0-6 0V9h6Z" clip-rule="evenodd"/>
+      </svg>
+    {% else %}
+      <span class="size-5 shrink-0"></span>
+    {% endif %}
+    <span class="flex-1 truncate">{{ c.title }}</span>
     {% if c.unread and c.pk != current_id %}
-      <span class="rounded-full bg-blue-600 px-2 text-xs text-white">{{ c.unread }}</span>
+      <span class="rounded-full bg-rose-500 px-2 text-xs font-semibold text-white">{{ c.unread }}</span>
     {% endif %}
   </a>
 </li>
