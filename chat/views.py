@@ -8,6 +8,7 @@ from .models import ConversationKind
 from .services import (
     conversation_title,
     is_member,
+    join,
     mark_read,
     unread_counts,
     visible_conversations,
@@ -57,12 +58,13 @@ def sidebar(request):
 @login_required
 def conversation_detail(request, pk):
     conversation = get_object_or_404(visible_conversations(request.user), pk=pk)
+    member = is_member(conversation, request.user)
     mark_read(conversation, request.user)
     context = _sidebar(request.user, current_id=conversation.pk) | {
         "conversation": conversation,
         "title": conversation_title(conversation, request.user),
-        "chat_messages": _latest_messages(conversation),
-        "can_send": is_member(conversation, request.user),
+        "is_member": member,
+        "chat_messages": _latest_messages(conversation) if member else [],
     }
     return render(request, "chat/conversation_detail.html", context)
 
@@ -71,6 +73,8 @@ def conversation_detail(request, pk):
 @require_GET
 def latest_messages(request, pk):
     conversation = get_object_or_404(visible_conversations(request.user), pk=pk)
+    if not is_member(conversation, request.user):
+        return HttpResponseForbidden("Join this conversation to see its messages.")
     mark_read(conversation, request.user)
     return render(
         request,
@@ -94,4 +98,12 @@ def send_message(request, pk):
     message.save()
     if request.headers.get("HX-Request"):
         return render(request, "chat/_message.html", {"message": message})
+    return redirect("chat:conversation_detail", pk=conversation.pk)
+
+
+@login_required
+@require_POST
+def join_conversation(request, pk):
+    conversation = get_object_or_404(visible_conversations(request.user), pk=pk)
+    join(conversation, request.user)
     return redirect("chat:conversation_detail", pk=conversation.pk)

@@ -44,10 +44,10 @@ def test_only_the_latest_messages_are_returned_oldest_first(client, alice, monke
     assert html.index("second") < html.index("third")
 
 
-def test_public_channel_non_member_can_poll(client, alice, bob):
+def test_public_channel_non_member_cannot_poll(client, alice, bob):
     general = make_channel("general", alice, members=[alice])
     client.force_login(bob)
-    assert client.get(latest_url(general)).status_code == 200
+    assert client.get(latest_url(general)).status_code == 403
 
 
 def test_private_channel_is_404_for_outsiders(client, alice, bob):

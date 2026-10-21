@@ -27,6 +27,11 @@ def is_member(conversation, user):
     return conversation.memberships.filter(user=user).exists()
 
 
+def join(conversation, user):
+    """Make the user a member. Joining twice does nothing."""
+    Membership.objects.get_or_create(conversation=conversation, user=user)
+
+
 def mark_read(conversation, user):
     """Move the user's read marker up to the newest message, never back."""
     newest = conversation.messages.aggregate(newest=Max("id"))["newest"]
