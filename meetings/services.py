@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
@@ -107,4 +108,36 @@ def book(slot, user, topic):
     slot.booked_at = timezone.now()
     slot.save()
     post_notice(user, slot.host, f"booked your slot {describe(slot)}: {topic}")
+    return slot
+
+
+@transaction.atomic
+def cancel(slot, user):
+    """The booker frees the slot again; the host removes it altogether."""
+    slot = (
+        Slot.objects.select_for_update(of=("self",))
+        .select_related("host", "booked_by")
+        .get(pk=slot.pk)
+    )
+    if user.pk not in (slot.host_id, slot.booked_by_id):
+        raise PermissionDenied("Only the host and the booker can cancel.")
+    if slot.is_cancelled:
+        raise SlotError("This slot has already been removed.")
+    if slot.ends_at <= timezone.now():
+        raise SlotError("This meeting is already over.")
+
+    when = f"{describe(slot)} ({slot.topic})" if slot.is_booked else describe(slot)
+    if user.pk == slot.booked_by_id:
+        slot.booked_by = None
+        slot.topic = ""
+        slot.booked_at = None
+        slot.save()
+        post_notice(user, slot.host, f"cancelled their booking for {when}")
+        return slot
+
+    guest = slot.booked_by
+    slot.cancelled_at = timezone.now()
+    slot.save()
+    if guest:
+        post_notice(user, guest, f"cancelled your booking for {when}")
     return slot

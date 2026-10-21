@@ -17,6 +17,11 @@
         {% else %}
           <span class="text-gray-500">Free</span>
         {% endif %}
+        <form method="post" action="{% url 'meetings:cancel' slot.pk %}" class="ml-auto shrink-0"
+              onsubmit="return confirm('{% if not slot.is_booked %}Remove this free slot?{% elif slot.host == user %}Cancel this meeting? The slot will be removed and {{ slot.booked_by.username|escapejs }} will be told.{% else %}Cancel your booking? {{ slot.host.username|escapejs }} will be told.{% endif %}')">
+          {% csrf_token %}
+          <button type="submit" class="rounded px-2 py-1 text-sm text-red-600 hover:bg-red-50">{% if slot.is_booked %}Cancel{% else %}Remove{% endif %}</button>
+        </form>
       </li>
     {% endfor %}
   </ul>

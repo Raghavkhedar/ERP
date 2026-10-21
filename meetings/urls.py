@@ -10,4 +10,5 @@ urlpatterns = [
     path("people/", views.people, name="people"),
     path("people/<int:user_id>/", views.person_slots, name="person_slots"),
     path("slots/<int:pk>/book/", views.book_slot, name="book"),
+    path("slots/<int:pk>/cancel/", views.cancel_slot, name="cancel"),
 ]

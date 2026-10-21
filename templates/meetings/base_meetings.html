@@ -13,5 +13,8 @@
       {% endwith %}
     </nav>
   </div>
+  {% for message in messages %}
+    <p class="mb-4 rounded px-4 py-2 text-sm {% if message.tags == 'error' %}bg-red-50 text-red-700{% else %}bg-green-50 text-green-800{% endif %}">{{ message }}</p>
+  {% endfor %}
   {% block page %}{% endblock %}
 {% endblock %}
