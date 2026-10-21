@@ -1,0 +1,20 @@
+{% extends "meetings/base_meetings.html" %}
+
+{% block title %}My schedule · Meetings{% endblock %}
+
+{% block page %}
+  <div class="space-y-8">
+    <section>
+      <h2 class="text-lg font-semibold">Booked with me</h2>
+      {% include "meetings/_slot_list.html" with slots=booked_with_me empty="Nobody has booked your slots yet." %}
+    </section>
+    <section>
+      <h2 class="text-lg font-semibold">My bookings</h2>
+      {% include "meetings/_slot_list.html" with slots=my_bookings empty="You haven't booked anyone's slots." %}
+    </section>
+    <section>
+      <h2 class="text-lg font-semibold">My open slots</h2>
+      {% include "meetings/_slot_list.html" with slots=open_slots empty="You have no free slots open." %}
+    </section>
+  </div>
+{% endblock %}

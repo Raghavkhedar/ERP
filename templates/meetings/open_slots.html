@@ -1,0 +1,23 @@
+{% extends "meetings/base_meetings.html" %}
+
+{% block title %}Open slots · Meetings{% endblock %}
+
+{% block page %}
+  <form method="post" class="max-w-md space-y-4 rounded bg-white p-5 shadow-sm">
+    {% csrf_token %}
+    <p class="text-sm text-gray-600">Choose when you're free. The time is split into slots that others can book.</p>
+    {% for error in form.non_field_errors %}
+      <p class="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{{ error }}</p>
+    {% endfor %}
+    {% for field in form %}
+      <div>
+        <label for="{{ field.id_for_label }}" class="block text-sm font-semibold">{{ field.label }}</label>
+        <div class="mt-1 [&>input]:w-full [&>input]:rounded [&>input]:border [&>input]:border-gray-300 [&>input]:p-2 [&>select]:w-full [&>select]:rounded [&>select]:border [&>select]:border-gray-300 [&>select]:p-2">{{ field }}</div>
+        {% for error in field.errors %}
+          <p class="mt-1 text-sm text-red-600">{{ error }}</p>
+        {% endfor %}
+      </div>
+    {% endfor %}
+    <button type="submit" class="rounded bg-blue-600 px-4 py-1.5 font-medium text-white hover:bg-blue-700">Open slots</button>
+  </form>
+{% endblock %}

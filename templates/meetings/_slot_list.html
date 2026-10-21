@@ -1,0 +1,25 @@
+{% regroup slots by day as days %}
+{% for day in days %}
+  <h3 class="mt-3 mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">{{ day.grouper|date:"l j M" }}</h3>
+  <ul class="divide-y divide-gray-100 rounded bg-white shadow-sm">
+    {% for slot in day.list %}
+      <li class="flex items-center gap-4 px-4 py-2.5">
+        <span class="w-28 shrink-0 font-mono text-sm">{{ slot.starts_at|time:"H:i" }}–{{ slot.ends_at|time:"H:i" }}</span>
+        {% if slot.is_booked %}
+          {% if slot.host == user %}
+            {% include "chat/_avatar.html" with name=slot.booked_by.username size="size-6 text-xs" %}
+            <span class="font-medium">{{ slot.booked_by.username }}</span>
+          {% else %}
+            {% include "chat/_avatar.html" with name=slot.host.username size="size-6 text-xs" %}
+            <span class="font-medium">{{ slot.host.username }}</span>
+          {% endif %}
+          <span class="truncate text-gray-600">{{ slot.topic }}</span>
+        {% else %}
+          <span class="text-gray-500">Free</span>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+{% empty %}
+  <p class="text-sm text-gray-500">{{ empty }}</p>
+{% endfor %}
