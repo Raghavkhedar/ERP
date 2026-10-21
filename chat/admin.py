@@ -20,8 +20,8 @@ class ConversationAdmin(SimpleHistoryAdmin):
 
 @admin.register(Message)
 class MessageAdmin(admin.ModelAdmin):
-    list_display = ["conversation", "author", "created_at", "body"]
-    list_filter = ["conversation"]
+    list_display = ["conversation", "author", "kind", "created_at", "body"]
+    list_filter = ["conversation", "kind"]
 
     def has_add_permission(self, request):
         return False

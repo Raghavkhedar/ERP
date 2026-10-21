@@ -1,7 +1,14 @@
-<li id="message-{{ message.pk }}">
-  <div class="text-sm">
-    <span class="font-semibold">{{ message.author.username }}</span>
-    <time class="text-xs text-gray-500" datetime="{{ message.created_at|date:'c' }}">{{ message.created_at|date:"j M, H:i" }}</time>
-  </div>
-  <p class="whitespace-pre-wrap">{{ message.body }}</p>
-</li>
+{% if message.is_system %}
+  <li id="message-{{ message.pk }}" class="text-center text-sm text-gray-500">
+    {{ message.author.username }} {{ message.body }}
+    · <time datetime="{{ message.created_at|date:'c' }}">{{ message.created_at|date:"j M, H:i" }}</time>
+  </li>
+{% else %}
+  <li id="message-{{ message.pk }}">
+    <div class="text-sm">
+      <span class="font-semibold">{{ message.author.username }}</span>
+      <time class="text-xs text-gray-500" datetime="{{ message.created_at|date:'c' }}">{{ message.created_at|date:"j M, H:i" }}</time>
+    </div>
+    <p class="whitespace-pre-wrap">{{ message.body }}</p>
+  </li>
+{% endif %}
