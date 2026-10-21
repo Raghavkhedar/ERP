@@ -89,6 +89,7 @@ class Membership(models.Model):
 class MessageKind(models.TextChoices):
     USER = "user", "User message"
     SYSTEM = "system", "System message"
+    NOTICE = "notice", "Notice"
 
 
 class Message(models.Model):
@@ -128,3 +129,7 @@ class Message(models.Model):
     @property
     def is_system(self):
         return self.kind == MessageKind.SYSTEM
+
+    @property
+    def is_notice(self):
+        return self.kind == MessageKind.NOTICE

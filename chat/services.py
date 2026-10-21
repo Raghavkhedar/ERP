@@ -99,6 +99,15 @@ def get_or_create_dm(user, other):
     return dm
 
 
+@transaction.atomic
+def post_notice(author, recipient, body):
+    """An automatic message in their DM that counts as unread for the recipient."""
+    dm = get_or_create_dm(author, recipient)
+    return Message.objects.create(
+        conversation=dm, author=author, kind=MessageKind.NOTICE, body=body
+    )
+
+
 def mark_read(conversation, user):
     """Move the user's read marker up to the newest message, never back."""
     newest = conversation.messages.aggregate(newest=Max("id"))["newest"]
