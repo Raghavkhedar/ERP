@@ -1,11 +1,14 @@
+from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from .forms import BookingForm, OpenSlotsForm
-from .services import SlotError, book, live_slots, open_slots
+from .models import Slot
+from .services import SlotError, book, cancel, live_slots, open_slots
 
 
 def _upcoming():
@@ -94,3 +97,23 @@ def book_slot(request, pk):
         else:
             return redirect("meetings:schedule")
     return render(request, "meetings/book.html", {"slot": slot, "form": form})
+
+
+@login_required
+@require_POST
+def cancel_slot(request, pk):
+    slot = get_object_or_404(Slot, pk=pk)
+    was_host = slot.host_id == request.user.pk
+    was_booked = slot.is_booked
+    try:
+        cancel(slot, request.user)
+    except SlotError as error:
+        messages.error(request, str(error))
+    else:
+        if not was_host:
+            messages.success(request, "Booking cancelled. The slot is free again.")
+        elif was_booked:
+            messages.success(request, "Meeting cancelled and the slot removed.")
+        else:
+            messages.success(request, "Slot removed.")
+    return redirect("meetings:schedule")
