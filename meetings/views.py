@@ -1,9 +1,11 @@
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import redirect, render
+from django.db.models import Count, Q
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
-from .forms import OpenSlotsForm
-from .services import SlotError, live_slots, open_slots
+from .forms import BookingForm, OpenSlotsForm
+from .services import SlotError, book, live_slots, open_slots
 
 
 def _upcoming():
@@ -47,3 +49,48 @@ def open_slots_view(request):
         else:
             return redirect("meetings:schedule")
     return render(request, "meetings/open_slots.html", {"form": form})
+
+
+@login_required
+def people(request):
+    free = Q(
+        hosted_slots__booked_by__isnull=True,
+        hosted_slots__cancelled_at__isnull=True,
+        hosted_slots__starts_at__gt=timezone.now(),
+    )
+    people = (
+        get_user_model()
+        .objects.filter(is_active=True)
+        .exclude(pk=request.user.pk)
+        .annotate(free_slots=Count("hosted_slots", filter=free))
+        .order_by("username")
+    )
+    return render(request, "meetings/people.html", {"people": people})
+
+
+@login_required
+def person_slots(request, user_id):
+    person = get_object_or_404(get_user_model(), pk=user_id, is_active=True)
+    if person == request.user:
+        return redirect("meetings:schedule")
+    slots = live_slots().filter(
+        host=person, booked_by__isnull=True, starts_at__gt=timezone.now()
+    )
+    context = {"person": person, "slots": _with_days(slots)}
+    return render(request, "meetings/person_slots.html", context)
+
+
+@login_required
+def book_slot(request, pk):
+    slot = get_object_or_404(
+        live_slots().select_related("host"), pk=pk, booked_by__isnull=True
+    )
+    form = BookingForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        try:
+            book(slot, request.user, form.cleaned_data["topic"])
+        except SlotError as error:
+            form.add_error(None, str(error))
+        else:
+            return redirect("meetings:schedule")
+    return render(request, "meetings/book.html", {"slot": slot, "form": form})
