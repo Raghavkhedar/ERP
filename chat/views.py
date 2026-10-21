@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseBadRequest, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
@@ -7,6 +8,7 @@ from .forms import MessageForm
 from .models import ConversationKind
 from .services import (
     conversation_title,
+    get_or_create_dm,
     is_member,
     join,
     mark_read,
@@ -107,3 +109,23 @@ def join_conversation(request, pk):
     conversation = get_object_or_404(visible_conversations(request.user), pk=pk)
     join(conversation, request.user)
     return redirect("chat:conversation_detail", pk=conversation.pk)
+
+
+@login_required
+def new_dm(request):
+    people = (
+        get_user_model()
+        .objects.filter(is_active=True)
+        .exclude(pk=request.user.pk)
+        .order_by("username")
+    )
+    context = _sidebar(request.user) | {"people": people}
+    return render(request, "chat/new_dm.html", context)
+
+
+@login_required
+@require_POST
+def open_dm(request, user_id):
+    other = get_object_or_404(get_user_model(), pk=user_id, is_active=True)
+    dm = get_or_create_dm(request.user, other)
+    return redirect("chat:conversation_detail", pk=dm.pk)

@@ -9,7 +9,10 @@
   </ul>
 </div>
 <div>
-  <h2 class="mb-1 text-xs font-semibold uppercase text-gray-500">Direct messages</h2>
+  <div class="mb-1 flex items-center justify-between">
+    <h2 class="text-xs font-semibold uppercase text-gray-500">Direct messages</h2>
+    <a href="{% url 'chat:new_dm' %}" class="px-2 text-sm text-blue-600 hover:underline">+ New</a>
+  </div>
   <ul>
     {% for c in direct_messages %}
       {% include "chat/_sidebar_link.html" %}

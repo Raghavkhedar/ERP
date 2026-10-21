@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}New message · Chat{% endblock %}
+
+{% block content %}
+  <div class="flex gap-4">
+    {% include "chat/_sidebar.html" %}
+    <section class="flex-1 rounded bg-white shadow">
+      <header class="border-b px-4 py-3 font-semibold">New direct message</header>
+      <ul class="divide-y">
+        {% for person in people %}
+          <li class="flex items-center justify-between px-4 py-2">
+            <span>{{ person.username }}</span>
+            <form method="post" action="{% url 'chat:open_dm' person.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="rounded bg-blue-600 px-3 py-1 text-sm text-white">Message</button>
+            </form>
+          </li>
+        {% empty %}
+          <li class="px-4 py-3 text-gray-500">There is nobody else here yet.</li>
+        {% endfor %}
+      </ul>
+    </section>
+  </div>
+{% endblock %}
