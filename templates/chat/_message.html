@@ -3,6 +3,11 @@
     {{ message.author.username }} {{ message.body }}
     · <time datetime="{{ message.created_at|date:'c' }}">{{ message.created_at|date:"j M, H:i" }}</time>
   </li>
+{% elif message.is_notice %}
+  <li id="message-{{ message.pk }}" class="rounded border-l-4 border-amber-400 bg-amber-50 px-3 py-2 text-sm">
+    <span class="font-semibold">{{ message.author.username }}</span> {{ message.body }}
+    · <time class="text-xs text-gray-500" datetime="{{ message.created_at|date:'c' }}">{{ message.created_at|date:"j M, H:i" }}</time>
+  </li>
 {% else %}
   <li id="message-{{ message.pk }}">
     <div class="text-sm">
