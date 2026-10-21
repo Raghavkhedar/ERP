@@ -41,6 +41,21 @@ def join(conversation, user):
         )
 
 
+@transaction.atomic
+def get_or_create_dm(user, other):
+    """The DM between two people, created with both memberships if new."""
+    low, high = sorted([user.pk, other.pk])
+    dm, created = Conversation.objects.get_or_create(
+        kind=ConversationKind.DIRECT,
+        dm_key=f"{low}:{high}",
+        defaults={"created_by": user},
+    )
+    if created:
+        for person in {user, other}:
+            Membership.objects.create(conversation=dm, user=person)
+    return dm
+
+
 def mark_read(conversation, user):
     """Move the user's read marker up to the newest message, never back."""
     newest = conversation.messages.aggregate(newest=Max("id"))["newest"]
