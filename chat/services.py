@@ -42,6 +42,25 @@ def join(conversation, user):
 
 
 @transaction.atomic
+def create_channel(user, name, is_private):
+    """A new channel with its creator as the first member."""
+    channel = Conversation.objects.create(
+        kind=ConversationKind.CHANNEL,
+        name=name,
+        is_private=is_private,
+        created_by=user,
+    )
+    Membership.objects.create(conversation=channel, user=user)
+    Message.objects.create(
+        conversation=channel,
+        author=user,
+        kind=MessageKind.SYSTEM,
+        body="created the channel",
+    )
+    return channel
+
+
+@transaction.atomic
 def get_or_create_dm(user, other):
     """The DM between two people, created with both memberships if new."""
     low, high = sorted([user.pk, other.pk])

@@ -4,10 +4,11 @@ from django.http import HttpResponseBadRequest, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
-from .forms import MessageForm
+from .forms import ChannelForm, MessageForm
 from .models import ConversationKind
 from .services import (
     conversation_title,
+    create_channel,
     get_or_create_dm,
     is_member,
     join,
@@ -129,3 +130,15 @@ def open_dm(request, user_id):
     other = get_object_or_404(get_user_model(), pk=user_id, is_active=True)
     dm = get_or_create_dm(request.user, other)
     return redirect("chat:conversation_detail", pk=dm.pk)
+
+
+@login_required
+def new_channel(request):
+    form = ChannelForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        channel = create_channel(
+            request.user, form.cleaned_data["name"], form.cleaned_data["is_private"]
+        )
+        return redirect("chat:conversation_detail", pk=channel.pk)
+    context = _sidebar(request.user) | {"form": form}
+    return render(request, "chat/new_channel.html", context)

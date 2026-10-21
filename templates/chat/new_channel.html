@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}New channel · Chat{% endblock %}
+
+{% block content %}
+  <div class="flex gap-4">
+    {% include "chat/_sidebar.html" %}
+    <section class="flex-1 rounded bg-white shadow">
+      <header class="border-b px-4 py-3 font-semibold">New channel</header>
+      <form method="post" class="space-y-4 p-4">
+        {% csrf_token %}
+        <div>
+          <label for="{{ form.name.id_for_label }}" class="block text-sm font-semibold">Name</label>
+          <input type="text" name="name" id="{{ form.name.id_for_label }}"
+                 value="{{ form.name.value|default:'' }}" maxlength="80" required
+                 placeholder="e.g. leads"
+                 class="mt-1 w-full max-w-sm rounded border p-2">
+          {% for error in form.name.errors %}
+            <p class="mt-1 text-sm text-red-600">{{ error }}</p>
+          {% endfor %}
+        </div>
+        <label class="flex items-center gap-2">
+          <input type="checkbox" name="is_private" {% if form.is_private.value %}checked{% endif %}>
+          <span>{{ form.is_private.label }}</span>
+        </label>
+        <button type="submit" class="rounded bg-blue-600 px-4 py-1 text-white">Create</button>
+      </form>
+    </section>
+  </div>
+{% endblock %}
