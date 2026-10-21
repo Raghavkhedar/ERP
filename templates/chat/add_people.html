@@ -1,28 +1,26 @@
-{% extends "base.html" %}
+{% extends "chat/base_chat.html" %}
 
 {% block title %}Add people to {{ title }} · Chat{% endblock %}
 
-{% block content %}
-  <div class="flex gap-4">
-    {% include "chat/_sidebar.html" %}
-    <section class="flex-1 rounded bg-white shadow">
-      <header class="flex items-center justify-between border-b px-4 py-3">
-        <span class="font-semibold">Add people to {{ title }}</span>
-        <a href="{% url 'chat:conversation_detail' conversation.pk %}" class="text-sm text-blue-600 hover:underline">Back to {{ title }}</a>
-      </header>
-      <ul class="divide-y">
-        {% for person in people %}
-          <li class="flex items-center justify-between px-4 py-2">
-            <span>{{ person.username }}</span>
-            <form method="post" action="{% url 'chat:add_person' conversation.pk person.pk %}">
-              {% csrf_token %}
-              <button type="submit" class="rounded bg-blue-600 px-3 py-1 text-sm text-white">Add</button>
-            </form>
-          </li>
-        {% empty %}
-          <li class="px-4 py-3 text-gray-500">Everyone is already in {{ title }}.</li>
-        {% endfor %}
-      </ul>
-    </section>
-  </div>
+{% block panel_title %}Add people to {{ title }}{% endblock %}
+
+{% block panel_actions %}
+  <a href="{% url 'chat:conversation_detail' conversation.pk %}" class="shrink-0 text-sm text-blue-600 hover:underline">Back to {{ title }}</a>
+{% endblock %}
+
+{% block panel %}
+  <ul class="flex-1 divide-y divide-gray-100 overflow-y-auto">
+    {% for person in people %}
+      <li class="flex items-center gap-3 px-5 py-2.5">
+        {% include "chat/_avatar.html" with name=person.username %}
+        <span class="flex-1 font-medium">{{ person.username }}</span>
+        <form method="post" action="{% url 'chat:add_person' conversation.pk person.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700">Add</button>
+        </form>
+      </li>
+    {% empty %}
+      <li class="px-5 py-3 text-gray-500">Everyone is already in {{ title }}.</li>
+    {% endfor %}
+  </ul>
 {% endblock %}

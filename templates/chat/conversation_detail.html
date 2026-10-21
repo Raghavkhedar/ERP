@@ -1,50 +1,53 @@
-{% extends "base.html" %}
+{% extends "chat/base_chat.html" %}
 
 {% block title %}{{ title }} · Chat{% endblock %}
 
-{% block content %}
-  <div class="flex gap-4">
-    {% include "chat/_sidebar.html" %}
-    <section class="flex flex-1 flex-col rounded bg-white shadow">
-      <header class="flex items-center justify-between border-b px-4 py-3">
-        <span class="font-semibold">{{ title }}</span>
-        {% if can_add_people %}
-          <a href="{% url 'chat:add_people' conversation.pk %}" class="text-sm text-blue-600 hover:underline">Add people</a>
-        {% endif %}
-      </header>
-      {% if is_member %}
-        <ol id="messages" class="flex-1 space-y-3 p-4"
-            hx-get="{% url 'chat:latest_messages' conversation.pk %}"
-            hx-trigger="every 3s"
-            hx-swap="innerMorph"
-            hx-status:4xx="swap:none"
-            hx-status:5xx="swap:none">
-          {% include "chat/_message_list.html" %}
-        </ol>
-        <form method="post" action="{% url 'chat:send_message' conversation.pk %}"
-              hx-post="{% url 'chat:send_message' conversation.pk %}"
-              hx-target="#messages" hx-swap="beforeend"
-              hx-status:4xx="target:#send-error swap:innerHTML"
-              hx-on::after:swap="if (ctx.response.status < 400) { this.reset(); document.getElementById('send-error').textContent = '' }"
-              class="border-t p-4">
-          {% csrf_token %}
-          <div class="flex gap-2">
-            <textarea name="body" rows="2" maxlength="4000" required
-                      placeholder="Message {{ title }}"
-                      class="flex-1 rounded border p-2"></textarea>
-            <button type="submit" class="rounded bg-blue-600 px-4 text-white">Send</button>
-          </div>
-          <p id="send-error" class="mt-1 text-sm text-red-600"></p>
-        </form>
-      {% else %}
-        <div class="flex flex-1 flex-col items-center justify-center gap-3 p-8">
-          <p class="text-gray-500">Join {{ title }} to see its messages.</p>
-          <form method="post" action="{% url 'chat:join' conversation.pk %}">
-            {% csrf_token %}
-            <button type="submit" class="rounded bg-blue-600 px-4 py-1 text-white">Join</button>
-          </form>
-        </div>
-      {% endif %}
-    </section>
-  </div>
+{% block panel_title %}{{ title }}{% endblock %}
+
+{% block panel_actions %}
+  {% if can_add_people %}
+    <a href="{% url 'chat:add_people' conversation.pk %}" class="shrink-0 text-sm text-blue-600 hover:underline">Add people</a>
+  {% endif %}
+{% endblock %}
+
+{% block panel %}
+  {% if is_member %}
+    {# Stay pinned to the newest message unless the reader has scrolled up. #}
+    <ol id="messages" class="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4"
+        x-data="{ pinned: true }"
+        x-init="$el.scrollTop = $el.scrollHeight;
+                new MutationObserver(() => { if (pinned) $el.scrollTop = $el.scrollHeight })
+                  .observe($el, { childList: true, subtree: true })"
+        @scroll="pinned = $el.scrollHeight - $el.scrollTop - $el.clientHeight < 80"
+        hx-get="{% url 'chat:latest_messages' conversation.pk %}"
+        hx-trigger="every 3s"
+        hx-swap="innerMorph"
+        hx-status:4xx="swap:none"
+        hx-status:5xx="swap:none">
+      {% include "chat/_message_list.html" %}
+    </ol>
+    <form method="post" action="{% url 'chat:send_message' conversation.pk %}"
+          hx-post="{% url 'chat:send_message' conversation.pk %}"
+          hx-target="#messages" hx-swap="beforeend"
+          hx-status:4xx="target:#send-error swap:innerHTML"
+          hx-on::after:swap="if (ctx.response.status < 400) { this.reset(); document.getElementById('send-error').textContent = '' }"
+          class="shrink-0 px-5 pb-4">
+      {% csrf_token %}
+      <div class="flex gap-2">
+        <textarea name="body" rows="2" maxlength="4000" required
+                  placeholder="Message {{ title }}"
+                  class="flex-1 rounded border p-2"></textarea>
+        <button type="submit" class="rounded bg-blue-600 px-4 text-white">Send</button>
+      </div>
+      <p id="send-error" class="mt-1 text-sm text-red-600"></p>
+    </form>
+  {% else %}
+    <div class="flex flex-1 flex-col items-center justify-center gap-3 p-8">
+      <p class="text-gray-500">Join {{ title }} to see its messages.</p>
+      <form method="post" action="{% url 'chat:join' conversation.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="rounded bg-blue-600 px-4 py-1.5 font-medium text-white hover:bg-blue-700">Join {{ title }}</button>
+      </form>
+    </div>
+  {% endif %}
 {% endblock %}
