@@ -18,3 +18,11 @@ class OpenSlotsForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["date"].widget.attrs["min"] = timezone.localdate().isoformat()
+
+
+class BookingForm(forms.Form):
+    topic = forms.CharField(
+        max_length=200,
+        widget=forms.TextInput(attrs={"placeholder": "e.g. Leave request"}),
+        help_text="What is the meeting about?",
+    )

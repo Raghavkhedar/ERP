@@ -7,4 +7,7 @@ app_name = "meetings"
 urlpatterns = [
     path("", views.schedule, name="schedule"),
     path("open/", views.open_slots_view, name="open_slots"),
+    path("people/", views.people, name="people"),
+    path("people/<int:user_id>/", views.person_slots, name="person_slots"),
+    path("slots/<int:pk>/book/", views.book_slot, name="book"),
 ]

@@ -5,6 +5,8 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
+from chat.services import post_notice
+
 from .models import Slot
 
 SLOT_LENGTHS = [15, 30, 45, 60]
@@ -69,3 +71,40 @@ def open_slots(host, date, start_time, end_time, minutes):
     for slot in slots:
         slot.save()
     return slots
+
+
+def describe(slot):
+    """'Thu 22 Oct, 10:30–11:00' in local time."""
+    start = timezone.localtime(slot.starts_at)
+    day = f"{start:%a} {start.day} {start:%b}"
+    return f"{day}, {local_time(slot.starts_at)}–{local_time(slot.ends_at)}"
+
+
+@transaction.atomic
+def book(slot, user, topic):
+    """Book a free slot for the user. First come, first served."""
+    topic = topic.strip()
+    if not topic:
+        raise SlotError("Say what the meeting is about.")
+    if slot.host_id == user.pk:
+        raise SlotError("You can't book your own slot.")
+
+    _lock(slot.host, user)
+    slot = Slot.objects.select_for_update().get(pk=slot.pk)
+    if slot.is_cancelled:
+        raise SlotError("This slot has been removed.")
+    if slot.is_booked:
+        raise SlotError("Sorry, someone just booked this slot.")
+    if slot.starts_at <= timezone.now():
+        raise SlotError("This slot has already started.")
+    if is_busy(user, slot.starts_at, slot.ends_at):
+        raise SlotError("You already have a meeting booked at this time.")
+    if is_busy(slot.host, slot.starts_at, slot.ends_at):
+        raise SlotError(f"{slot.host.username} is no longer free at this time.")
+
+    slot.booked_by = user
+    slot.topic = topic
+    slot.booked_at = timezone.now()
+    slot.save()
+    post_notice(user, slot.host, f"booked your slot {describe(slot)}: {topic}")
+    return slot
