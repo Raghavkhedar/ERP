@@ -1,7 +1,8 @@
+from django.db import transaction
 from django.db.models import Count, Max, Q
 from django.db.models.functions import Coalesce
 
-from .models import Conversation, ConversationKind, Membership
+from .models import Conversation, ConversationKind, Membership, Message, MessageKind
 
 
 def visible_conversations(user):
@@ -27,9 +28,17 @@ def is_member(conversation, user):
     return conversation.memberships.filter(user=user).exists()
 
 
+@transaction.atomic
 def join(conversation, user):
-    """Make the user a member. Joining twice does nothing."""
-    Membership.objects.get_or_create(conversation=conversation, user=user)
+    """Make the user a member and announce it. Joining twice does nothing."""
+    _, created = Membership.objects.get_or_create(conversation=conversation, user=user)
+    if created:
+        Message.objects.create(
+            conversation=conversation,
+            author=user,
+            kind=MessageKind.SYSTEM,
+            body="joined the channel",
+        )
 
 
 def mark_read(conversation, user):
@@ -43,12 +52,16 @@ def mark_read(conversation, user):
 
 
 def unread_counts(user):
-    """{conversation id: unread messages from other people}, zeros left out."""
+    """{conversation id: unread messages from other people}, zeros left out.
+
+    System messages, such as "joined the channel", never count.
+    """
     memberships = Membership.objects.filter(user=user).annotate(
         unread=Count(
             "conversation__messages",
             filter=Q(conversation__messages__id__gt=Coalesce("last_read_message", 0))
-            & ~Q(conversation__messages__author=user),
+            & ~Q(conversation__messages__author=user)
+            & ~Q(conversation__messages__kind=MessageKind.SYSTEM),
         )
     )
     return {m.conversation_id: m.unread for m in memberships if m.unread}

@@ -86,6 +86,11 @@ class Membership(models.Model):
         return f"{self.user} in {self.conversation}"
 
 
+class MessageKind(models.TextChoices):
+    USER = "user", "User message"
+    SYSTEM = "system", "System message"
+
+
 class Message(models.Model):
     conversation = models.ForeignKey(
         Conversation, on_delete=models.PROTECT, related_name="messages"
@@ -96,6 +101,9 @@ class Message(models.Model):
         related_name="chat_messages",
     )
     body = models.CharField(max_length=4000)
+    kind = models.CharField(
+        max_length=10, choices=MessageKind.choices, default=MessageKind.USER
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -108,7 +116,15 @@ class Message(models.Model):
                 condition=Q(body__regex=r"\S"),
                 name="chat_message_body_not_blank",
             ),
+            models.CheckConstraint(
+                condition=Q(kind__in=MessageKind.values),
+                name="chat_message_kind_valid",
+            ),
         ]
 
     def __str__(self):
         return f"{self.author}: {self.body[:40]}"
+
+    @property
+    def is_system(self):
+        return self.kind == MessageKind.SYSTEM
