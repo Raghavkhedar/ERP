@@ -4,16 +4,25 @@ from django.db.models import F, Q
 from simple_history.models import HistoricalRecords
 
 
-class Meeting(models.Model):
-    organizer = models.ForeignKey(
+class Slot(models.Model):
+    """A time someone is free to meet; another person may book it."""
+
+    host = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
-        related_name="organized_meetings",
+        related_name="hosted_slots",
     )
-    title = models.CharField(max_length=120)
     starts_at = models.DateTimeField()
     ends_at = models.DateTimeField()
-    note = models.TextField(max_length=2000, blank=True)
+    booked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="booked_slots",
+    )
+    topic = models.CharField(max_length=200, blank=True)
+    booked_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
 
@@ -22,66 +31,34 @@ class Meeting(models.Model):
     class Meta:
         ordering = ["starts_at", "id"]
         indexes = [
-            models.Index(fields=["starts_at"], name="meetings_starts_at_idx"),
+            models.Index(fields=["host", "starts_at"], name="meetings_host_start_idx"),
         ]
         constraints = [
             models.CheckConstraint(
                 condition=Q(ends_at__gt=F("starts_at")),
-                name="meetings_ends_after_start",
+                name="meetings_slot_ends_after_start",
             ),
             models.CheckConstraint(
-                condition=Q(title__regex=r"\S"),
-                name="meetings_title_not_blank",
+                condition=Q(booked_by__isnull=True) | ~Q(booked_by=F("host")),
+                name="meetings_slot_not_booked_by_host",
+            ),
+            models.CheckConstraint(
+                condition=Q(booked_by__isnull=True, booked_at__isnull=True, topic="")
+                | (
+                    Q(booked_by__isnull=False, booked_at__isnull=False)
+                    & Q(topic__regex=r"\S")
+                ),
+                name="meetings_slot_booking_complete",
             ),
         ]
 
     def __str__(self):
-        return f"{self.title} ({self.starts_at:%d %b %H:%M})"
+        return f"{self.host} {self.starts_at:%d %b %H:%M}"
+
+    @property
+    def is_booked(self):
+        return self.booked_by_id is not None
 
     @property
     def is_cancelled(self):
         return self.cancelled_at is not None
-
-
-class InvitationStatus(models.TextChoices):
-    PENDING = "pending", "Pending"
-    ACCEPTED = "accepted", "Accepted"
-    DECLINED = "declined", "Declined"
-
-
-class Invitation(models.Model):
-    meeting = models.ForeignKey(
-        Meeting, on_delete=models.PROTECT, related_name="invitations"
-    )
-    invitee = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.PROTECT,
-        related_name="meeting_invitations",
-    )
-    status = models.CharField(
-        max_length=10,
-        choices=InvitationStatus.choices,
-        default=InvitationStatus.PENDING,
-    )
-    responded_at = models.DateTimeField(null=True, blank=True)
-
-    history = HistoricalRecords()
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["meeting", "invitee"], name="meetings_unique_invitation"
-            ),
-            models.CheckConstraint(
-                condition=Q(status__in=InvitationStatus.values),
-                name="meetings_invitation_status_valid",
-            ),
-            models.CheckConstraint(
-                condition=Q(status=InvitationStatus.PENDING, responded_at__isnull=True)
-                | (~Q(status=InvitationStatus.PENDING) & Q(responded_at__isnull=False)),
-                name="meetings_responded_at_matches_status",
-            ),
-        ]
-
-    def __str__(self):
-        return f"{self.invitee} to {self.meeting.title}: {self.status}"
