@@ -6,7 +6,7 @@ from django.db.models import ProtectedError
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Invitation, InvitationStatus, Meeting
+from .models import Slot
 
 pytestmark = pytest.mark.django_db
 
@@ -21,20 +21,23 @@ def bob(django_user_model):
     return django_user_model.objects.create_user(username="bob", password="pw")
 
 
-def make_meeting(organizer, title="Weekly sync", minutes=30, **extra):
+def make_slot(host, minutes=30, **extra):
     starts_at = timezone.now() + timedelta(days=1)
-    return Meeting.objects.create(
-        organizer=organizer,
-        title=title,
+    return Slot.objects.create(
+        host=host,
         starts_at=starts_at,
         ends_at=starts_at + timedelta(minutes=minutes),
         **extra,
     )
 
 
+def booking(user, topic="Leave request"):
+    return {"booked_by": user, "topic": topic, "booked_at": timezone.now()}
+
+
 @pytest.fixture
-def meeting(alice):
-    return make_meeting(alice)
+def slot(alice):
+    return make_slot(alice)
 
 
 def assert_rejected(create):
@@ -42,110 +45,88 @@ def assert_rejected(create):
         create()
 
 
-# Meetings
+# Open slots
 
 
-def test_meeting_can_be_created(meeting):
-    assert meeting.title == "Weekly sync"
-    assert not meeting.is_cancelled
-    assert "Weekly sync" in str(meeting)
+def test_open_slot_can_be_created(slot):
+    assert not slot.is_booked
+    assert not slot.is_cancelled
+    assert slot.topic == ""
 
 
 @pytest.mark.parametrize("minutes", [0, -30])
-def test_meeting_must_end_after_it_starts(alice, minutes):
-    assert_rejected(lambda: make_meeting(alice, minutes=minutes))
+def test_slot_must_end_after_it_starts(alice, minutes):
+    assert_rejected(lambda: make_slot(alice, minutes=minutes))
 
 
-@pytest.mark.parametrize("title", ["", "   "])
-def test_meeting_needs_a_title(alice, title):
-    assert_rejected(lambda: make_meeting(alice, title=title))
+def test_cancelled_slot_knows_it(alice):
+    assert make_slot(alice, cancelled_at=timezone.now()).is_cancelled
 
 
-def test_cancelled_meeting_knows_it(alice):
-    assert make_meeting(alice, cancelled_at=timezone.now()).is_cancelled
-
-
-def test_meetings_are_ordered_by_start(alice):
-    later = make_meeting(alice, title="Later")
+def test_slots_are_ordered_by_start(alice):
+    later = make_slot(alice)
     later.starts_at += timedelta(hours=2)
     later.ends_at += timedelta(hours=2)
     later.save()
-    sooner = make_meeting(alice, title="Sooner")
-    assert list(Meeting.objects.all()) == [sooner, later]
+    sooner = make_slot(alice)
+    assert list(Slot.objects.all()) == [sooner, later]
 
 
-# Invitations
+# Bookings
 
 
-def test_invitation_starts_pending(meeting, bob):
-    invitation = Invitation.objects.create(meeting=meeting, invitee=bob)
-    assert invitation.status == InvitationStatus.PENDING
-    assert invitation.responded_at is None
-    assert list(meeting.invitations.all()) == [invitation]
+def test_slot_can_be_booked(alice, bob):
+    slot = make_slot(alice, **booking(bob))
+    assert slot.is_booked
+    assert list(bob.booked_slots.all()) == [slot]
+    assert list(alice.hosted_slots.all()) == [slot]
 
 
-def test_person_is_invited_only_once(meeting, bob):
-    Invitation.objects.create(meeting=meeting, invitee=bob)
-    assert_rejected(lambda: Invitation.objects.create(meeting=meeting, invitee=bob))
+def test_host_cannot_book_their_own_slot(alice):
+    assert_rejected(lambda: make_slot(alice, **booking(alice)))
 
 
-def test_unknown_status_is_rejected(meeting, bob):
-    assert_rejected(
-        lambda: Invitation.objects.create(meeting=meeting, invitee=bob, status="maybe")
-    )
+@pytest.mark.parametrize("topic", ["", "   "])
+def test_booking_needs_a_topic(alice, bob, topic):
+    assert_rejected(lambda: make_slot(alice, **booking(bob, topic=topic)))
+
+
+def test_booking_needs_a_booking_time(alice, bob):
+    assert_rejected(lambda: make_slot(alice, booked_by=bob, topic="Leave request"))
 
 
 @pytest.mark.parametrize(
-    "status", [InvitationStatus.ACCEPTED, InvitationStatus.DECLINED]
+    "extra", [{"topic": "Leave request"}, {"booked_at": timezone.now()}]
 )
-def test_answer_needs_a_response_time(meeting, bob, status):
-    assert_rejected(
-        lambda: Invitation.objects.create(meeting=meeting, invitee=bob, status=status)
-    )
-    invitation = Invitation.objects.create(
-        meeting=meeting, invitee=bob, status=status, responded_at=timezone.now()
-    )
-    assert invitation.status == status
+def test_open_slot_has_no_booking_details(alice, extra):
+    assert_rejected(lambda: make_slot(alice, **extra))
 
 
-def test_pending_invitation_cannot_have_a_response_time(meeting, bob):
-    assert_rejected(
-        lambda: Invitation.objects.create(
-            meeting=meeting, invitee=bob, responded_at=timezone.now()
-        )
-    )
-
-
-def test_meeting_with_invitations_cannot_be_deleted(meeting, bob):
-    Invitation.objects.create(meeting=meeting, invitee=bob)
+def test_host_with_slots_cannot_be_deleted(slot, alice):
     with pytest.raises(ProtectedError):
-        meeting.delete()
+        alice.delete()
 
 
 # History
 
 
-def test_meeting_and_invitation_changes_are_recorded(meeting, bob):
-    meeting.title = "Planning"
-    meeting.save()
-    invitation = Invitation.objects.create(meeting=meeting, invitee=bob)
-    invitation.status = InvitationStatus.ACCEPTED
-    invitation.responded_at = timezone.now()
-    invitation.save()
+def test_slot_changes_are_recorded(slot, bob):
+    for field, value in booking(bob).items():
+        setattr(slot, field, value)
+    slot.save()
 
-    assert meeting.history.count() == 2
-    assert meeting.history.first().title == "Planning"
-    assert invitation.history.count() == 2
+    assert slot.history.count() == 2
+    assert slot.history.first().booked_by == bob
 
 
 # Admin
 
 
-def test_admin_meeting_list_loads(admin_client, meeting):
-    response = admin_client.get(reverse("admin:meetings_meeting_changelist"))
+def test_admin_slot_list_loads(admin_client, slot):
+    response = admin_client.get(reverse("admin:meetings_slot_changelist"))
     assert response.status_code == 200
 
 
-def test_admin_meeting_page_loads(admin_client, meeting):
-    url = reverse("admin:meetings_meeting_change", args=[meeting.pk])
+def test_admin_slot_page_loads(admin_client, slot):
+    url = reverse("admin:meetings_slot_change", args=[slot.pk])
     assert admin_client.get(url).status_code == 200
