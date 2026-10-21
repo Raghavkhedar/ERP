@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "core",
     "chat",
+    "meetings",
     "simple_history",
 ]
 
