@@ -7,15 +7,15 @@
     {% include "chat/_sidebar.html" %}
     <section class="flex flex-1 flex-col rounded bg-white shadow">
       <header class="border-b px-4 py-3 font-semibold">{{ title }}</header>
-          <ol id="messages" class="flex-1 space-y-3 p-4"
-          hx-get="{% url 'chat:latest_messages' conversation.pk %}"
-          hx-trigger="every 3s"
-          hx-swap="innerMorph"
-          hx-status:4xx="swap:none"
-          hx-status:5xx="swap:none">
-        {% include "chat/_message_list.html" %}
-      </ol>
-      {% if can_send %}
+      {% if is_member %}
+        <ol id="messages" class="flex-1 space-y-3 p-4"
+            hx-get="{% url 'chat:latest_messages' conversation.pk %}"
+            hx-trigger="every 3s"
+            hx-swap="innerMorph"
+            hx-status:4xx="swap:none"
+            hx-status:5xx="swap:none">
+          {% include "chat/_message_list.html" %}
+        </ol>
         <form method="post" action="{% url 'chat:send_message' conversation.pk %}"
               hx-post="{% url 'chat:send_message' conversation.pk %}"
               hx-target="#messages" hx-swap="beforeend"
@@ -32,7 +32,13 @@
           <p id="send-error" class="mt-1 text-sm text-red-600"></p>
         </form>
       {% else %}
-        <p class="border-t p-4 text-sm text-gray-500">You're not a member of this conversation.</p>
+        <div class="flex flex-1 flex-col items-center justify-center gap-3 p-8">
+          <p class="text-gray-500">Join {{ title }} to see its messages.</p>
+          <form method="post" action="{% url 'chat:join' conversation.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="rounded bg-blue-600 px-4 py-1 text-white">Join</button>
+          </form>
+        </div>
       {% endif %}
     </section>
   </div>
