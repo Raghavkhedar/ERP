@@ -1,12 +1,14 @@
+import re
+
 from django.contrib.auth.models import AbstractUser, UserManager
-from django.contrib.auth.validators import UnicodeUsernameValidator
+from django.core.validators import RegexValidator
 from django.db import models
 from simple_history.models import HistoricalRecords
 
 
 class OfficeUserManager(UserManager):
     def get_by_natural_key(self, username):
-        # Log in with "emp042" as well as "EMP042".
+        # Log in with "s123" as well as "S123".
         return super().get_by_natural_key(self.model.normalize_username(username))
 
 
@@ -17,8 +19,15 @@ class User(AbstractUser):
         "employee ID",
         max_length=150,
         unique=True,
-        validators=[UnicodeUsernameValidator()],
-        help_text="Used to log in. Letters, digits and @/./+/-/_ only.",
+        validators=[
+            # Checked before saving turns "s123" into "S123": allow either case.
+            RegexValidator(
+                r"^S\d+\Z",
+                "Employee IDs look like S123: an S, then digits.",
+                flags=re.IGNORECASE,
+            )
+        ],
+        help_text="Used to log in, for example S123.",
         error_messages={"unique": "Someone already has this employee ID."},
     )
 
