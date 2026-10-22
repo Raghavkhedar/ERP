@@ -1,5 +1,6 @@
 import calendar
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 
 from django.contrib import messages
@@ -100,13 +101,47 @@ def schedule(request, year=None, month=None):
     return render(request, "meetings/month.html", context)
 
 
+@dataclass
+class OpenHours:
+    """A run of back-to-back free office-hours slots, shown as one block."""
+
+    starts_at: datetime
+    ends_at: datetime
+    free: int = 1
+    is_booked = False
+    is_open_hours = True
+
+    @property
+    def anchor(self):
+        return f"hours-{timezone.localtime(self.starts_at):%H%M}"
+
+
+def _merge_open_hours(slots):
+    """Each free office-hours run becomes one OpenHours; other slots stay."""
+    merged = []
+    for slot in slots:
+        if not slot.office_hours or slot.is_booked:
+            slot.anchor = f"slot-{slot.pk}"
+            merged.append(slot)
+        elif (
+            merged
+            and isinstance(merged[-1], OpenHours)
+            and merged[-1].ends_at == slot.starts_at
+        ):
+            merged[-1].ends_at = slot.ends_at
+            merged[-1].free += 1
+        else:
+            merged.append(OpenHours(slot.starts_at, slot.ends_at))
+    return merged
+
+
 @login_required
 def day_view(request, year, month, day):
     try:
         shown = date(year, month, day)
     except ValueError:
         raise Http404("No such day.") from None
-    slots = _my_slots(request.user, shown, shown)
+    slots = _merge_open_hours(_my_slots(request.user, shown, shown))
 
     first_hour, last_hour = DAY_START, DAY_END
     for slot in slots:

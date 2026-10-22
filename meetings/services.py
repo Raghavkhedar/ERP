@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
@@ -69,6 +69,55 @@ def open_slots(host, date, start_time, end_time, minutes):
     while start + length <= end:
         slots.append(Slot(host=host, starts_at=start, ends_at=start + length))
         start += length
+    for slot in slots:
+        slot.save()
+    return slots
+
+
+OFFICE_DAYS = range(6)  # Monday to Saturday
+OFFICE_HOURS = [(time(10), time(13, 30)), (time(14), time(18))]  # lunch 13:30–14:00
+OFFICE_SLOT = timedelta(minutes=15)
+
+
+@transaction.atomic
+def open_office_hours(host, day):
+    """Open the host's office hours on this day as free slots others can book.
+
+    A day is filled once: slots the host removes later don't come back. Times
+    the host already has a slot or a meeting, and times already past, are skipped.
+    """
+    if day.weekday() not in OFFICE_DAYS:
+        return []
+    _lock(host)
+    midnight = timezone.make_aware(datetime.combine(day, time.min))
+    filled = Slot.objects.filter(
+        host=host,
+        office_hours=True,
+        starts_at__gte=midnight,
+        starts_at__lt=midnight + timedelta(days=1),
+    )
+    if filled.exists():
+        return []
+
+    day_start = timezone.make_aware(datetime.combine(day, OFFICE_HOURS[0][0]))
+    day_end = timezone.make_aware(datetime.combine(day, OFFICE_HOURS[-1][1]))
+    taken = overlapping(
+        live_slots().filter(Q(host=host) | Q(booked_by=host)), day_start, day_end
+    )
+    taken = [(slot.starts_at, slot.ends_at) for slot in taken]
+
+    slots = []
+    for first, last in OFFICE_HOURS:
+        start = timezone.make_aware(datetime.combine(day, first))
+        end = timezone.make_aware(datetime.combine(day, last))
+        while start + OFFICE_SLOT <= end:
+            stop = start + OFFICE_SLOT
+            clashes = any(s < stop and e > start for s, e in taken)
+            if start >= timezone.now() and not clashes:
+                slots.append(
+                    Slot(host=host, starts_at=start, ends_at=stop, office_hours=True)
+                )
+            start = stop
     for slot in slots:
         slot.save()
     return slots

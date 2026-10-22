@@ -176,10 +176,11 @@ in `deploy/`.
 | File | Purpose |
 | --- | --- |
 | `deploy/setup-server.sh` | One-time setup of a fresh droplet: firewall, Docker, Caddy, the `erp` user, `.env` with generated secrets, backups, first deploy |
-| `deploy/deploy.sh` | Every update: pull `production`, install packages, build CSS, `check --deploy`, collectstatic, migrate, restart |
+| `deploy/deploy.sh` | Every update: pull `production`, install packages, build CSS, `check --deploy`, collectstatic, migrate, open office hours, restart |
 | `deploy/erp.service` | systemd service for Gunicorn |
 | `deploy/Caddyfile` | Caddy site (`ERP_DOMAIN` is filled in by the setup script) |
 | `deploy/backup.sh` | Nightly `pg_dump` at 02:30 into `/srv/erp-backups`, kept 14 days |
+| `open_office_hours` (cron) | Nightly at 00:05: opens everyone's office hours (Mon–Sat 10:00–18:00, lunch 13:30–14:00 off) as 15-minute slots for the next 7 days |
 
 **First time**
 
@@ -207,6 +208,7 @@ in `deploy/`.
 | App errors | `journalctl -u erp -e` |
 | Restart the app | `systemctl restart erp` |
 | Caddy and HTTPS problems | `journalctl -u caddy -e` |
+| Open office hours now (e.g. for a new employee) | `sudo -u erp -i sh -c 'cd /srv/erp && .venv/bin/python manage.py open_office_hours'` |
 | Run a backup now | `/srv/erp/deploy/backup.sh` |
 | Restore a backup | `docker exec -i senken_erp_db pg_restore -U senken_erp -d senken_erp --clean < /srv/erp-backups/FILE.dump` |
 
