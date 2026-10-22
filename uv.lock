@@ -81,6 +81,7 @@ dependencies = [
     { name = "django" },
     { name = "django-environ" },
     { name = "django-simple-history" },
+    { name = "gunicorn" },
     { name = "psycopg", extra = ["binary"] },
 ]
 
@@ -96,6 +97,7 @@ requires-dist = [
     { name = "django", specifier = ">=5.2,<5.3" },
     { name = "django-environ", specifier = ">=0.14.0" },
     { name = "django-simple-history", specifier = ">=3.13.0" },
+    { name = "gunicorn", specifier = ">=26.2.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3.6" },
 ]
 
@@ -113,6 +115,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f4/a9/1af41b37c3279712b22cdc63aac78a52432202b6fe1f9666a2a3d2831fb4/filelock-4.2.0.tar.gz", hash = "sha256:7a60906c75227cf04d0c273afadc8219400f11aeb13cc69591d4f6cdc6c8036e", size = 569667, upload-time = "2026-10-14T20:57:13.11Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8e/a3/9bc26acff301fe1aaea1cc3d82a1d57e0a34df3e1cadbfa91ac2dbcdde5c/filelock-4.2.0-py3-none-any.whl", hash = "sha256:2ff5690882e8cdb00ef31fb3d01a3094c29f30985426c59495afb1733f3b7238", size = 135032, upload-time = "2026-10-14T20:57:11.349Z" },
+]
+
+[[package]]
+name = "gunicorn"
+version = "26.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d9/8a/e4ef6ee11701b6cd64702848415ffb69eeff85cb388a3c6c7fe86f22f3f8/gunicorn-26.2.0.tar.gz", hash = "sha256:62b864895d9ebff0b2f9867ba04fe811c93121596540830c9c916d0769668447", size = 787921, upload-time = "2026-08-24T15:05:59.3Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fe/85/7522a52e5e2f42faf1a129113ab63e548c42e103e9af395b7bfe65e403e2/gunicorn-26.2.0-py3-none-any.whl", hash = "sha256:bd249d0b3f7972f7432f0a6b6ff3b3ee2d129f70cd1ff6c09a9dd9e29a2b88e3", size = 228389, upload-time = "2026-08-24T15:05:57.67Z" },
 ]
 
 [[package]]

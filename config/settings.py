@@ -146,3 +146,27 @@ AUTH_USER_MODEL = "core.User"
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "home"
 LOGOUT_REDIRECT_URL = "login"
+
+
+# Production (behind Caddy, which terminates HTTPS)
+# https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
+
+if not DEBUG:
+    # Caddy tells Django the original request was HTTPS.
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=60 * 60 * 24 * 365)
+    SILENCED_SYSTEM_CHECKS = [
+        "security.W005",  # HSTS on erp.<domain> only; the website is not ours to force
+        "security.W008",  # Caddy redirects HTTP to HTTPS before Django sees it
+        "security.W021",  # no HSTS preload list for an internal app
+    ]
+
+# Errors go to stderr, which systemd keeps in the journal (journalctl -u erp).
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "root": {"handlers": ["console"], "level": "WARNING"},
+}
