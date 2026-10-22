@@ -1,0 +1,17 @@
+[Unit]
+Description=Senken ERP (gunicorn)
+After=network.target docker.service
+
+[Service]
+User=erp
+Group=erp
+WorkingDirectory=/srv/erp
+ExecStart=/srv/erp/.venv/bin/gunicorn config.wsgi --bind 127.0.0.1:8000 --workers 3
+Restart=always
+# Hardening: the app cannot gain privileges or write outside its own folders.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

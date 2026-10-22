@@ -1,0 +1,14 @@
+# setup-server.sh replaces ERP_DOMAIN and installs this as /etc/caddy/Caddyfile.
+# Caddy gets and renews the HTTPS certificate on its own.
+ERP_DOMAIN {
+	encode zstd gzip
+
+	handle_path /static/* {
+		root * /srv/erp/staticfiles
+		file_server
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:8000
+	}
+}
