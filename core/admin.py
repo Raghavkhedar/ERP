@@ -11,7 +11,7 @@ class AddUserForm(AdminUserCreationForm):
     """New accounts need a name: it is what everyone sees in chat and meetings."""
 
     class Meta(AdminUserCreationForm.Meta):
-        fields = ("username", "first_name", "last_name")
+        fields = ("username", "first_name", "last_name", "email")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -32,6 +32,7 @@ class OfficeUserAdmin(UserAdmin):
                     "username",
                     "first_name",
                     "last_name",
+                    "email",
                     "usable_password",
                     "password1",
                     "password2",
