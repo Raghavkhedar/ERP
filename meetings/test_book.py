@@ -31,6 +31,10 @@ def book_url(slot):
     return reverse("meetings:book", args=[slot.pk])
 
 
+def day_url(day):
+    return reverse("meetings:day", args=[day.year, day.month, day.day])
+
+
 # Service
 
 
@@ -156,18 +160,18 @@ def test_person_page_lists_only_their_free_slots(client, alice, bob, tomorrow):
 def test_own_person_page_goes_to_the_schedule(client, alice):
     client.force_login(alice)
     response = client.get(reverse("meetings:person_slots", args=[alice.pk]))
-    assert response.url == SCHEDULE_URL
+    assert response.url == SCHEDULE_URL  # their own calendar
 
 
-def test_book_page_books_and_goes_to_the_schedule(client, slot, bob):
+def test_book_page_books_and_goes_to_that_day(client, slot, bob, tomorrow):
     client.force_login(bob)
 
     response = client.post(book_url(slot), {"topic": "Leave request"})
 
     assert response.status_code == 302
-    assert response.url == SCHEDULE_URL
+    assert response.url == day_url(tomorrow)
     assert Slot.objects.get(pk=slot.pk).booked_by == bob
-    assert "Leave request" in client.get(SCHEDULE_URL).content.decode()
+    assert "Leave request" in client.get(day_url(tomorrow)).content.decode()
 
 
 def test_book_page_shows_rule_errors(client, slot, alice):
