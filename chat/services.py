@@ -61,7 +61,8 @@ def add_member(conversation, added_by, user):
             conversation=conversation,
             author=added_by,
             kind=MessageKind.SYSTEM,
-            body=f"added {user.display_name}",
+            body="added",
+            subject=user,
         )
 
 

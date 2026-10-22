@@ -1,6 +1,6 @@
 {% if message.is_system %}
   <li id="message-{{ message.pk }}" class="text-center text-sm text-gray-500">
-    {{ message.author.display_name }} {{ message.body }}
+    {{ message.author.display_name }} {{ message.body }}{% if message.subject %} {{ message.subject.display_name }}{% endif %}
     · <time datetime="{{ message.created_at|date:'c' }}">{{ message.created_at|date:"j M, H:i" }}</time>
   </li>
 {% elif message.is_notice %}

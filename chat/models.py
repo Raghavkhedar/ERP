@@ -102,6 +102,15 @@ class Message(models.Model):
         related_name="chat_messages",
     )
     body = models.CharField(max_length=4000)
+    # The person a system message is about ("added <subject>"). Stored as a
+    # link, not as text, so leavers can be shown as "Former employee".
+    subject = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
     kind = models.CharField(
         max_length=10, choices=MessageKind.choices, default=MessageKind.USER
     )

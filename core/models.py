@@ -87,4 +87,7 @@ class User(AbstractUser):
 
     @property
     def display_name(self):
+        # Leavers are anonymised wherever people see each other.
+        if not self.is_active:
+            return "Former employee"
         return self.get_full_name() or self.username
