@@ -238,7 +238,7 @@ def _runs(slots):
 
 @login_required
 def block_time(request, year=None, month=None, day=None):
-    """The user's office hours for one day, to block or unblock times."""
+    """The user's slots for one day, to block or unblock times."""
     today = timezone.localdate()
     try:
         shown = today if year is None else date(year, month, day)
@@ -252,11 +252,20 @@ def block_time(request, year=None, month=None, day=None):
         "starts_at__gte": _midnight(shown),
         "starts_at__lt": _midnight(shown + timedelta(days=1)),
     }
+    # Office hours plus any slots opened by hand before office hours existed.
+    # A removed slot whose time is in use by another slot isn't shown twice.
     slots = list(
-        Slot.objects.filter(
-            host=request.user, office_hours=True, **in_day
-        ).select_related("booked_by")
+        Slot.objects.filter(host=request.user, **in_day).select_related("booked_by")
     )
+    live = [s for s in slots if not s.is_cancelled]
+    slots = [
+        slot
+        for slot in slots
+        if not slot.is_cancelled
+        or not any(
+            s.starts_at < slot.ends_at and s.ends_at > slot.starts_at for s in live
+        )
+    ]
     as_guest = list(
         live_slots().filter(booked_by=request.user, **in_day).select_related("host")
     )

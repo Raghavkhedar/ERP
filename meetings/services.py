@@ -89,20 +89,20 @@ def open_office_hours(host, day):
     return slots
 
 
-def _own_office_hours(user, pks):
+def _own_future_slots(user, pks):
     return Slot.objects.select_for_update().filter(
-        pk__in=pks, host=user, office_hours=True, starts_at__gt=timezone.now()
+        pk__in=pks, host=user, starts_at__gt=timezone.now()
     )
 
 
 @transaction.atomic
 def block(user, pks):
-    """Take the user's free office-hours slots out of booking. Returns how many.
+    """Take the user's free slots out of booking. Returns how many.
 
     Slots someone booked in the meantime are left alone.
     """
     _lock(user)
-    slots = _own_office_hours(user, pks).filter(
+    slots = _own_future_slots(user, pks).filter(
         cancelled_at__isnull=True, booked_by__isnull=True
     )
     for slot in slots:
@@ -113,14 +113,14 @@ def block(user, pks):
 
 @transaction.atomic
 def unblock(user, pks):
-    """Open blocked office-hours slots for booking again. Returns how many.
+    """Open the user's blocked slots for booking again. Returns how many.
 
     A slot that clashes with a meeting the user has since booked stays blocked.
     """
     _lock(user)
     mine = live_slots().filter(Q(host=user) | Q(booked_by=user))
     opened = 0
-    for slot in _own_office_hours(user, pks).filter(cancelled_at__isnull=False):
+    for slot in _own_future_slots(user, pks).filter(cancelled_at__isnull=False):
         if overlapping(mine, slot.starts_at, slot.ends_at).exists():
             continue
         # A meeting the host cancelled leaves its booker behind; clear it so
