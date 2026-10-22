@@ -1,14 +1,14 @@
 {% extends "meetings/base_meetings.html" %}
 
-{% block title %}Book {{ slot.host.username }} · Meetings{% endblock %}
+{% block title %}Book {{ slot.host.display_name }} · Meetings{% endblock %}
 
 {% block page %}
   <form method="post" class="max-w-md space-y-4 rounded bg-white p-5 shadow-sm">
     {% csrf_token %}
     <div class="flex items-center gap-3">
-      {% include "chat/_avatar.html" with name=slot.host.username %}
+      {% include "chat/_avatar.html" with name=slot.host.display_name %}
       <div>
-        <p class="font-semibold">{{ slot.host.username }}</p>
+        <p class="font-semibold">{{ slot.host.display_name }}</p>
         <p class="text-sm text-gray-600">{{ slot.starts_at|date:"l j M" }}, {{ slot.starts_at|time:"H:i" }}–{{ slot.ends_at|time:"H:i" }}</p>
       </div>
     </div>

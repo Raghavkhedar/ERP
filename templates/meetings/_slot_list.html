@@ -7,18 +7,18 @@
         <span class="w-28 shrink-0 font-mono text-sm">{{ slot.starts_at|time:"H:i" }}–{{ slot.ends_at|time:"H:i" }}</span>
         {% if slot.is_booked %}
           {% if slot.host == user %}
-            {% include "chat/_avatar.html" with name=slot.booked_by.username size="size-6 text-xs" %}
-            <span class="font-medium">{{ slot.booked_by.username }}</span>
+            {% include "chat/_avatar.html" with name=slot.booked_by.display_name size="size-6 text-xs" %}
+            <span class="font-medium">{{ slot.booked_by.display_name }}</span>
           {% else %}
-            {% include "chat/_avatar.html" with name=slot.host.username size="size-6 text-xs" %}
-            <span class="font-medium">{{ slot.host.username }}</span>
+            {% include "chat/_avatar.html" with name=slot.host.display_name size="size-6 text-xs" %}
+            <span class="font-medium">{{ slot.host.display_name }}</span>
           {% endif %}
           <span class="truncate text-gray-600">{{ slot.topic }}</span>
         {% else %}
           <span class="text-gray-500">Free</span>
         {% endif %}
         <form method="post" action="{% url 'meetings:cancel' slot.pk %}" class="ml-auto shrink-0"
-              onsubmit="return confirm('{% if not slot.is_booked %}Remove this free slot?{% elif slot.host == user %}Cancel this meeting? The slot will be removed and {{ slot.booked_by.username|escapejs }} will be told.{% else %}Cancel your booking? {{ slot.host.username|escapejs }} will be told.{% endif %}')">
+              onsubmit="return confirm('{% if not slot.is_booked %}Remove this free slot?{% elif slot.host == user %}Cancel this meeting? The slot will be removed and {{ slot.booked_by.display_name|escapejs }} will be told.{% else %}Cancel your booking? {{ slot.host.display_name|escapejs }} will be told.{% endif %}')">
           {% csrf_token %}
           <button type="submit" class="rounded px-2 py-1 text-sm text-red-600 hover:bg-red-50">{% if slot.is_booked %}Cancel{% else %}Remove{% endif %}</button>
         </form>

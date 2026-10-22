@@ -1,11 +1,11 @@
 {% extends "meetings/base_meetings.html" %}
 
-{% block title %}{{ person.username }} · Meetings{% endblock %}
+{% block title %}{{ person.display_name }} · Meetings{% endblock %}
 
 {% block page %}
   <div class="mb-4 flex items-center gap-3">
-    {% include "chat/_avatar.html" with name=person.username %}
-    <h2 class="text-lg font-semibold">Free slots with {{ person.username }}</h2>
+    {% include "chat/_avatar.html" with name=person.display_name %}
+    <h2 class="text-lg font-semibold">Free slots with {{ person.display_name }}</h2>
   </div>
   {% regroup slots by day as days %}
   {% for day in days %}
@@ -19,6 +19,6 @@
       {% endfor %}
     </ul>
   {% empty %}
-    <p class="text-gray-500">{{ person.username }} has no free slots right now.</p>
+    <p class="text-gray-500">{{ person.display_name }} has no free slots right now.</p>
   {% endfor %}
 {% endblock %}

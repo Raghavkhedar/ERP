@@ -121,7 +121,7 @@ def new_dm(request):
         get_user_model()
         .objects.filter(is_active=True)
         .exclude(pk=request.user.pk)
-        .order_by("username")
+        .order_by("first_name", "last_name", "username")
     )
     context = _sidebar(request.user) | {"people": people}
     return render(request, "chat/new_dm.html", context)
@@ -156,7 +156,7 @@ def add_people(request, pk):
         get_user_model()
         .objects.filter(is_active=True)
         .exclude(chat_memberships__conversation=conversation)
-        .order_by("username")
+        .order_by("first_name", "last_name", "username")
     )
     context = _sidebar(request.user, current_id=conversation.pk) | {
         "conversation": conversation,
