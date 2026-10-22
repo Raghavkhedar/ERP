@@ -31,14 +31,14 @@
           {% endfor %}
         </ul>
       {% else %}
-        <p class="mt-3 border-y border-gray-100 py-6 text-sm text-gray-500">No meetings booked. Book a colleague's free slot, or open your own so others can book you.</p>
+        <p class="mt-3 border-y border-gray-100 py-6 text-sm text-gray-500">No meetings booked. Your office hours are open for colleagues to book; block the times you're not available.</p>
       {% endif %}
 
       <div class="mt-6 flex flex-wrap gap-3">
         <a href="{% url 'meetings:people' %}"
            class="inline-flex h-11 items-center rounded-lg bg-blue-600 px-5 text-sm font-medium text-white transition duration-150 hover:bg-blue-700 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30">Book a meeting</a>
-        <a href="{% url 'meetings:open_slots' %}"
-           class="inline-flex h-11 items-center rounded-lg border border-gray-300 px-5 text-sm font-medium transition duration-150 hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/10">Open your slots</a>
+        <a href="{% url 'meetings:block_time' %}"
+           class="inline-flex h-11 items-center rounded-lg border border-gray-300 px-5 text-sm font-medium transition duration-150 hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/10">Block time</a>
       </div>
     </section>
   </div>

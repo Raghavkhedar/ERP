@@ -13,9 +13,9 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from .forms import BookingForm, OpenSlotsForm
+from .forms import BookingForm
 from .models import Slot
-from .services import SlotError, book, cancel, live_slots, open_slots
+from .services import SlotError, block, book, cancel, live_slots, unblock
 
 
 def _with_days(slots):
@@ -184,28 +184,109 @@ def _now_top(shown, first_hour, last_hour):
     return round(((now.hour - first_hour) * 60 + now.minute) * HOUR_HEIGHT / 60)
 
 
-def _date_from(query):
-    """{'date': ...} from ?date=YYYY-MM-DD, so a day's page can prefill the form."""
-    try:
-        return {"date": date.fromisoformat(query.get("date", ""))}
-    except ValueError:
-        return {}
+def _block_url(day):
+    return reverse("meetings:block_day", args=[day.year, day.month, day.day])
+
+
+def _plural(count, word):
+    return f"{count} {word}{'' if count == 1 else 's'}"
+
+
+def _block_or_unblock(request, shown):
+    """Apply the button pressed on the block-time page, and say what happened."""
+    action = request.POST.get("action")
+    pks = request.POST.getlist("slot")
+    if action == "block_day":
+        day_slots = Slot.objects.filter(
+            host=request.user,
+            starts_at__gte=_midnight(shown),
+            starts_at__lt=_midnight(shown + timedelta(days=1)),
+        )
+        pks = list(day_slots.values_list("pk", flat=True))
+    if action in ("block", "block_day"):
+        blocked = block(request.user, pks)
+        if blocked:
+            messages.success(request, f"Blocked {_plural(blocked, 'slot')}.")
+        else:
+            messages.error(request, "There were no free slots to block.")
+    elif action == "unblock":
+        opened = unblock(request.user, pks)
+        if opened:
+            messages.success(
+                request,
+                f"Unblocked {_plural(opened, 'slot')}. Others can book them again.",
+            )
+        kept = len(pks) - opened
+        if kept:
+            messages.error(
+                request,
+                f"{_plural(kept, 'slot')} stayed blocked: you have a meeting then, "
+                "or the time has passed.",
+            )
+
+
+def _runs(slots):
+    """Split the slots into runs of back-to-back times (before and after lunch)."""
+    runs = []
+    for slot in slots:
+        if runs and runs[-1][-1].ends_at == slot.starts_at:
+            runs[-1].append(slot)
+        else:
+            runs.append([slot])
+    return runs
 
 
 @login_required
-def open_slots_view(request):
-    form = OpenSlotsForm(request.POST or None, initial=_date_from(request.GET))
-    if request.method == "POST" and form.is_valid():
-        try:
-            data = form.cleaned_data
-            open_slots(
-                request.user, data["date"], data["start"], data["end"], data["minutes"]
-            )
-        except SlotError as error:
-            form.add_error(None, str(error))
+def block_time(request, year=None, month=None, day=None):
+    """The user's office hours for one day, to block or unblock times."""
+    today = timezone.localdate()
+    try:
+        shown = today if year is None else date(year, month, day)
+    except ValueError:
+        raise Http404("No such day.") from None
+    if request.method == "POST":
+        _block_or_unblock(request, shown)
+        return redirect(_block_url(shown))
+
+    in_day = {
+        "starts_at__gte": _midnight(shown),
+        "starts_at__lt": _midnight(shown + timedelta(days=1)),
+    }
+    slots = list(
+        Slot.objects.filter(
+            host=request.user, office_hours=True, **in_day
+        ).select_related("booked_by")
+    )
+    as_guest = list(
+        live_slots().filter(booked_by=request.user, **in_day).select_related("host")
+    )
+    now = timezone.now()
+    for slot in slots:
+        if slot.is_cancelled:
+            slot.state = "blocked"
+        elif slot.is_booked:
+            slot.state = "booked"
         else:
-            return redirect(_day_url(data["date"]))
-    return render(request, "meetings/open_slots.html", {"form": form})
+            slot.state = "free"
+        slot.started = slot.starts_at <= now
+        slot.meeting = next(
+            (
+                m
+                for m in as_guest
+                if m.starts_at < slot.ends_at and m.ends_at > slot.starts_at
+            ),
+            None,
+        )
+    context = {
+        "day": shown,
+        "today": today,
+        "is_sunday": shown.weekday() == 6,
+        "runs": _runs(slots),
+        "can_block": any(s.state == "free" and not s.started for s in slots),
+        "previous": shown - timedelta(days=1),
+        "following": shown + timedelta(days=1),
+    }
+    return render(request, "meetings/block.html", context)
 
 
 @login_required
