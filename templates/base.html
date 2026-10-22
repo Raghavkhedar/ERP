@@ -21,7 +21,7 @@
     {% if user.is_authenticated %}
       <form method="post" action="{% url 'logout' %}" class="flex items-center gap-3">
         {% csrf_token %}
-        <span>{{ user.username }}</span>
+        <span>{{ user.display_name }}</span>
         <button type="submit" class="rounded px-2 py-0.5 hover:bg-slate-800 hover:text-white">Log out</button>
       </form>
     {% endif %}

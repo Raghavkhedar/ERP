@@ -10,12 +10,16 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def alice(django_user_model):
-    return django_user_model.objects.create_user(username="alice", password="pw")
+    return django_user_model.objects.create_user(
+        username="alice", first_name="alice", password="pw"
+    )
 
 
 @pytest.fixture
 def bob(django_user_model):
-    return django_user_model.objects.create_user(username="bob", password="pw")
+    return django_user_model.objects.create_user(
+        username="bob", first_name="bob", password="pw"
+    )
 
 
 @pytest.fixture

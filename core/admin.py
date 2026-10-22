@@ -1,14 +1,44 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
+from django.contrib.auth.forms import AdminUserCreationForm
 
 from .models import User
 
 PRIVILEGE_FIELDS = {"is_staff", "is_superuser", "groups", "user_permissions"}
 
 
+class AddUserForm(AdminUserCreationForm):
+    """New accounts need a name: it is what everyone sees in chat and meetings."""
+
+    class Meta(AdminUserCreationForm.Meta):
+        fields = ("username", "first_name", "last_name")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["first_name"].required = True
+
+
 @admin.register(User)
 class OfficeUserAdmin(UserAdmin):
     """Superusers see everything. Office admins manage ordinary accounts only."""
+
+    add_form = AddUserForm
+    add_fieldsets = (
+        (
+            None,
+            {
+                "classes": ("wide",),
+                "fields": (
+                    "username",
+                    "first_name",
+                    "last_name",
+                    "usable_password",
+                    "password1",
+                    "password2",
+                ),
+            },
+        ),
+    )
 
     def get_fieldsets(self, request, obj=None):
         fieldsets = super().get_fieldsets(request, obj)

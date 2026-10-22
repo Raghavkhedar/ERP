@@ -66,7 +66,7 @@ def people(request):
         .objects.filter(is_active=True)
         .exclude(pk=request.user.pk)
         .annotate(free_slots=Count("hosted_slots", filter=free))
-        .order_by("username")
+        .order_by("first_name", "last_name", "username")
     )
     return render(request, "meetings/people.html", {"people": people})
 

@@ -137,7 +137,7 @@ def test_people_page_counts_free_upcoming_slots(client, alice, bob, tomorrow):
 
     response = client.get(PEOPLE_URL)
 
-    people = {p.username: p.free_slots for p in response.context["people"]}
+    people = {p.first_name: p.free_slots for p in response.context["people"]}
     assert people == {"alice": 1}
     assert "1 free slot" in response.content.decode()
 

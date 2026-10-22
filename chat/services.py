@@ -17,11 +17,11 @@ def visible_conversations(user):
 
 
 def conversation_title(conversation, viewer):
-    """'#name' for a channel; the other person's username for a DM."""
+    """'#name' for a channel; the other person's name for a DM."""
     if conversation.kind == ConversationKind.CHANNEL:
         return f"#{conversation.name}"
     others = [m.user for m in conversation.memberships.all() if m.user_id != viewer.id]
-    return others[0].username if others else viewer.username
+    return others[0].display_name if others else viewer.display_name
 
 
 def is_member(conversation, user):
@@ -61,7 +61,7 @@ def add_member(conversation, added_by, user):
             conversation=conversation,
             author=added_by,
             kind=MessageKind.SYSTEM,
-            body=f"added {user.username}",
+            body=f"added {user.display_name}",
         )
 
 

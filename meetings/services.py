@@ -101,7 +101,7 @@ def book(slot, user, topic):
     if is_busy(user, slot.starts_at, slot.ends_at):
         raise SlotError("You already have a meeting booked at this time.")
     if is_busy(slot.host, slot.starts_at, slot.ends_at):
-        raise SlotError(f"{slot.host.username} is no longer free at this time.")
+        raise SlotError(f"{slot.host.display_name} is no longer free at this time.")
 
     slot.booked_by = user
     slot.topic = topic
