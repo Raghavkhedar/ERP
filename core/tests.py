@@ -7,7 +7,7 @@ pytestmark = pytest.mark.django_db
 @pytest.fixture
 def user(django_user_model):
     return django_user_model.objects.create_user(
-        username="caller", password="test-pass-123"
+        username="caller", first_name="caller", password="test-pass-123"
     )
 
 

@@ -18,7 +18,7 @@ def test_starting_a_dm_creates_it_with_both_people(alice, bob):
 
     assert dm.kind == ConversationKind.DIRECT
     assert dm.created_by == alice
-    members = set(dm.memberships.values_list("user__username", flat=True))
+    members = set(dm.memberships.values_list("user__first_name", flat=True))
     assert members == {"alice", "bob"}
 
 
@@ -32,7 +32,7 @@ def test_the_same_pair_always_gets_the_same_dm(alice, bob):
 
 def test_a_dm_with_yourself_has_one_member(alice):
     dm = get_or_create_dm(alice, alice)
-    assert list(dm.memberships.values_list("user__username", flat=True)) == ["alice"]
+    assert list(dm.memberships.values_list("user__first_name", flat=True)) == ["alice"]
 
 
 def test_message_button_opens_the_dm(client, alice, bob):
@@ -62,12 +62,14 @@ def test_cannot_message_an_inactive_person(client, alice, bob):
 def test_people_list_shows_active_people_except_you(
     client, alice, bob, carol, django_user_model
 ):
-    django_user_model.objects.create_user(username="gone", is_active=False)
+    django_user_model.objects.create_user(
+        username="gone", first_name="gone", is_active=False
+    )
     client.force_login(alice)
 
     people = client.get(NEW_DM_URL).context["people"]
 
-    assert [p.username for p in people] == ["bob", "carol"]
+    assert [p.first_name for p in people] == ["bob", "carol"]
 
 
 def test_sidebar_links_to_new_dm(client, alice):

@@ -27,7 +27,7 @@ def test_creating_a_channel_makes_you_its_first_member(client, alice):
     assert channel.name == "leads"
     assert not channel.is_private
     assert channel.created_by == alice
-    assert list(Membership.objects.values_list("user__username", flat=True)) == [
+    assert list(Membership.objects.values_list("user__first_name", flat=True)) == [
         "alice"
     ]
     assert response.status_code == 302

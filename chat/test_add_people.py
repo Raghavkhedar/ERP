@@ -12,7 +12,7 @@ pytestmark = pytest.mark.django_db
 @pytest.fixture
 def office_admin(django_user_model):
     user = django_user_model.objects.create_user(
-        username="manager", password="pw", is_staff=True
+        username="manager", first_name="manager", password="pw", is_staff=True
     )
     user.groups.add(Group.objects.get(name="Office admin"))
     return user
@@ -121,19 +121,19 @@ def test_people_page_lists_only_active_non_members(
 ):
     secret = make_channel("secret", alice, members=[alice, bob], is_private=True)
     django_user_model.objects.create_user(
-        username="gone", password="pw", is_active=False
+        username="gone", first_name="gone", password="pw", is_active=False
     )
     client.force_login(alice)
 
     response = client.get(people_url(secret))
 
-    assert [p.username for p in response.context["people"]] == ["carol"]
+    assert [p.first_name for p in response.context["people"]] == ["carol"]
 
 
 def test_inactive_people_cannot_be_added(client, alice, django_user_model):
     secret = make_channel("secret", alice, members=[alice], is_private=True)
     gone = django_user_model.objects.create_user(
-        username="gone", password="pw", is_active=False
+        username="gone", first_name="gone", password="pw", is_active=False
     )
     client.force_login(alice)
 

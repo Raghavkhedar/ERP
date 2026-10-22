@@ -12,7 +12,7 @@ PRIVILEGE_FIELDS = {"is_staff", "is_superuser", "groups", "user_permissions"}
 @pytest.fixture
 def office_admin(django_user_model):
     user = django_user_model.objects.create_user(
-        username="manager", password="pw", is_staff=True
+        username="manager", first_name="manager", password="pw", is_staff=True
     )
     user.groups.add(Group.objects.get(name="Office admin"))
     return user
@@ -20,12 +20,16 @@ def office_admin(django_user_model):
 
 @pytest.fixture
 def employee(django_user_model):
-    return django_user_model.objects.create_user(username="employee", password="pw")
+    return django_user_model.objects.create_user(
+        username="employee", first_name="employee", password="pw"
+    )
 
 
 @pytest.fixture
 def boss(django_user_model):
-    return django_user_model.objects.create_superuser(username="boss", password="pw")
+    return django_user_model.objects.create_superuser(
+        username="boss", first_name="boss", password="pw"
+    )
 
 
 def user_form_fields(acting_user, obj):
