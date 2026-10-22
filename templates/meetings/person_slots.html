@@ -1,24 +1,26 @@
 {% extends "meetings/base_meetings.html" %}
 
 {% block title %}{{ person.display_name }} · Meetings{% endblock %}
+{% block heading %}Book a meeting{% endblock %}
 
 {% block page %}
-  <div class="mb-4 flex items-center gap-3">
+  <div class="flex items-center gap-3">
     {% include "chat/_avatar.html" with name=person.display_name %}
-    <h2 class="text-lg font-semibold">Free slots with {{ person.display_name }}</h2>
+    <div>
+      <p class="font-medium">{{ person.display_name }}</p>
+      <a href="{% url 'meetings:people' %}" class="text-sm text-gray-500 hover:text-gray-900">Choose someone else</a>
+    </div>
   </div>
   {% regroup slots by day as days %}
   {% for day in days %}
-    <h3 class="mt-3 mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">{{ day.grouper|date:"l j M" }}</h3>
-    <ul class="divide-y divide-gray-100 rounded bg-white shadow-sm">
+    <h2 class="mt-8 text-sm font-medium text-gray-500">{{ day.grouper|date:"l, j F" }}</h2>
+    <div class="mt-3 flex flex-wrap gap-2">
       {% for slot in day.list %}
-        <li class="flex items-center justify-between gap-4 px-4 py-2.5">
-          <span class="font-mono text-sm">{{ slot.starts_at|time:"H:i" }}–{{ slot.ends_at|time:"H:i" }}</span>
-          <a href="{% url 'meetings:book' slot.pk %}" class="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700">Book</a>
-        </li>
+        <a href="{% url 'meetings:book' slot.pk %}" aria-label="Book {{ slot.starts_at|time:'H:i' }} to {{ slot.ends_at|time:'H:i' }}"
+           class="inline-flex h-10 items-center rounded-lg border border-gray-300 px-3.5 text-sm tabular-nums transition hover:border-blue-600 hover:bg-blue-50 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/10">{{ slot.starts_at|time:"H:i" }}–{{ slot.ends_at|time:"H:i" }}</a>
       {% endfor %}
-    </ul>
+    </div>
   {% empty %}
-    <p class="text-gray-500">{{ person.display_name }} has no free slots right now.</p>
+    <p class="mt-8 text-sm text-gray-500">{{ person.display_name }} has no free slots right now.</p>
   {% endfor %}
 {% endblock %}

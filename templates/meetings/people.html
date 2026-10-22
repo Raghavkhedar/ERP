@@ -1,23 +1,25 @@
 {% extends "meetings/base_meetings.html" %}
 
 {% block title %}Book a meeting · Meetings{% endblock %}
+{% block heading %}Book a meeting{% endblock %}
 
 {% block page %}
-  <ul class="divide-y divide-gray-100 rounded bg-white shadow-sm">
+  <p class="text-sm text-gray-500">Pick a colleague to see their free slots.</p>
+  <ul class="mt-4 divide-y divide-gray-100 border-y border-gray-100">
     {% for person in people %}
       <li>
-        <a href="{% url 'meetings:person_slots' person.pk %}" class="flex items-center gap-3 px-4 py-3 hover:bg-gray-50">
-          {% include "chat/_avatar.html" with name=person.display_name %}
-          <span class="flex-1 font-medium">{{ person.display_name }}</span>
+        <a href="{% url 'meetings:person_slots' person.pk %}" class="-mx-3 flex items-center gap-3 rounded-lg px-3 py-3 transition-colors hover:bg-gray-50">
+          {% include "chat/_avatar.html" with name=person.display_name size="size-8 text-sm" %}
+          <span class="flex-1 truncate font-medium">{{ person.display_name }}</span>
           {% if person.free_slots %}
-            <span class="rounded-full bg-green-100 px-2.5 py-0.5 text-sm text-green-800">{{ person.free_slots }} free slot{{ person.free_slots|pluralize }}</span>
+            <span class="text-sm text-blue-600">{{ person.free_slots }} free slot{{ person.free_slots|pluralize }}</span>
           {% else %}
             <span class="text-sm text-gray-400">No free slots</span>
           {% endif %}
         </a>
       </li>
     {% empty %}
-      <li class="px-4 py-3 text-gray-500">There is nobody else here yet.</li>
+      <li class="py-6 text-sm text-gray-500">There is nobody else here yet.</li>
     {% endfor %}
   </ul>
 {% endblock %}

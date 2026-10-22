@@ -1,20 +1,21 @@
 {% extends "base.html" %}
 
-{% block main_class %}mx-auto max-w-4xl px-4 py-6{% endblock %}
+{% block body_class %}min-h-dvh bg-white text-gray-900 antialiased{% endblock %}
+{% block main_class %}mx-auto w-full {% block width %}max-w-3xl{% endblock %} px-6 pb-28 pt-8 sm:px-8{% endblock %}
 
 {% block content %}
-  <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-    <h1 class="text-2xl font-bold">{% block heading %}Meetings{% endblock %}</h1>
-    <nav class="flex gap-1 text-sm">
+  <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
+    <div class="flex min-w-0 flex-wrap items-center gap-3">{% block toolbar %}<h1 class="text-2xl font-semibold tracking-tight">{% block heading %}Meetings{% endblock %}</h1>{% endblock %}</div>
+    <nav class="flex gap-5 text-sm text-gray-500">
       {% with page=request.resolver_match.url_name %}
-        <a href="{% url 'meetings:schedule' %}" class="rounded px-3 py-1.5 {% if page == 'schedule' %}bg-slate-900 text-white{% else %}hover:bg-gray-200{% endif %}">My schedule</a>
-        <a href="{% url 'meetings:people' %}" class="rounded px-3 py-1.5 {% if page == 'people' or page == 'person_slots' or page == 'book' %}bg-slate-900 text-white{% else %}hover:bg-gray-200{% endif %}">Book a meeting</a>
-        <a href="{% url 'meetings:open_slots' %}" class="rounded px-3 py-1.5 {% if page == 'open_slots' %}bg-slate-900 text-white{% else %}hover:bg-gray-200{% endif %}">Open slots</a>
+        <a href="{% url 'meetings:schedule' %}" class="transition-colors hover:text-gray-900 {% if page == 'schedule' or page == 'month' or page == 'day' %}font-medium text-gray-900{% endif %}">Calendar</a>
+        <a href="{% url 'meetings:people' %}" class="transition-colors hover:text-gray-900 {% if page == 'people' or page == 'person_slots' or page == 'book' %}font-medium text-gray-900{% endif %}">Book a meeting</a>
+        <a href="{% url 'meetings:open_slots' %}" class="transition-colors hover:text-gray-900 {% if page == 'open_slots' %}font-medium text-gray-900{% endif %}">Open slots</a>
       {% endwith %}
     </nav>
   </div>
   {% for message in messages %}
-    <p class="mb-4 rounded px-4 py-2 text-sm {% if message.tags == 'error' %}bg-red-50 text-red-700{% else %}bg-green-50 text-green-800{% endif %}">{{ message }}</p>
+    <p role="status" class="mt-6 text-sm {% if message.tags == 'error' %}text-red-600{% else %}text-green-700{% endif %}">{{ message }}</p>
   {% endfor %}
-  {% block page %}{% endblock %}
+  <div class="mt-8">{% block page %}{% endblock %}</div>
 {% endblock %}

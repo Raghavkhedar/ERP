@@ -1,0 +1,55 @@
+{% extends "meetings/base_meetings.html" %}
+
+{% block title %}{{ month|date:"F Y" }} · Meetings{% endblock %}
+{% block width %}max-w-6xl{% endblock %}
+
+{% block toolbar %}
+  {% url 'meetings:month' previous.0 previous.1 as previous_url %}
+  {% url 'meetings:month' following.0 following.1 as next_url %}
+  {% url 'meetings:schedule' as today_url %}
+  {% include "meetings/_calendar_nav.html" with previous_label="Previous month" next_label="Next month" %}
+  <h1 class="text-2xl font-semibold tracking-tight">{{ month|date:"F Y" }}</h1>
+{% endblock %}
+
+{% block page %}
+  <div class="overflow-hidden rounded-xl border border-gray-200">
+    <div class="grid grid-cols-7 border-b border-gray-200 text-center text-xs font-medium text-gray-500">
+      {% for name in weekdays %}<div class="py-2">{{ name }}</div>{% endfor %}
+    </div>
+    <div class="grid grid-cols-7 [&>a:nth-child(7n)]:border-r-0">
+      {% for week in weeks %}
+        {% for cell in week %}
+          <a href="{% url 'meetings:day' cell.date.year cell.date.month cell.date.day %}"
+             aria-label="{{ cell.date|date:'l j F' }}{% if cell.meetings %}, {{ cell.meetings|length }} meeting{{ cell.meetings|length|pluralize }}{% endif %}"
+             class="group flex min-h-16 flex-col gap-1 border-b border-r border-gray-100 p-1.5 transition-colors hover:bg-gray-50 focus-visible:relative focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600 sm:min-h-28 sm:p-2 {% if not cell.in_month %}bg-gray-50/60{% endif %}">
+            <span class="grid size-7 place-items-center self-center rounded-full text-sm tabular-nums sm:self-start {% if cell.is_today %}bg-blue-600 font-semibold text-white{% elif cell.in_month %}text-gray-900{% else %}text-gray-400{% endif %}">{{ cell.date.day }}</span>
+
+            {# Phone: one dot per meeting; wider screens: a line per meeting. #}
+            <span class="flex flex-wrap justify-center gap-1 sm:hidden">
+              {% for slot in cell.meetings|slice:":4" %}<span class="size-1.5 rounded-full bg-blue-600"></span>{% endfor %}
+              {% if cell.free %}<span class="size-1.5 rounded-full border border-gray-400"></span>{% endif %}
+            </span>
+            <span class="hidden min-w-0 flex-col gap-0.5 sm:flex">
+              {% for slot in cell.meetings|slice:":3" %}
+                <span class="flex min-w-0 items-center gap-1.5 text-xs {% if cell.in_month %}text-gray-700{% else %}text-gray-400{% endif %}">
+                  <span class="size-1.5 shrink-0 rounded-full bg-blue-600"></span>
+                  <span class="shrink-0 tabular-nums text-gray-500">{{ slot.starts_at|time:"H:i" }}</span>
+                  <span class="truncate">{{ slot.other.display_name }}</span>
+                </span>
+              {% endfor %}
+              {% if cell.meetings|length > 3 %}
+                <span class="pl-3 text-xs text-gray-500">{{ cell.meetings|length|add:"-3" }} more</span>
+              {% endif %}
+              {% if cell.free %}
+                <span class="flex items-center gap-1.5 text-xs text-gray-500">
+                  <span class="size-1.5 shrink-0 rounded-full border border-gray-400"></span>
+                  {{ cell.free }} free slot{{ cell.free|pluralize }}
+                </span>
+              {% endif %}
+            </span>
+          </a>
+        {% endfor %}
+      {% endfor %}
+    </div>
+  </div>
+{% endblock %}
