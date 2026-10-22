@@ -1,8 +1,11 @@
 import re
 
 from django.contrib.auth.models import AbstractUser, UserManager
+from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.db import models
+from django.db.models import Q
+from django.db.models.functions import Lower
 from simple_history.models import HistoricalRecords
 
 
@@ -33,6 +36,49 @@ class User(AbstractUser):
 
     objects = OfficeUserManager()
     history = HistoricalRecords(excluded_fields=["password", "last_login"])
+
+    class Meta(AbstractUser.Meta):
+        constraints = [
+            # Office mailboxes are handed on to the next person (a new intern
+            # gets the old intern's address), so an email only identifies
+            # someone while their account is active.
+            models.UniqueConstraint(
+                Lower("email"),
+                condition=Q(is_active=True) & ~Q(email=""),
+                name="core_user_unique_active_email",
+                violation_error_message=(
+                    "An active account already has this email. "
+                    "Deactivate that account first."
+                ),
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        if not (self.is_active and self.email):
+            return
+        holder = (
+            User.objects.filter(is_active=True, email__iexact=self.email)
+            .exclude(pk=self.pk)
+            .first()
+        )
+        if holder:
+            raise ValidationError(
+                {
+                    "email": f"{holder.display_name} ({holder.username}) still has "
+                    "this email. Deactivate their account first."
+                }
+            )
+
+    def save(self, *args, **kwargs):
+        # A leaver's mailbox goes to someone else; the old address stays in
+        # the account's history only.
+        if not self.is_active:
+            self.email = ""
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None and "is_active" in update_fields:
+                kwargs["update_fields"] = {*update_fields, "email"}
+        super().save(*args, **kwargs)
 
     @classmethod
     def normalize_username(cls, username):
