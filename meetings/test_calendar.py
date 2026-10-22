@@ -174,13 +174,13 @@ def test_day_timeline_stretches_to_early_and_late_slots(client, alice, tomorrow)
     assert hours[-1] == time(21)
 
 
-def test_empty_future_day_offers_to_open_slots(client, alice, tomorrow):
+def test_empty_future_day_offers_to_book(client, alice, tomorrow):
     client.force_login(alice)
 
     html = client.get(day_url(tomorrow)).content.decode()
 
     assert "Nothing on this day." in html
-    assert f"{reverse('meetings:open_slots')}?date={tomorrow:%Y-%m-%d}" in html
+    assert reverse("meetings:people") in html
 
 
 def test_ended_meetings_have_no_cancel_button(client, alice, bob):
@@ -196,19 +196,3 @@ def test_ended_meetings_have_no_cancel_button(client, alice, bob):
 def test_impossible_day_is_404(client, alice):
     client.force_login(alice)
     assert client.get(reverse("meetings:day", args=[2026, 2, 30])).status_code == 404
-
-
-def test_open_slots_form_takes_the_date_from_the_day_page(client, alice, tomorrow):
-    client.force_login(alice)
-
-    html = client.get(
-        reverse("meetings:open_slots"), {"date": tomorrow.isoformat()}
-    ).content.decode()
-
-    assert f'value="{tomorrow.isoformat()}"' in html
-
-
-def test_open_slots_form_ignores_a_bad_date(client, alice):
-    client.force_login(alice)
-    response = client.get(reverse("meetings:open_slots"), {"date": "soon"})
-    assert response.status_code == 200

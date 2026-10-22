@@ -9,7 +9,8 @@ from chat.models import Message
 from chat.services import unread_counts
 
 from .models import Slot
-from .services import SlotError, book, cancel, describe, open_slots
+from .services import SlotError, book, cancel, describe
+from .testing import open_slots
 
 pytestmark = pytest.mark.django_db
 
