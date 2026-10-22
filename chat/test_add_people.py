@@ -51,7 +51,8 @@ def test_adding_posts_a_system_message_by_whoever_added(client, alice, bob):
     message = secret.messages.get()
     assert message.is_system
     assert message.author == alice
-    assert message.body == "added bob"
+    assert message.body == "added"
+    assert message.subject == bob
 
 
 def test_added_person_sees_the_announcement_but_no_unread_badge(client, alice, bob):
