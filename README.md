@@ -166,6 +166,53 @@ service and runs:
 If you change a model, commit its migration file too. CI does not build the CSS;
 the tests do not need it.
 
+## Deployment
+
+Production is one DigitalOcean droplet (Ubuntu 24.04) at `erp.<domain>`.
+Caddy handles HTTPS and the static files, Gunicorn runs Django, and PostgreSQL
+runs in Docker from the same `compose.yaml` used in development. The files are
+in `deploy/`.
+
+| File | Purpose |
+| --- | --- |
+| `deploy/setup-server.sh` | One-time setup of a fresh droplet: firewall, Docker, Caddy, the `erp` user, `.env` with generated secrets, backups, first deploy |
+| `deploy/deploy.sh` | Every update: pull `production`, install packages, build CSS, `check --deploy`, collectstatic, migrate, restart |
+| `deploy/erp.service` | systemd service for Gunicorn |
+| `deploy/Caddyfile` | Caddy site (`ERP_DOMAIN` is filled in by the setup script) |
+| `deploy/backup.sh` | Nightly `pg_dump` at 02:30 into `/srv/erp-backups`, kept 14 days |
+
+**First time**
+
+1. Create the droplet: Ubuntu 24.04, region Bangalore (BLR1), SSH key
+   authentication, and turn on **Backups** (the off-server copy of everything,
+   including the nightly dumps).
+2. At the domain's DNS (HostGator), add an `A` record: name `erp`, value the
+   droplet's IP. Leave everything else alone; the website and email stay where they are.
+3. SSH in as root and run:
+
+        curl -fsSL https://raw.githubusercontent.com/Raghavkhedar/ERP/production/deploy/setup-server.sh | bash -s erp.<domain>
+
+4. Create the first admin account (the username is an employee ID such as S1):
+
+        sudo -u erp -i sh -c 'cd /srv/erp && .venv/bin/python manage.py createsuperuser'
+
+**Updating** after a PR is merged into `production`:
+
+    ssh root@<droplet-ip> sudo -u erp -i /srv/erp/deploy/deploy.sh
+
+**Useful commands on the server**
+
+| Task | Command |
+| --- | --- |
+| App errors | `journalctl -u erp -e` |
+| Restart the app | `systemctl restart erp` |
+| Caddy and HTTPS problems | `journalctl -u caddy -e` |
+| Run a backup now | `/srv/erp/deploy/backup.sh` |
+| Restore a backup | `docker exec -i senken_erp_db pg_restore -U senken_erp -d senken_erp --clean < /srv/erp-backups/FILE.dump` |
+
+The server clones the repo over HTTPS, which works while the repo is public. If it
+becomes private, add a read-only deploy key on the server first.
+
 ## Project layout
 
 | Path | Purpose |
@@ -176,7 +223,8 @@ the tests do not need it.
 | `static/css/` | `input.css` (Tailwind source); `app.css` is generated |
 | `static/vendor/` | Pinned htmx and Alpine.js, with `VERSIONS.md` |
 | `scripts/` | Helper scripts: the Tailwind installer, and 'ship.sh' (check, push, PR, wait for CI, merge, sync) |
-| `compose.yaml` | PostgreSQL 16 for local development |
+| `compose.yaml` | PostgreSQL 16 (development and production) |
+| `deploy/` | Server setup, deploy and backup scripts (see **Deployment**) |
 | `.env.example` | Template for your private `.env` file |
 | `pyproject.toml`, `uv.lock` | Dependencies and their pinned versions |
 | `.github/workflows/ci.yml` | The CI pipeline |
