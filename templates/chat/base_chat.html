@@ -13,3 +13,6 @@
     {% block panel %}{% endblock %}
   </section>
 {% endblock %}
+
+{# The composer sits where the button would; the bell still rings here. #}
+{% block chat_launcher %}{% include "chat/_launcher.html" with hide_button=True %}{% endblock %}

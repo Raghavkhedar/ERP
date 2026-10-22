@@ -6,6 +6,7 @@ app_name = "chat"
 
 urlpatterns = [
     path("", views.conversation_list, name="conversation_list"),
+    path("pulse/", views.pulse, name="pulse"),
     path("sidebar/", views.sidebar, name="sidebar"),
     path("channels/new/", views.new_channel, name="new_channel"),
     path("dm/new/", views.new_dm, name="new_dm"),

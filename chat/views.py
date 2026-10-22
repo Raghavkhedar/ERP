@@ -1,6 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponseBadRequest, HttpResponseForbidden
+from django.http import HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
@@ -15,6 +15,7 @@ from .services import (
     is_member,
     join,
     mark_read,
+    newest_incoming,
     unread_counts,
     visible_conversations,
 )
@@ -48,6 +49,18 @@ def _latest_messages(conversation):
 @login_required
 def conversation_list(request):
     return render(request, "chat/conversation_list.html", _sidebar(request.user))
+
+
+@login_required
+@require_GET
+def pulse(request):
+    """Unread total and newest incoming message id, for the chat button."""
+    return JsonResponse(
+        {
+            "unread": sum(unread_counts(request.user).values()),
+            "newest": newest_incoming(request.user),
+        }
+    )
 
 
 @login_required
