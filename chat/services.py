@@ -133,3 +133,17 @@ def unread_counts(user):
         )
     )
     return {m.conversation_id: m.unread for m in memberships if m.unread}
+
+
+def newest_incoming(user):
+    """Id of the newest message someone else sent the user, or None.
+
+    Counts the same messages as unread_counts, so the bell rings for exactly
+    the messages that raise the badge.
+    """
+    return (
+        Message.objects.filter(conversation__memberships__user=user)
+        .exclude(author=user)
+        .exclude(kind=MessageKind.SYSTEM)
+        .aggregate(newest=Max("id"))["newest"]
+    )

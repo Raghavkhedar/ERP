@@ -13,8 +13,6 @@ from .services import SlotError, book, cancel, describe, open_slots
 
 pytestmark = pytest.mark.django_db
 
-SCHEDULE_URL = reverse("meetings:schedule")
-
 
 @pytest.fixture
 def slot(alice):
@@ -30,6 +28,11 @@ def booked(slot, bob):
 
 def cancel_url(slot):
     return reverse("meetings:cancel", args=[slot.pk])
+
+
+def day_url(slot):
+    day = timezone.localdate(slot.starts_at)
+    return reverse("meetings:day", args=[day.year, day.month, day.day])
 
 
 def latest_notice():
@@ -121,32 +124,32 @@ def test_finished_meetings_cannot_be_cancelled(alice, bob):
 # Views
 
 
-def test_booker_cancels_from_the_schedule(client, booked, bob):
+def test_booker_cancels_from_the_day(client, booked, bob):
     client.force_login(bob)
-    assert cancel_url(booked) in client.get(SCHEDULE_URL).content.decode()
+    assert cancel_url(booked) in client.get(day_url(booked)).content.decode()
 
     response = client.post(cancel_url(booked), follow=True)
 
-    assert response.redirect_chain == [(SCHEDULE_URL, 302)]
+    assert response.redirect_chain == [(day_url(booked), 302)]
     assert "Booking cancelled" in response.content.decode()
     assert not Slot.objects.get(pk=booked.pk).is_booked
 
 
-def test_host_cancels_from_the_schedule(client, booked, alice):
+def test_host_cancels_from_the_day(client, booked, alice):
     client.force_login(alice)
     response = client.post(cancel_url(booked), follow=True)
     assert "Meeting cancelled" in response.content.decode()
     assert Slot.objects.get(pk=booked.pk).is_cancelled
 
 
-def test_host_removes_a_free_slot_from_the_schedule(client, slot, alice):
+def test_host_removes_a_free_slot_from_the_day(client, slot, alice):
     client.force_login(alice)
     response = client.post(cancel_url(slot), follow=True)
     assert "Slot removed" in response.content.decode()
-    assert response.context["open_slots"] == []
+    assert response.context["slots"] == []
 
 
-def test_rule_errors_are_shown_on_the_schedule(client, slot, alice):
+def test_rule_errors_are_shown_on_the_day(client, slot, alice):
     client.force_login(alice)
     client.post(cancel_url(slot))
     response = client.post(cancel_url(slot), follow=True)
