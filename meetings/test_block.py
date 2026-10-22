@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from .models import Slot
 from .services import block, book, cancel, open_office_hours, unblock
+from .testing import open_slots
 
 pytestmark = pytest.mark.django_db
 
@@ -192,3 +193,20 @@ def test_meetings_menu_links_to_block_time(client, alice):
     client.force_login(alice)
     html = client.get(reverse("meetings:schedule")).content.decode()
     assert reverse("meetings:block_time") in html
+
+
+def test_slots_opened_by_hand_are_listed_and_can_be_blocked(client, alice):
+    # Opened before office hours existed: they fill the day, so office hours
+    # only add the one time that was free.
+    by_hand = open_slots(alice, MONDAY, time(10), time(18), 15)
+    by_hand[12].cancelled_at = timezone.now()  # 13:00, removed
+    by_hand[12].save()
+    open_office_hours(alice, MONDAY)
+    client.force_login(alice)
+
+    runs = client.get(BLOCK_URL).context["runs"]
+
+    shown = [s for run in runs for s in run]
+    assert len(shown) == 32  # 10:00–18:00, with the 13:00 office-hours slot
+    assert by_hand[12] not in shown  # the removed one isn't shown twice
+    assert block(alice, [by_hand[0].pk]) == 1
