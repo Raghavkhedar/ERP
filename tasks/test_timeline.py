@@ -70,15 +70,6 @@ def test_an_overdue_task_runs_red_to_today(boss, alice):
     assert bar.end == DAYS_BEFORE_TODAY + 3
 
 
-def test_a_done_task_is_not_overdue(boss, alice):
-    task = make(boss, alice, received_days_ago=3, due_in=-2)
-    set_status(task, boss, Status.DONE)
-
-    [bar] = bars(build(alice))
-
-    assert bar.overdue_from is None
-
-
 def test_tasks_outside_the_window_are_left_out(boss, alice, today):
     make(boss, alice, received_days_ago=1, due_in=3)
 
@@ -86,14 +77,13 @@ def test_tasks_outside_the_window_are_left_out(boss, alice, today):
     assert bars(build(alice, today - timedelta(days=60))) == []
 
 
-def test_closed_tasks_drop_off_once_closed_before_the_window(boss, alice, today):
+@pytest.mark.parametrize("status", [Status.DONE, Status.CLOSED])
+def test_finished_tasks_leave_the_timeline(boss, alice, status):
     task = make(boss, alice, received_days_ago=1, due_in=3)
-    set_status(task, boss, Status.CLOSED)
-
     assert len(bars(build(alice))) == 1
-    Task.objects.filter(pk=task.pk).update(
-        closed_at=timezone.now() - timedelta(days=20)
-    )
+
+    set_status(task, boss, status)
+
     assert bars(build(alice)) == []
 
 
