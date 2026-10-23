@@ -69,7 +69,7 @@
         <div class="grid gap-6 sm:grid-cols-2">
           {% for panel in panels %}
             <section class="relative min-w-0" @click.outside="open === {{ forloop.counter0 }} && (open = null)" @keydown.escape="open = null">
-              <button type="button" id="panel-{{ forloop.counter }}" @click="open = open === {{ forloop.counter0 }} ? null : {{ forloop.counter0 }}"
+              <button type="button" id="panel-{{ forloop.counter }}" @click="open = open === {{ forloop.counter0 }} ? null : {{ forloop.counter0 }}; $nextTick(() => open !== null && document.getElementById('pop-' + open)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }))"
                       :aria-expanded="open === {{ forloop.counter0 }}"
                       class="flex h-12 w-full items-center justify-between gap-3 rounded-lg border border-gray-300 bg-white px-3 text-left text-sm outline-none transition hover:border-gray-400 focus-visible:border-blue-600 focus-visible:ring-4 focus-visible:ring-blue-600/10"
                       :class="open === {{ forloop.counter0 }} && 'border-blue-600 ring-4 ring-blue-600/10'">
@@ -82,8 +82,10 @@
                   <svg width="16" height="16" class="size-4 text-gray-400 transition-transform" :class="open === {{ forloop.counter0 }} && 'rotate-180'" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>
                 </span>
               </button>
-              <div x-show="open === {{ forloop.counter0 }}" x-cloak x-transition.opacity.duration.100ms
-                   class="absolute inset-x-0 top-full z-20 mt-1.5 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
+              <div id="pop-{{ forloop.counter0 }}" x-show="open === {{ forloop.counter0 }}" x-cloak
+                   x-transition:enter="transition duration-150 ease-out" x-transition:enter-start="opacity-0 -translate-y-1"
+                   x-transition:leave="transition duration-100 ease-in" x-transition:leave-end="opacity-0"
+                   class="absolute inset-x-0 top-full z-30 mt-1.5 scroll-mb-28 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
                 <div class="flex justify-end gap-4 border-b border-gray-100 px-3 py-2 text-xs text-gray-500">
                   <button type="button" @click="openIn($event)" class="transition-colors hover:text-gray-900">Select all open</button>
                   <button type="button" @click="clearIn($event)" class="transition-colors hover:text-gray-900">Clear</button>
@@ -149,7 +151,7 @@
           <p x-show="blocked" x-cloak class="mt-3 text-sm text-gray-600" x-text="`${blocked} blocked slot${blocked === 1 ? '' : 's'} selected to unblock.`"></p>
         </section>
 
-        <div class="sticky bottom-0 -mx-6 mt-8 flex flex-wrap items-center gap-3 border-t border-gray-100 bg-white/95 px-6 py-4 pr-24 backdrop-blur sm:-mx-8 sm:px-8 sm:pr-24">
+        <div class="sticky bottom-0 z-20 -mx-5 mt-8 flex flex-wrap items-center gap-3 border-t border-gray-200/80 bg-surface/95 px-5 py-4 pr-24 backdrop-blur sm:-mx-8 sm:px-8 sm:pr-24">
           <button type="submit" name="action" value="block" :disabled="!free || !ready()"
                   class="h-11 rounded-lg bg-blue-600 px-5 text-sm font-medium text-white transition duration-150 hover:bg-blue-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30"
                   x-text="free ? `Block ${free} slot${free === 1 ? '' : 's'}` : 'Block selected'">Block selected</button>
