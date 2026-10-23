@@ -1,4 +1,5 @@
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.http import FileResponse, HttpResponse
@@ -49,18 +50,38 @@ def _form_page(request, context, form="tasks/_task_form.html"):
     )
 
 
+PERSON_KEY = "tasks_person"
+
+
+def _person_filter(request):
+    """The one person an assigner chose to see (?person=), remembered in the
+    session so it sticks across weeks and reloads. None means everyone.
+    """
+    if not can_assign(request.user):
+        return {}
+    if "person" in request.GET:
+        request.session[PERSON_KEY] = request.GET["person"]
+    chosen = str(request.session.get(PERSON_KEY, ""))
+    people = (
+        get_user_model()
+        .objects.filter(is_active=True)
+        .order_by("first_name", "last_name", "username")
+    )
+    person = people.filter(pk=chosen).first() if chosen.isdigit() else None
+    return {"people": people, "person": person}
+
+
 @login_required
 def task_list(request):
-    tasks = list(visible_tasks(request.user).exclude(status=Status.CLOSED))
-    closed = (
-        visible_tasks(request.user)
-        .filter(status=Status.CLOSED)
-        .order_by("-closed_at")[:20]
-    )
+    filtering = _person_filter(request)
+    tasks = visible_tasks(request.user)
+    if filtering.get("person"):
+        tasks = tasks.filter(assigned_to=filtering["person"])
     context = {
-        "tasks": tasks,
-        "closed": closed,
+        "tasks": list(tasks.exclude(status=Status.CLOSED)),
+        "closed": tasks.filter(status=Status.CLOSED).order_by("-closed_at")[:20],
         "can_assign": can_assign(request.user),
+        **filtering,
     }
     return render(request, "tasks/list.html", context)
 
@@ -196,10 +217,12 @@ def attachment(request, pk):
 def timeline_context(request):
     today = timezone.localdate()
     start = task_timeline.parse_start(request.GET.get("from"), today)
+    filtering = _person_filter(request)
     return {
-        "timeline": task_timeline.build(request.user, start),
+        "timeline": task_timeline.build(request.user, start, filtering.get("person")),
         "can_assign": can_assign(request.user),
         "can_log": updatable_tasks(request.user).exists(),
+        **filtering,
     }
 
 

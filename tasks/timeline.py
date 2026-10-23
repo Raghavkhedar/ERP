@@ -123,7 +123,8 @@ def _bar(task, start, end, today):
     )
 
 
-def build(user, start=None):
+def build(user, start=None, person=None):
+    """The timeline for the user; an assigner may narrow it to one person."""
     today = timezone.localdate()
     start = start or today - timedelta(days=DAYS_BEFORE_TODAY)
     days = [start + timedelta(days=n) for n in range(DAYS)]
@@ -136,6 +137,8 @@ def build(user, start=None):
         .filter(received_at__lt=window_end)
         .filter(~Q(status=Status.CLOSED) | Q(closed_at__gte=window_start))
     )
+    if person is not None:
+        tasks = tasks.filter(assigned_to=person)
 
     assigner = can_assign(user)
     if assigner:

@@ -1,0 +1,16 @@
+{# Lets an assigner narrow tasks to one person. With htmx it reloads only the timeline. #}
+{% if people %}
+  <form method="get" action="{{ action|default:'' }}" class="flex items-center"
+        {% if htmx_url %}hx-get="{{ htmx_url }}" hx-trigger="change" hx-target="#timeline" hx-swap="outerHTML"{% else %}onchange="this.requestSubmit()"{% endif %}>
+    {% if keep_from %}<input type="hidden" name="from" value="{{ keep_from|date:'Y-m-d' }}">{% endif %}
+    <label for="person-filter" class="sr-only">Show tasks for</label>
+    <select id="person-filter" name="person"
+            class="h-8 max-w-44 truncate rounded-md border border-gray-200 bg-white pl-2.5 pr-7 text-sm outline-none transition hover:border-gray-300 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10 {% if person %}border-blue-600/40 font-medium text-gray-900{% else %}text-gray-600{% endif %}">
+      <option value="">Everyone</option>
+      {% for someone in people %}
+        <option value="{{ someone.pk }}" {% if someone.pk == person.pk %}selected{% endif %}>{{ someone.display_name }}</option>
+      {% endfor %}
+    </select>
+    <noscript><button type="submit" class="ml-2 text-sm text-blue-600">Show</button></noscript>
+  </form>
+{% endif %}
