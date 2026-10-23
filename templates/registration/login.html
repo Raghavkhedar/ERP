@@ -2,15 +2,18 @@
 
 {% block title %}Log in · Senken ERP{% endblock %}
 
-{% block body_class %}min-h-dvh bg-white text-gray-900 antialiased{% endblock %}
+{% block body_class %}min-h-dvh bg-canvas text-gray-900 antialiased{% endblock %}
 {% block header %}
-  <div class="px-6 pt-6 text-sm font-semibold tracking-tight text-gray-900 sm:px-8">Senken ERP</div>
+  <div class="flex h-14 items-center gap-2.5 bg-slate-900 px-6 text-sm font-semibold tracking-tight text-white sm:px-8">
+    {% include "_mark.html" %}
+    <span>Senken ERP</span>
+  </div>
 {% endblock %}
-{% block main_class %}flex min-h-[calc(100dvh-4rem)] items-center justify-center px-6 pb-16{% endblock %}
+{% block main_class %}flex min-h-[calc(100dvh-3.5rem)] items-center justify-center px-6 pb-16{% endblock %}
 
 {% block content %}
   <form method="post" x-data="{ show: false, sending: false }" @submit="sending = true"
-        class="w-full max-w-88 animate-rise motion-reduce:animate-none">
+        class="w-full max-w-96 rounded-2xl border border-gray-200/80 bg-surface p-8 animate-rise motion-reduce:animate-none">
     {% csrf_token %}
     <input type="hidden" name="next" value="{{ next }}">
 

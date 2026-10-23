@@ -1,16 +1,17 @@
 {% extends "base.html" %}
 
-{% block body_class %}min-h-dvh bg-white text-gray-900 antialiased{% endblock %}
 {% block main_class %}mx-auto w-full max-w-3xl px-6 pb-28 pt-8 sm:px-8{% endblock %}
 
 {% block content %}
-  <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
-    <div class="flex min-w-0 flex-wrap items-center gap-3">{% block toolbar %}<h1 class="text-2xl font-semibold tracking-tight">{% block heading %}Tasks{% endblock %}</h1>{% endblock %}</div>
-    {% block actions %}{% endblock %}
+  <div class="rounded-2xl border border-gray-200/80 bg-surface p-5 sm:p-8">
+    <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
+      <div class="flex min-w-0 flex-wrap items-center gap-3">{% block toolbar %}<h1 class="text-2xl font-semibold tracking-tight">{% block heading %}Tasks{% endblock %}</h1>{% endblock %}</div>
+      {% block actions %}{% endblock %}
+    </div>
+    {% for message in messages %}
+      <p role="status" class="mt-6 text-sm {% if message.tags == 'error' %}text-red-600{% else %}text-green-700{% endif %}">{{ message }}</p>
+    {% endfor %}
+    <div class="mt-8">{% block page %}{% endblock %}</div>
+    {% include "tasks/_dialog.html" %}
   </div>
-  {% for message in messages %}
-    <p role="status" class="mt-6 text-sm {% if message.tags == 'error' %}text-red-600{% else %}text-green-700{% endif %}">{{ message }}</p>
-  {% endfor %}
-  <div class="mt-8">{% block page %}{% endblock %}</div>
-  {% include "tasks/_dialog.html" %}
 {% endblock %}
