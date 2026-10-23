@@ -5,31 +5,41 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Senken ERP{% endblock %}</title>
+  <link rel="preload" href="{% static 'vendor/fonts/Geist-Variable.woff2' %}" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
   <script src="{% static 'vendor/htmx.min.js' %}" defer></script>
   <script src="{% static 'vendor/alpine.min.js' %}" defer></script>
 </head>
-<body class="{% block body_class %}min-h-dvh bg-gray-100 text-gray-900{% endblock %}">
+<body class="{% block body_class %}min-h-dvh bg-canvas text-gray-900 antialiased{% endblock %}">
   {% block header %}
-  <header class="flex h-14 shrink-0 items-center justify-between border-b border-gray-200/70 bg-white px-6 text-sm text-gray-500 sm:px-8">
-    <nav class="flex items-center gap-6">
-      <a href="{% url 'home' %}" class="font-semibold tracking-tight text-gray-900">Senken ERP</a>
+  <header class="flex h-14 shrink-0 items-center justify-between border-b border-gray-200/80 bg-surface px-6 text-sm text-gray-500 sm:px-8">
+    <nav class="flex h-full items-center gap-7">
+      <a href="{% url 'home' %}" class="flex items-center gap-2.5 font-semibold tracking-tight text-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/40 rounded">
+        {% include "_mark.html" %}
+        <span class="title text-xl">Senken ERP</span>
+      </a>
       {% if user.is_authenticated %}
         {% with section=request.resolver_match.app_name %}
-          <a href="{% url 'meetings:schedule' %}" class="transition-colors hover:text-gray-900 {% if section == 'meetings' %}text-gray-900{% endif %}">Meetings</a>
-          <a href="{% url 'tasks:list' %}" class="transition-colors hover:text-gray-900 {% if section == 'tasks' %}text-gray-900{% endif %}">Tasks</a>
+          {% url 'meetings:schedule' as meetings_url %}{% url 'tasks:list' as tasks_url %}
+          {% include "_nav_link.html" with url=meetings_url label="Meetings" name="meetings" %}
+          {% include "_nav_link.html" with url=tasks_url label="Tasks" name="tasks" %}
         {% endwith %}
       {% endif %}
     </nav>
     {% if user.is_authenticated %}
       <form method="post" action="{% url 'logout' %}" class="flex items-center gap-4">
         {% csrf_token %}
-        <span class="hidden text-gray-900 sm:inline">{{ user.display_name }}</span>
-        <button type="submit" class="transition-colors hover:text-gray-900 focus-visible:text-gray-900 focus-visible:underline focus-visible:outline-none">Log out</button>
+        <span class="hidden items-center gap-2 text-gray-700 sm:flex">
+          {% include "chat/_avatar.html" with name=user.display_name size="size-6 text-xs" %}
+          {{ user.display_name }}
+        </span>
+        <button type="submit" class="rounded transition-colors hover:text-gray-900 focus-visible:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/40">Log out</button>
       </form>
     {% endif %}
   </header>
   {% endblock %}
+
+  {% block band %}{% endblock %}
 
   <main class="{% block main_class %}container mx-auto p-4{% endblock %}">
     {% block content %}{% endblock %}

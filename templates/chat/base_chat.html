@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 
-{% block body_class %}flex h-dvh flex-col overflow-hidden bg-white text-gray-900{% endblock %}
+{% block body_class %}flex h-dvh flex-col overflow-hidden bg-surface text-gray-900 antialiased{% endblock %}
 {% block main_class %}flex min-h-0 flex-1{% endblock %}
 
 {% block content %}
   {% include "chat/_sidebar.html" %}
   <section class="flex min-w-0 flex-1 flex-col">
     <header class="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-gray-200 px-5">
-      <h1 class="truncate text-lg font-bold">{% block panel_title %}{% endblock %}</h1>
+      <h1 class="title truncate text-2xl">{% block panel_title %}{% endblock %}</h1>
       {% block panel_actions %}{% endblock %}
     </header>
     {% block panel %}{% endblock %}

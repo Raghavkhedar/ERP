@@ -68,7 +68,7 @@
       <ol class="mt-4 border-l border-gray-200">
         {% for update in updates %}
           <li id="update-{{ update.pk }}" class="relative scroll-mt-24 pb-8 pl-6 last:pb-0 target:[&>div]:bg-blue-50/60">
-            <span class="absolute -left-[5px] top-1.5 size-2.5 rounded-full border-2 border-white bg-blue-600 ring-1 ring-blue-600" aria-hidden="true"></span>
+            <span class="absolute -left-1.25 top-1.5 size-2.5 rounded-full border-2 border-white bg-blue-600 ring-1 ring-blue-600" aria-hidden="true"></span>
             <div class="-my-1 rounded-lg py-1 transition-colors">
               <p class="text-sm text-gray-500"><time datetime="{{ update.created_at|date:'c' }}">{{ update.created_at|date:"D j M, H:i" }}</time>{% if update.author_id != task.assigned_to_id %}, {{ update.author.display_name }}{% endif %}</p>
               <p class="mt-1 whitespace-pre-line leading-relaxed">{{ update.body }}</p>

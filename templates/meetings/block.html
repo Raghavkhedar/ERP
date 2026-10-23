@@ -7,7 +7,7 @@
   {% url 'meetings:block_day' following.year following.month following.day as next_url %}
   {% url 'meetings:block_time' as today_url %}
   {% include "meetings/_calendar_nav.html" with previous_label="Previous day" next_label="Next day" %}
-  <h1 class="text-2xl font-semibold tracking-tight">{{ day|date:"l, j F" }}</h1>
+  <h1 class="title text-3xl">{{ day|date:"l, j F" }}</h1>
   <input type="date" value="{{ day|date:'Y-m-d' }}" aria-label="Go to a date"
          onchange="if (this.value) location = '{{ today_url }}' + this.value.replaceAll('-', '/') + '/'"
          class="h-9 rounded-lg border border-gray-300 px-2.5 text-sm text-gray-600 outline-none transition focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10">
@@ -51,7 +51,7 @@
                 <li class="border-b border-gray-100 last:border-b-0">
                   {% if slot.state == "booked" %}
                     <a href="{% url 'meetings:day' day.year day.month day.day %}#slot-{{ slot.pk }}"
-                       class="flex h-11 items-center gap-3 border-l-[3px] border-blue-600 bg-blue-50 pl-[calc(0.75rem-3px)] pr-3 text-sm text-blue-950 transition-colors hover:bg-blue-100 {% if slot.started %}opacity-60{% endif %}">
+                       class="flex h-11 items-center gap-3 border-l-[3px] border-blue-600 bg-blue-50 pl-2.25 pr-3 text-sm text-blue-950 transition-colors hover:bg-blue-100 {% if slot.started %}opacity-60{% endif %}">
                       <span class="w-4 shrink-0"></span>
                       <span class="w-24 shrink-0 tabular-nums">{{ slot.starts_at|time:"H:i" }}–{{ slot.ends_at|time:"H:i" }}</span>
                       <span class="truncate font-medium">{{ slot.booked_by.display_name }}: {{ slot.topic }}</span>

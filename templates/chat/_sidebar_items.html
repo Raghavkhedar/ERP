@@ -1,28 +1,28 @@
 <div>
   <div class="mb-1 flex items-center justify-between px-2">
-    <h2 class="text-xs font-semibold uppercase tracking-wide text-slate-400">Channels</h2>
+    <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-400">Channels</h2>
     <a href="{% url 'chat:new_channel' %}" title="New channel"
-       class="rounded px-1.5 text-lg leading-6 text-slate-400 hover:bg-slate-700 hover:text-white">+</a>
+       class="rounded px-1.5 text-lg leading-6 text-gray-400 hover:bg-gray-100 hover:text-gray-900">+</a>
   </div>
   <ul class="space-y-0.5">
     {% for c in channels %}
       {% include "chat/_sidebar_link.html" %}
     {% empty %}
-      <li class="px-2 text-sm text-slate-500">No channels yet</li>
+      <li class="px-2 text-sm text-gray-400">No channels yet</li>
     {% endfor %}
   </ul>
 </div>
 <div>
   <div class="mb-1 flex items-center justify-between px-2">
-    <h2 class="text-xs font-semibold uppercase tracking-wide text-slate-400">Direct messages</h2>
+    <h2 class="text-xs font-semibold uppercase tracking-wide text-gray-400">Direct messages</h2>
     <a href="{% url 'chat:new_dm' %}" title="New direct message"
-       class="rounded px-1.5 text-lg leading-6 text-slate-400 hover:bg-slate-700 hover:text-white">+</a>
+       class="rounded px-1.5 text-lg leading-6 text-gray-400 hover:bg-gray-100 hover:text-gray-900">+</a>
   </div>
   <ul class="space-y-0.5">
     {% for c in direct_messages %}
       {% include "chat/_sidebar_link.html" %}
     {% empty %}
-      <li class="px-2 text-sm text-slate-500">No direct messages yet</li>
+      <li class="px-2 text-sm text-gray-400">No direct messages yet</li>
     {% endfor %}
   </ul>
 </div>

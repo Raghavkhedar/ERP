@@ -1,7 +1,123 @@
 @import "tailwindcss";
+
+/* Fonts are served from static/vendor/fonts (see VERSIONS.md), not a CDN. */
+@font-face {
+  font-family: "Geist";
+  src: url("../vendor/fonts/Geist-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
 @source "../../templates";
 
 @theme {
+  /* Geist throughout. */
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+
+  /* Roomier lines for reading; sizes come from the root size below. */
+  --text-xs--line-height: 1.55;
+  --text-sm--line-height: 1.6;
+  --text-base--line-height: 1.65;
+
+  /* The Senken palette, "Sea glass": calm, cool and easy to read.
+     Templates keep Tailwind's colour names; these redefine them, so the
+     whole app follows this one place. */
+
+  /* Page layers: the soft mist behind everything, and the panels on it. */
+  --color-canvas: #D4DDDB;
+  --color-surface: #F4F7F6;
+
+  /* gray: neutrals: text, lines, surfaces (a cool sea-glass grey) */
+  --color-gray-50: #ECF1EF;
+  --color-gray-100: #E2E9E7;
+  --color-gray-200: #D3DCDA;
+  --color-gray-300: #BAC6C4;
+  --color-gray-400: #8E9B9A;
+  --color-gray-500: #7A8786;
+  --color-gray-600: #617070;
+  --color-gray-700: #4E5C5B;
+  --color-gray-800: #3D4A49;
+  --color-gray-900: #2E3A3A;
+  --color-gray-950: #222C2C;
+
+  /* blue: the accent: buttons, links, focus, on-going work (deep teal) */
+  --color-blue-50: #EEF6F5;
+  --color-blue-100: #D5EBE8;
+  --color-blue-200: #ACD6D1;
+  --color-blue-300: #7BBBB4;
+  --color-blue-400: #4A9C94;
+  --color-blue-500: #2C837B;
+  --color-blue-600: #1F6F68;
+  --color-blue-700: #195A55;
+  --color-blue-800: #164A46;
+  --color-blue-900: #143D3A;
+  --color-blue-950: #082321;
+
+  /* slate: spare neutrals */
+  --color-slate-50: #F4F7F7;
+  --color-slate-100: #E7EDEC;
+  --color-slate-200: #D3DCDB;
+  --color-slate-300: #C5D1D0;
+  --color-slate-400: #93A3A1;
+  --color-slate-500: #677775;
+  --color-slate-600: #4C5B59;
+  --color-slate-700: #364341;
+  --color-slate-800: #223230;
+  --color-slate-900: #172624;
+  --color-slate-950: #0E1817;
+
+  /* red: errors and overdue (soft brick) */
+  --color-red-50: #FBF2EF;
+  --color-red-100: #F6E1DA;
+  --color-red-200: #EDC1B4;
+  --color-red-300: #E09A86;
+  --color-red-400: #D27258;
+  --color-red-500: #C4583D;
+  --color-red-600: #B4442F;
+  --color-red-700: #933627;
+  --color-red-800: #772D22;
+  --color-red-900: #62281F;
+  --color-red-950: #35120D;
+
+  /* rose: unread badges, the same brick */
+  --color-rose-50: #FBF2EF;
+  --color-rose-100: #F6E1DA;
+  --color-rose-200: #EDC1B4;
+  --color-rose-300: #E09A86;
+  --color-rose-400: #D27258;
+  --color-rose-500: #C4583D;
+  --color-rose-600: #B4442F;
+  --color-rose-700: #933627;
+  --color-rose-800: #772D22;
+  --color-rose-900: #62281F;
+  --color-rose-950: #35120D;
+
+  /* green: success messages */
+  --color-green-50: #F0F7F2;
+  --color-green-100: #DCEDE2;
+  --color-green-200: #BADBC6;
+  --color-green-300: #8EC2A3;
+  --color-green-400: #63A47F;
+  --color-green-500: #468863;
+  --color-green-600: #3A7656;
+  --color-green-700: #2E5F45;
+  --color-green-800: #264D39;
+  --color-green-900: #203F30;
+  --color-green-950: #10231A;
+
+  /* emerald: done (sage) */
+  --color-emerald-50: #F2F7F3;
+  --color-emerald-100: #E1EDE3;
+  --color-emerald-200: #C3DBC7;
+  --color-emerald-300: #9FC4A5;
+  --color-emerald-400: #82AE89;
+  --color-emerald-500: #6E9C76;
+  --color-emerald-600: #567F5D;
+  --color-emerald-700: #45664B;
+  --color-emerald-800: #38523D;
+  --color-emerald-900: #2F4433;
+  --color-emerald-950: #18241B;
+
   --animate-rise: rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
   --animate-ring: ring 0.8s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
 
@@ -36,6 +152,21 @@
   }
 }
 
+/* 17px instead of 16px: text, spacing and widths are in rem, so all of it
+   grows together and stays in proportion. */
+@layer base {
+  html {
+    font-size: 106.25%;
+  }
+}
+
 [x-cloak] {
   display: none !important;
+}
+
+/* Page titles: plain Geist, a little heavier than body text. */
+@utility title {
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
 }

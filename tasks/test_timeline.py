@@ -72,7 +72,7 @@ def test_an_overdue_task_runs_red_to_today(boss, alice):
 
 def test_a_done_task_is_not_overdue(boss, alice):
     task = make(boss, alice, received_days_ago=3, due_in=-2)
-    set_status(task, alice, Status.DONE)
+    set_status(task, boss, Status.DONE)
 
     [bar] = bars(build(alice))
 

@@ -55,17 +55,9 @@ def assign(by, to, priority, description, due_date):
     return task
 
 
-# Who may move a task to each status. The assignee works on it; an admin
-# accepts the work by closing it, and may reopen it.
-ASSIGNEE_STATUSES = {Status.OPEN, Status.ONGOING, Status.DONE}
-
-
 def allowed_statuses(task, user):
-    if can_assign(user):
-        return list(Status)
-    if task.assigned_to_id == user.pk and not task.is_closed:
-        return [status for status in Status if status in ASSIGNEE_STATUSES]
-    return []
+    """Only admins change a task's status; the assignee logs updates."""
+    return list(Status) if can_assign(user) else []
 
 
 @transaction.atomic
@@ -78,7 +70,7 @@ def set_status(task, user, status):
     if status not in allowed_statuses(task, user):
         if task.assigned_to_id != user.pk:
             raise PermissionDenied("This isn't your task.")
-        raise TaskError("Only an admin can close or reopen a task.")
+        raise TaskError("Only an admin can change a task's status.")
     if status == task.status:
         return task
 
@@ -86,10 +78,12 @@ def set_status(task, user, status):
     task.closed_at = timezone.now() if status == Status.CLOSED else None
     task.save()
 
-    if status == Status.DONE and user.pk != task.assigned_by_id:
-        post_notice(user, task.assigned_by, f"finished a task: {task.title}")
-    elif status == Status.CLOSED and user.pk != task.assigned_to_id:
-        post_notice(user, task.assigned_to, f"closed your task: {task.title}")
+    if user.pk != task.assigned_to_id:
+        if status == Status.CLOSED:
+            body = f"closed your task: {task.title}"
+        else:
+            body = f"marked your task {task.get_status_display()}: {task.title}"
+        post_notice(user, task.assigned_to, body)
     return task
 
 
