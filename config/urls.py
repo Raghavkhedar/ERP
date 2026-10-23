@@ -32,5 +32,6 @@ urlpatterns = [
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("chat/", include("chat.urls")),
     path("meetings/", include("meetings.urls")),
+    path("tasks/", include("tasks.urls")),
     path("", views.home, name="home"),
 ]

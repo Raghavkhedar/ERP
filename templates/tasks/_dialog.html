@@ -1,0 +1,6 @@
+{# One dialog for every task form; buttons load a form into it with htmx and open it. #}
+<dialog id="task-dialog" aria-labelledby="task-dialog-title"
+        onclick="if (event.target === this) this.close()"
+        class="m-auto w-[calc(100%-2rem)] max-w-lg rounded-xl bg-white p-0 text-gray-900 shadow-xl backdrop:bg-gray-900/30 open:animate-rise motion-reduce:open:animate-none">
+  <div id="task-dialog-body"></div>
+</dialog>

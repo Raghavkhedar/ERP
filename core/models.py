@@ -91,3 +91,8 @@ class User(AbstractUser):
         if not self.is_active:
             return "Former employee"
         return self.get_full_name() or self.username
+
+    @property
+    def is_office_admin(self):
+        """Superusers and the Office admin group: they run the office's setup."""
+        return self.is_superuser or self.groups.filter(name="Office admin").exists()

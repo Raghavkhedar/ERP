@@ -17,6 +17,7 @@
       {% if user.is_authenticated %}
         {% with section=request.resolver_match.app_name %}
           <a href="{% url 'meetings:schedule' %}" class="transition-colors hover:text-gray-900 {% if section == 'meetings' %}text-gray-900{% endif %}">Meetings</a>
+          <a href="{% url 'tasks:list' %}" class="transition-colors hover:text-gray-900 {% if section == 'tasks' %}text-gray-900{% endif %}">Tasks</a>
         {% endwith %}
       {% endif %}
     </nav>
