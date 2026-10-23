@@ -103,9 +103,10 @@ def test_page_lists_office_hours_before_and_after_lunch(client, alice, bob, hour
 
     response = client.get(BLOCK_URL)
 
-    runs = response.context["runs"]
-    assert [len(run) for run in runs] == [14, 16]
-    assert [s.state for s in runs[0][:3]] == ["free", "booked", "blocked"]
+    panels = response.context["panels"]
+    assert [p["title"] for p in panels] == ["Before lunch", "After lunch"]
+    assert [len(p["slots"]) for p in panels] == [14, 16]
+    assert [s.state for s in panels[0]["slots"][:3]] == ["free", "booked", "blocked"]
     html = response.content.decode()
     assert "10:00–13:30" in html and "14:00–18:00" in html
     assert "bob: Leave request" in html
@@ -261,9 +262,9 @@ def test_slots_opened_by_hand_are_listed_and_can_be_blocked(client, alice):
     open_office_hours(alice, MONDAY)
     client.force_login(alice)
 
-    runs = client.get(BLOCK_URL).context["runs"]
+    panels = client.get(BLOCK_URL).context["panels"]
 
-    shown = [s for run in runs for s in run]
+    shown = [s for panel in panels for s in panel["slots"]]
     assert len(shown) == 32  # 10:00–18:00, with the 13:00 office-hours slot
     assert by_hand[12] not in shown  # the removed one isn't shown twice
     assert block(alice, [by_hand[0].pk], "Away") == 1

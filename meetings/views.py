@@ -16,6 +16,7 @@ from django.views.decorators.http import require_POST
 from .forms import BookingForm
 from .models import Slot
 from .services import (
+    OFFICE_HOURS,
     SlotError,
     block,
     book,
@@ -273,6 +274,21 @@ def _runs(slots):
     return runs
 
 
+def _panels(slots):
+    """The day's slots as two pickers: before lunch and after lunch."""
+    lunch = OFFICE_HOURS[0][1]
+    morning = [s for s in slots if timezone.localtime(s.starts_at).time() < lunch]
+    afternoon = slots[len(morning) :]
+    return [
+        {"title": "Before lunch", "hours": _hours(OFFICE_HOURS[0]), "slots": morning},
+        {"title": "After lunch", "hours": _hours(OFFICE_HOURS[-1]), "slots": afternoon},
+    ]
+
+
+def _hours(span):
+    return f"{span[0]:%H:%M}–{span[1]:%H:%M}"
+
+
 @login_required
 def block_time(request, year=None, month=None, day=None):
     """The user's slots for one day, to block or unblock times."""
@@ -328,7 +344,8 @@ def block_time(request, year=None, month=None, day=None):
         "day": shown,
         "today": today,
         "is_sunday": shown.weekday() == 6,
-        "runs": _runs(slots),
+        "has_slots": bool(slots),
+        "panels": _panels(slots),
         "can_block": any(s.state == "free" and not s.started for s in slots),
         "previous": shown - timedelta(days=1),
         "following": shown + timedelta(days=1),
