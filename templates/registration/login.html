@@ -17,7 +17,7 @@
     {% csrf_token %}
     <input type="hidden" name="next" value="{{ next }}">
 
-    <h1 class="title text-4xl">Log in</h1>
+    <h1 class="title text-3xl">Log in</h1>
     {% if form.non_field_errors %}
       <p role="alert" class="mt-2 text-sm text-red-600">
         {% for error in form.non_field_errors %}{{ error }}{% endfor %}

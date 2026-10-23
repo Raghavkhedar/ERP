@@ -17,7 +17,7 @@
     </svg>
     <div class="relative mx-auto max-w-5xl px-6 pb-28 pt-12 sm:pt-16 animate-rise motion-reduce:animate-none">
       <p class="text-sm text-gray-500">{{ today|date:"l, j F" }}</p>
-      <h1 class="title mt-1 text-4xl sm:text-5xl">{{ greeting }}, {{ user.first_name|default:user.display_name }}</h1>
+      <h1 class="title mt-1 text-3xl sm:text-4xl">{{ greeting }}, {{ user.first_name|default:user.display_name }}</h1>
     </div>
   </div>
 {% endblock %}
