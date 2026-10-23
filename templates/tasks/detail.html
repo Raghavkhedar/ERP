@@ -1,0 +1,56 @@
+{% extends "tasks/base_tasks.html" %}
+
+{% block title %}{{ task.title }} · Tasks{% endblock %}
+{% block toolbar %}
+  <a href="{% url 'tasks:list' %}" class="text-sm text-gray-500 hover:text-gray-900">Tasks</a>
+{% endblock %}
+{% block actions %}
+  {% if can_assign %}
+    <a href="{% url 'tasks:edit' task.pk %}"
+       hx-get="{% url 'tasks:edit' task.pk %}" hx-target="#task-dialog-body"
+       hx-on::after:swap="document.getElementById('task-dialog').showModal()"
+       class="inline-flex h-10 items-center rounded-lg border border-gray-300 px-4 text-sm font-medium transition duration-150 hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/10">Edit</a>
+  {% endif %}
+{% endblock %}
+
+{% block page %}
+  <div class="flex items-start gap-4">
+    <span class="mt-0.5 text-2xl font-semibold tabular-nums tracking-tight text-gray-400">P{{ task.priority }}</span>
+    <p class="min-w-0 flex-1 whitespace-pre-line text-lg leading-relaxed">{{ task.description }}</p>
+  </div>
+
+  <dl class="mt-8 grid grid-cols-2 gap-x-6 gap-y-5 border-y border-gray-100 py-5 text-sm sm:grid-cols-4">
+    <div>
+      <dt class="text-gray-500">Assigned to</dt>
+      <dd class="mt-1 font-medium">{{ task.assigned_to.display_name }}</dd>
+    </div>
+    <div>
+      <dt class="text-gray-500">Received</dt>
+      <dd class="mt-1 font-medium">{{ task.received_at|date:"D j M, H:i" }}</dd>
+    </div>
+    <div>
+      <dt class="text-gray-500">Completion date</dt>
+      <dd class="mt-1 font-medium {% if task.is_overdue %}text-red-600{% endif %}">{{ task.due_date|date:"D j M Y" }}{% if task.is_overdue %}, overdue{% endif %}</dd>
+    </div>
+    <div>
+      <dt class="text-gray-500">Assigned by</dt>
+      <dd class="mt-1 font-medium">{{ task.assigned_by.display_name }}</dd>
+    </div>
+  </dl>
+
+  <section class="mt-8">
+    <h2 class="text-sm font-medium text-gray-500">Status</h2>
+    {% if statuses %}
+      <form method="post" action="{% url 'tasks:status' task.pk %}" class="mt-3 inline-flex flex-wrap rounded-lg border border-gray-200 p-1">
+        {% csrf_token %}
+        {% for status in statuses %}
+          <button type="submit" name="status" value="{{ status.value }}"
+                  {% if status.value == task.status %}aria-pressed="true" disabled{% endif %}
+                  class="h-9 rounded-md px-4 text-sm transition-colors {% if status.value == task.status %}bg-gray-900 font-medium text-white{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %} focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/20">{{ status.label }}</button>
+        {% endfor %}
+      </form>
+    {% else %}
+      <div class="mt-3">{% include "tasks/_status.html" with status=task.status label=task.get_status_display %}</div>
+    {% endif %}
+  </section>
+{% endblock %}

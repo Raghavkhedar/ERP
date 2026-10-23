@@ -1,0 +1,10 @@
+<li>
+  <a href="{% url 'tasks:detail' task.pk %}" class="-mx-3 flex items-center gap-4 rounded-lg px-3 py-3.5 transition-colors hover:bg-gray-50">
+    <span class="w-9 shrink-0 text-sm font-semibold tabular-nums {% if task.is_closed %}text-gray-400{% else %}text-gray-900{% endif %}">P{{ task.priority }}</span>
+    <div class="min-w-0 flex-1">
+      <div class="truncate font-medium {% if task.is_closed %}text-gray-400{% endif %}">{{ task.title }}</div>
+      <div class="truncate text-sm text-gray-500">{% if can_assign %}{{ task.assigned_to.display_name }} · {% endif %}<span class="{% if task.is_overdue %}text-red-600{% endif %}">due {{ task.due_date|date:"D j M" }}</span></div>
+    </div>
+    {% include "tasks/_status.html" with status=task.status label=task.get_status_display %}
+  </a>
+</li>

@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "core",
     "chat",
     "meetings",
+    "tasks",
     "simple_history",
 ]
 

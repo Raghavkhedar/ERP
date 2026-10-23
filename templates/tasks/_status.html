@@ -1,0 +1,3 @@
+<span class="inline-flex items-center gap-1.5 text-sm {% if status == 'closed' %}text-gray-400{% else %}text-gray-600{% endif %}">
+  <span class="size-2 rounded-full {% if status == 'ongoing' %}bg-blue-600{% elif status == 'done' %}bg-emerald-500{% elif status == 'closed' %}bg-gray-200{% else %}bg-gray-300{% endif %}" aria-hidden="true"></span>{{ label }}
+</span>

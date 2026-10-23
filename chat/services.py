@@ -45,11 +45,7 @@ def can_add_people(conversation, user):
     """Only a private channel's creator and Office admins add its members."""
     if conversation.kind != ConversationKind.CHANNEL or not conversation.is_private:
         return False
-    return (
-        conversation.created_by_id == user.pk
-        or user.is_superuser
-        or user.groups.filter(name="Office admin").exists()
-    )
+    return conversation.created_by_id == user.pk or user.is_office_admin
 
 
 @transaction.atomic
