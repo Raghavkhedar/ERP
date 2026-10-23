@@ -1,3 +1,6 @@
+from pathlib import Path
+from uuid import uuid4
+
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
@@ -82,3 +85,65 @@ class Task(models.Model):
         return self.status in (Status.OPEN, Status.ONGOING) and (
             self.due_date < timezone.localdate()
         )
+
+
+class TaskUpdate(models.Model):
+    """What someone did on a task, logged from the timeline's + button."""
+
+    task = models.ForeignKey(Task, on_delete=models.PROTECT, related_name="updates")
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    body = models.TextField(max_length=4000)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [
+            models.Index(
+                fields=["task", "created_at"], name="tasks_update_task_time_idx"
+            ),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(body__regex=r"\S"),
+                name="tasks_update_body_not_blank",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.task}: {self.body[:40]}"
+
+    @property
+    def summary(self):
+        lines = self.body.strip().splitlines()
+        return lines[0] if lines else ""
+
+
+IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+
+
+def attachment_path(attachment, filename):
+    # A random name: the person's file name is kept in original_name, so
+    # names never clash and nobody can guess another file's path.
+    suffix = Path(filename).suffix.lower()
+    return f"tasks/{timezone.now():%Y/%m}/{uuid4().hex}{suffix}"
+
+
+class Attachment(models.Model):
+    update = models.ForeignKey(
+        TaskUpdate, on_delete=models.PROTECT, related_name="attachments"
+    )
+    file = models.FileField(upload_to=attachment_path, max_length=200)
+    original_name = models.CharField(max_length=255)
+    size = models.PositiveIntegerField()
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self):
+        return self.original_name
+
+    @property
+    def is_image(self):
+        return Path(self.file.name).suffix.lower() in IMAGE_EXTENSIONS

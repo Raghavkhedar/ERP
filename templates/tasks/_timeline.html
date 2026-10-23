@@ -6,13 +6,13 @@
       <a href="?from={{ timeline.previous|date:'Y-m-d' }}" aria-label="Earlier days"
          hx-get="{% url 'tasks:timeline' %}?from={{ timeline.previous|date:'Y-m-d' }}" hx-target="#timeline" hx-swap="outerHTML"
          class="inline-flex size-8 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/20">
-        <svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M12.8 4.2a.75.75 0 0 1 0 1.06L8.06 10l4.74 4.74a.75.75 0 1 1-1.06 1.06l-5.27-5.27a.75.75 0 0 1 0-1.06l5.27-5.27a.75.75 0 0 1 1.06 0Z" clip-rule="evenodd"/></svg>
+        <svg width="16" height="16" class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M12.8 4.2a.75.75 0 0 1 0 1.06L8.06 10l4.74 4.74a.75.75 0 1 1-1.06 1.06l-5.27-5.27a.75.75 0 0 1 0-1.06l5.27-5.27a.75.75 0 0 1 1.06 0Z" clip-rule="evenodd"/></svg>
       </a>
       <span class="min-w-32 text-center tabular-nums text-gray-600">{{ timeline.start|date:"j M" }} – {{ timeline.end|date:"j M" }}</span>
       <a href="?from={{ timeline.following|date:'Y-m-d' }}" aria-label="Later days"
          hx-get="{% url 'tasks:timeline' %}?from={{ timeline.following|date:'Y-m-d' }}" hx-target="#timeline" hx-swap="outerHTML"
          class="inline-flex size-8 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/20">
-        <svg class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M7.2 15.8a.75.75 0 0 1 0-1.06L11.94 10 7.2 5.26a.75.75 0 1 1 1.06-1.06l5.27 5.27a.75.75 0 0 1 0 1.06l-5.27 5.27a.75.75 0 0 1-1.06 0Z" clip-rule="evenodd"/></svg>
+        <svg width="16" height="16" class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M7.2 15.8a.75.75 0 0 1 0-1.06L11.94 10 7.2 5.26a.75.75 0 1 1 1.06-1.06l5.27 5.27a.75.75 0 0 1 0 1.06l-5.27 5.27a.75.75 0 0 1-1.06 0Z" clip-rule="evenodd"/></svg>
       </a>
       {% if not timeline.is_default %}
         <a href="{{ request.path }}" hx-get="{% url 'tasks:timeline' %}" hx-target="#timeline" hx-swap="outerHTML"
@@ -20,7 +20,15 @@
       {% endif %}
     </div>
     <div class="flex items-center gap-2">
-      {% block timeline_actions %}{% if can_assign %}{% include "tasks/_add_task_button.html" %}{% endif %}{% endblock %}
+      {% if can_log %}
+        <a href="{% url 'tasks:update_new' %}" aria-label="Add an update" title="Add an update"
+           hx-get="{% url 'tasks:update_new' %}?next={{ request.get_full_path|urlencode }}" hx-target="#task-dialog-body"
+           hx-on::after:swap="document.getElementById('task-dialog').showModal()"
+           class="inline-flex size-10 items-center justify-center rounded-lg border border-gray-300 text-gray-700 transition duration-150 hover:border-gray-400 hover:bg-gray-50 hover:text-gray-900 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/10">
+          <svg width="20" height="20" class="size-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z"/></svg>
+        </a>
+      {% endif %}
+      {% if can_assign %}{% include "tasks/_add_task_button.html" %}{% endif %}
     </div>
   </div>
 
@@ -80,6 +88,11 @@
                     <div class="h-1.5 flex-1 bg-red-500 {% if bar.has_main %}rounded-r-full{% else %}rounded-full{% endif %} mr-1.5 [background-image:repeating-linear-gradient(-45deg,transparent_0_3px,rgb(255_255_255/.35)_3px_6px)]"></div>
                   </div>
                 {% endif %}
+                {% for dot in bar.updates %}
+                  <a href="{% url 'tasks:detail' task.pk %}#update-{{ dot.update.pk }}" title="{{ dot.update.summary }}{% if dot.count > 1 %} (+{{ dot.count|add:-1 }} more){% endif %}"
+                     class="relative z-[1] row-start-1 size-3 self-center justify-self-center rounded-full border-2 border-white bg-white ring-2 ring-blue-600 transition-transform hover:scale-125 focus-visible:scale-125 focus-visible:outline-none focus-visible:ring-4"
+                     style="grid-column: {{ dot.column }}"><span class="sr-only">Update on {{ dot.update.created_at|date:"j M" }}: {{ dot.update.summary }}</span></a>
+                {% endfor %}
               </div>
             {% endwith %}
           {% endfor %}

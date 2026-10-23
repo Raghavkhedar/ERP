@@ -4,7 +4,7 @@ from django.utils import timezone
 
 from chat.services import post_notice
 
-from .models import Status, Task
+from .models import Attachment, Status, Task, TaskUpdate
 
 
 class TaskError(Exception):
@@ -91,3 +91,31 @@ def set_status(task, user, status):
     elif status == Status.CLOSED and user.pk != task.assigned_to_id:
         post_notice(user, task.assigned_to, f"closed your task: {task.title}")
     return task
+
+
+def updatable_tasks(user):
+    """Tasks the user can log work on: their own, or any for admins, not closed."""
+    return visible_tasks(user).exclude(status=Status.CLOSED)
+
+
+@transaction.atomic
+def add_update(task, user, body, files=()):
+    """Log what was done today, with any files. Starts an Open task."""
+    task = Task.objects.select_for_update(of=("self",)).get(pk=task.pk)
+    if task.assigned_to_id != user.pk and not can_assign(user):
+        raise PermissionDenied("This isn't your task.")
+    if task.is_closed:
+        raise TaskError("This task is closed.")
+    body = body.strip()
+    if not body:
+        raise TaskError("Say what you did.")
+
+    update = TaskUpdate.objects.create(task=task, author=user, body=body)
+    for upload in files:
+        Attachment.objects.create(
+            update=update, file=upload, original_name=upload.name, size=upload.size
+        )
+    if task.status == Status.OPEN and task.assigned_to_id == user.pk:
+        task.status = Status.ONGOING
+        task.save()
+    return update

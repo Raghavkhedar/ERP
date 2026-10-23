@@ -6,7 +6,8 @@ After=network.target docker.service
 User=erp
 Group=erp
 WorkingDirectory=/srv/erp
-ExecStart=/srv/erp/.venv/bin/gunicorn config.wsgi --bind 127.0.0.1:8000 --workers 3
+# A long timeout lets a slow connection finish uploading a 10 MB attachment.
+ExecStart=/srv/erp/.venv/bin/gunicorn config.wsgi --bind 127.0.0.1:8000 --workers 3 --timeout 120
 Restart=always
 # Hardening: the app cannot gain privileges or write outside its own folders.
 NoNewPrivileges=true

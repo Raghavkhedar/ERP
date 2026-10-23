@@ -1,0 +1,57 @@
+<form method="post" action="{{ action }}" enctype="multipart/form-data"
+      hx-post="{{ action }}" hx-target="this" hx-swap="outerHTML"
+      hx-status:4xx="swap:none" hx-status:5xx="swap:none"
+      hx-on::response:error="this.querySelector('[data-request-error]').hidden = false"
+      x-data="updateFiles"
+      @paste="paste($event)"
+      class="p-6 [&_select]:h-11 [&_select]:w-full [&_select]:rounded-lg [&_select]:border [&_select]:border-gray-300 [&_select]:bg-white [&_select]:px-3 [&_select]:outline-none [&_select:focus]:border-blue-600 [&_select:focus]:ring-4 [&_select:focus]:ring-blue-600/10 [&_textarea]:w-full [&_textarea]:rounded-lg [&_textarea]:border [&_textarea]:border-gray-300 [&_textarea]:px-3 [&_textarea]:py-2.5 [&_textarea]:outline-none [&_textarea]:transition [&_textarea:focus]:border-blue-600 [&_textarea:focus]:ring-4 [&_textarea:focus]:ring-blue-600/10">
+  {% csrf_token %}
+  {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+  <h2 id="task-dialog-title" class="text-lg font-semibold tracking-tight">{{ heading }}</h2>
+  <p class="mt-1 text-sm text-gray-500">For today, {{ today|date:"D j M" }}</p>
+
+  <p data-request-error hidden role="alert" class="mt-4 text-sm text-red-600">That didn't go through. Try again, or reload the page.</p>
+  {% for error in form.non_field_errors %}
+    <p role="alert" class="mt-4 text-sm text-red-600">{{ error }}</p>
+  {% endfor %}
+
+  <div class="mt-6 space-y-5">
+    {% with field=form.task %}{% include "tasks/_field.html" %}{% endwith %}
+    {% with field=form.body %}{% include "tasks/_field.html" %}{% endwith %}
+
+    <div>
+      <span class="mb-1.5 block text-sm font-medium">{{ form.files.label }}</span>
+      <label for="{{ form.files.id_for_label }}"
+             class="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-gray-300 px-4 py-3.5 text-sm text-gray-500 transition-colors hover:border-gray-400 hover:bg-gray-50 has-[:focus-visible]:border-blue-600 has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-blue-600/10"
+             @dragover.prevent @drop.prevent="add($event.dataTransfer.files)">
+        <svg width="20" height="20" class="size-5 shrink-0 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M15.62 4.38a3 3 0 0 0-4.24 0L5.6 10.16a1.75 1.75 0 0 0 2.47 2.47l5.07-5.06a.75.75 0 1 1 1.06 1.06l-5.06 5.07a3.25 3.25 0 0 1-4.6-4.6l5.78-5.78a4.5 4.5 0 0 1 6.36 6.37l-5.78 5.78a.75.75 0 0 1-1.06-1.06l5.78-5.78a3 3 0 0 0 0-4.25Z"/></svg>
+        <span>Choose files, drop them here, or paste a screenshot</span>
+        <input type="file" name="{{ form.files.html_name }}" id="{{ form.files.id_for_label }}" multiple
+               accept="{{ form.files.field.widget.attrs.accept }}" x-ref="input" @change="sync()" class="sr-only">
+      </label>
+      <ul class="mt-2 space-y-1 text-sm" x-show="names.length" x-cloak>
+        <template x-for="(name, index) in names" :key="index">
+          <li class="flex items-center justify-between gap-3 rounded-md bg-gray-50 px-3 py-1.5">
+            <span class="truncate" x-text="name"></span>
+            <button type="button" @click="remove(index)" class="shrink-0 text-gray-400 hover:text-gray-900" :aria-label="'Remove ' + name">
+              <svg width="16" height="16" class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/></svg>
+            </button>
+          </li>
+        </template>
+      </ul>
+      <p class="mt-1 text-xs text-gray-500">{{ form.files.help_text }}</p>
+      {% for error in form.files.errors %}
+        <p class="mt-1 text-sm text-red-600">{{ error }}</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="mt-7 flex items-center justify-end gap-4">
+    {% if in_dialog %}
+      <button type="button" onclick="this.closest('dialog').close()" class="text-sm text-gray-500 hover:text-gray-900">Cancel</button>
+    {% else %}
+      <a href="{% url 'home' %}" class="text-sm text-gray-500 hover:text-gray-900">Cancel</a>
+    {% endif %}
+    <button type="submit" class="h-11 rounded-lg bg-blue-600 px-5 text-sm font-medium text-white transition duration-150 hover:bg-blue-700 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30">{{ submit }}</button>
+  </div>
+</form>

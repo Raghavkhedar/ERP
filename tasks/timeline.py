@@ -7,7 +7,7 @@ from itertools import groupby
 from django.db.models import Q
 from django.utils import timezone
 
-from .models import Status
+from .models import Status, TaskUpdate
 from .services import can_assign, visible_tasks
 
 DAYS = 14
@@ -24,6 +24,7 @@ class Bar:
     clipped_left: bool
     clipped_right: bool
     shows_due: bool  # the completion date falls inside the window
+    updates: list = field(default_factory=list)  # Dots, one per day with updates
 
     @property
     def main_end(self):
@@ -33,6 +34,13 @@ class Bar:
     @property
     def has_main(self):
         return self.main_end > self.start
+
+
+@dataclass
+class Dot:
+    column: int
+    update: object  # the day's latest update
+    count: int
 
 
 @dataclass
@@ -141,9 +149,24 @@ def build(user, start=None):
     else:
         people = [(None, tasks)]
 
+    by_task_day = {}
+    updates = TaskUpdate.objects.filter(
+        task__in=tasks, created_at__gte=window_start, created_at__lt=window_end
+    ).order_by("created_at", "id")
+    for update in updates:
+        day = timezone.localdate(update.created_at)
+        dots = by_task_day.setdefault(update.task_id, {})
+        if day in dots:
+            dots[day].update = update
+            dots[day].count += 1
+        else:
+            dots[day] = Dot(column=_column(day, start), update=update, count=1)
+
     groups = []
     for person, person_tasks in people:
         bars = [bar for task in person_tasks if (bar := _bar(task, start, end, today))]
+        for bar in bars:
+            bar.updates = list(by_task_day.get(bar.task.pk, {}).values())
         if bars:
             groups.append(Group(person=person, bars=bars))
 

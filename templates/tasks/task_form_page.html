@@ -1,8 +1,0 @@
-{% extends "tasks/base_tasks.html" %}
-
-{% block title %}{{ submit }} · Tasks{% endblock %}
-{% block heading %}{% if task %}Edit task{% else %}Assign a task{% endif %}{% endblock %}
-
-{% block page %}
-  <div class="-mx-6 max-w-lg">{% include "tasks/_task_form.html" %}</div>
-{% endblock %}
