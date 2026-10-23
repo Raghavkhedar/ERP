@@ -4,6 +4,7 @@ from django.shortcuts import render
 from django.utils import timezone
 
 from meetings.services import live_slots
+from tasks.views import timeline_context
 
 UPCOMING_LIMIT = 5
 
@@ -35,5 +36,6 @@ def home(request):
         "greeting": _greeting(now),
         "today": today,
         "meetings": meetings,
+        **timeline_context(request),
     }
     return render(request, "home.html", context)

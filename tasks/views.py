@@ -8,6 +8,7 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
+from . import timeline as task_timeline
 from .forms import StatusForm, TaskForm
 from .models import Status
 from .services import (
@@ -136,3 +137,18 @@ def change_status(request, pk):
         else:
             messages.success(request, f"Marked {task.get_status_display()}.")
     return redirect("tasks:detail", pk=task.pk)
+
+
+def timeline_context(request):
+    today = timezone.localdate()
+    start = task_timeline.parse_start(request.GET.get("from"), today)
+    return {
+        "timeline": task_timeline.build(request.user, start),
+        "can_assign": can_assign(request.user),
+    }
+
+
+@login_required
+def timeline(request):
+    """The timeline alone, for moving it a week back or forward."""
+    return render(request, "tasks/_timeline.html", timeline_context(request))
