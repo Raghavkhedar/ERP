@@ -79,9 +79,9 @@
         {% endfor %}
       </div>
 
-      <div class="sticky bottom-0 -mx-6 mt-8 flex flex-wrap items-center gap-3 border-t border-gray-100 bg-field/95 px-6 py-4 pr-24 backdrop-blur sm:-mx-8 sm:px-8 sm:pr-24">
+      <div class="sticky bottom-0 -mx-6 mt-8 flex flex-wrap items-center gap-3 border-t border-gray-100 bg-white/95 px-6 py-4 pr-24 backdrop-blur sm:-mx-8 sm:px-8 sm:pr-24">
         <button type="submit" name="action" value="block" :disabled="!free"
-                class="h-11 rounded-lg bg-blue-600 px-5 text-sm font-medium text-on-accent transition duration-150 hover:bg-blue-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30"
+                class="h-11 rounded-lg bg-blue-600 px-5 text-sm font-medium text-white transition duration-150 hover:bg-blue-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30"
                 x-text="free ? `Block ${free} slot${free === 1 ? '' : 's'}` : 'Block selected'">Block selected</button>
         <button type="submit" name="action" value="unblock" x-show="blocked" x-cloak
                 class="h-11 rounded-lg border border-gray-300 px-5 text-sm font-medium transition duration-150 hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/10"

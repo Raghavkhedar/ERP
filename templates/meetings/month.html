@@ -22,7 +22,7 @@
           <a href="{% url 'meetings:day' cell.date.year cell.date.month cell.date.day %}"
              aria-label="{{ cell.date|date:'l j F' }}{% if cell.meetings %}, {{ cell.meetings|length }} meeting{{ cell.meetings|length|pluralize }}{% endif %}"
              class="group flex min-h-16 flex-col gap-1 border-b border-r border-gray-100 p-1.5 transition-colors hover:bg-gray-50 focus-visible:relative focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600 sm:min-h-28 sm:p-2 {% if not cell.in_month %}bg-gray-50/60{% endif %}">
-            <span class="grid size-7 place-items-center self-center rounded-full text-sm tabular-nums sm:self-start {% if cell.is_today %}bg-blue-600 font-semibold text-on-accent{% elif cell.in_month %}text-gray-900{% else %}text-gray-400{% endif %}">{{ cell.date.day }}</span>
+            <span class="grid size-7 place-items-center self-center rounded-full text-sm tabular-nums sm:self-start {% if cell.is_today %}bg-blue-600 font-semibold text-white{% elif cell.in_month %}text-gray-900{% else %}text-gray-400{% endif %}">{{ cell.date.day }}</span>
 
             {# Phone: one dot per meeting; wider screens: a line per meeting. #}
             <span class="flex flex-wrap justify-center gap-1 sm:hidden">
