@@ -1,0 +1,5 @@
+{# Sunday shading and the today line, repeated in each row so they run unbroken. #}
+{% for day in timeline.days %}
+  {% if day.weekday == 6 %}<div aria-hidden="true" class="row-start-1 bg-gray-50" style="grid-column: {{ forloop.counter|add:1 }}"></div>{% endif %}
+{% endfor %}
+{% if timeline.today_column %}<div aria-hidden="true" class="row-start-1 w-px justify-self-center bg-blue-600/25" style="grid-column: {{ timeline.today_column }}"></div>{% endif %}

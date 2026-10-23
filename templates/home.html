@@ -1,14 +1,23 @@
 {% extends "base.html" %}
 
 {% block body_class %}min-h-dvh bg-white text-gray-900 antialiased{% endblock %}
-{% block main_class %}mx-auto w-full max-w-2xl px-6 pb-28 pt-16 sm:pt-24{% endblock %}
+{% block main_class %}mx-auto w-full max-w-5xl px-6 pb-28 pt-16 sm:pt-24{% endblock %}
 
 {% block content %}
   <div class="animate-rise motion-reduce:animate-none">
+    <div class="max-w-2xl">
     <p class="text-sm text-gray-500">{{ today|date:"l, j F" }}</p>
     <h1 class="mt-2 text-3xl font-semibold tracking-tight">{{ greeting }}, {{ user.first_name|default:user.display_name }}</h1>
+    </div>
 
     <section class="mt-14">
+      {% include "tasks/_timeline.html" %}
+      {% for message in messages %}
+        <p role="status" class="mt-3 text-sm {% if message.tags == 'error' %}text-red-600{% else %}text-green-700{% endif %}">{{ message }}</p>
+      {% endfor %}
+    </section>
+
+    <section class="mt-14 max-w-2xl">
       <div class="flex items-baseline justify-between gap-4">
         <h2 class="font-semibold">Coming up</h2>
         <a href="{% url 'meetings:schedule' %}" class="text-sm text-blue-600 hover:underline">Your schedule</a>
@@ -42,4 +51,5 @@
       </div>
     </section>
   </div>
+  {% include "tasks/_dialog.html" %}
 {% endblock %}
