@@ -89,6 +89,37 @@ def open_office_hours(host, day):
     return slots
 
 
+def office_days_open():
+    """Today, until office hours end, and the next office day."""
+    now = timezone.localtime()
+    days = []
+    if now.weekday() in OFFICE_DAYS and now.time() < OFFICE_HOURS[-1][1]:
+        days.append(now.date())
+    following = now.date() + timedelta(days=1)
+    while following.weekday() not in OFFICE_DAYS:
+        following += timedelta(days=1)
+    days.append(following)
+    return days
+
+
+def open_upcoming_office_hours():
+    """Open everyone's office hours for the days people can book, if not yet open.
+
+    Called by the meetings pages, so there is no scheduled job. Usually it only
+    finds that everyone is done already.
+    """
+    people = get_user_model().objects.filter(is_active=True)
+    for day in office_days_open():
+        midnight = timezone.make_aware(datetime.combine(day, time.min))
+        done = Slot.objects.filter(
+            office_hours=True,
+            starts_at__gte=midnight,
+            starts_at__lt=midnight + timedelta(days=1),
+        ).values("host")
+        for person in people.exclude(pk__in=done):
+            open_office_hours(person, day)
+
+
 def _own_future_slots(user, pks):
     return Slot.objects.select_for_update().filter(
         pk__in=pks, host=user, starts_at__gt=timezone.now()

@@ -23,7 +23,6 @@ echo "==> Checks, static files, migrations"
 .venv/bin/python manage.py check --deploy --fail-level WARNING
 .venv/bin/python manage.py collectstatic --noinput
 .venv/bin/python manage.py migrate --noinput
-.venv/bin/python manage.py open_office_hours
 
 echo "==> Restart"
 sudo systemctl restart erp
