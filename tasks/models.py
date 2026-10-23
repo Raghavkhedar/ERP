@@ -36,6 +36,9 @@ class Task(models.Model):
         max_length=10, choices=Status.choices, default=Status.OPEN
     )
     closed_at = models.DateTimeField(null=True, blank=True)
+    nudged_at = models.DateTimeField(
+        null=True, blank=True, help_text="When the assignee last asked for a review."
+    )
 
     history = HistoricalRecords()
 
@@ -79,6 +82,11 @@ class Task(models.Model):
     @property
     def is_closed(self):
         return self.status == Status.CLOSED
+
+    @property
+    def is_finished(self):
+        """Done or closed: an admin has signed it off, so the assignee is done."""
+        return self.status in (Status.DONE, Status.CLOSED)
 
     @property
     def is_overdue(self):

@@ -56,16 +56,41 @@
   <section class="mt-8">
     <h2 class="text-sm font-medium text-gray-500">Status</h2>
     {% if statuses %}
-      <form method="post" action="{% url 'tasks:status' task.pk %}" class="mt-3 inline-flex flex-wrap rounded-lg border border-gray-200 p-1">
+      <form method="post" action="{% url 'tasks:status' task.pk %}" x-data="{ value: '', label: '' }">
         {% csrf_token %}
-        {% for status in statuses %}
-          <button type="submit" name="status" value="{{ status.value }}"
-                  {% if status.value == task.status %}aria-pressed="true" disabled{% endif %}
-                  class="h-9 rounded-md px-4 text-sm transition-colors {% if status.value == task.status %}bg-gray-900 font-medium text-white{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %} focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/20">{{ status.label }}</button>
-        {% endfor %}
+        <div class="mt-3 inline-flex flex-wrap rounded-lg border border-gray-200 p-1">
+          {% for status in statuses %}
+            <button type="submit" name="status" value="{{ status.value }}"
+                    {% if status.value == task.status %}aria-pressed="true" disabled{% endif %}
+                    {% if status.value == 'done' or status.value == 'closed' %}@click.prevent="value = '{{ status.value }}'; label = '{{ status.label }}'; $refs.confirm.showModal()"{% endif %}
+                    class="h-9 rounded-md px-4 text-sm transition-colors {% if status.value == task.status %}bg-gray-900 font-medium text-white{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %} focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/20">{{ status.label }}</button>
+          {% endfor %}
+        </div>
+        <dialog x-ref="confirm" class="m-auto w-[min(24rem,calc(100vw-2rem))] rounded-xl p-6 shadow-lg backdrop:bg-black/30">
+          <h3 class="title text-xl">Mark this task <span x-text="label"></span>?</h3>
+          <p class="mt-2 text-sm text-gray-600">
+            <span x-show="value === 'done'">{{ task.assigned_to.display_name }} won't be able to add updates any more.</span>
+            <span x-show="value === 'closed'">The task is finished and {{ task.assigned_to.display_name }} won't be able to add updates.</span>
+          </p>
+          <div class="mt-6 flex items-center justify-end gap-4">
+            <button type="button" @click="$refs.confirm.close()" class="text-sm text-gray-500 hover:text-gray-900">Cancel</button>
+            <button type="submit" name="status" :value="value" class="h-11 rounded-lg bg-blue-600 px-5 text-sm font-medium text-white transition duration-150 hover:bg-blue-700 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30">Yes, mark <span x-text="label"></span></button>
+          </div>
+        </dialog>
       </form>
     {% else %}
       <div class="mt-3">{% include "tasks/_status.html" with status=task.status label=task.get_status_display %}</div>
+      {% if task.is_finished %}
+        <p class="mt-2 text-sm text-gray-500">An admin has marked this task {{ task.get_status_display|lower }}, so it can't be updated any more.</p>
+      {% elif can_nudge %}
+        <form method="post" action="{% url 'tasks:nudge' task.pk %}" class="mt-4">
+          {% csrf_token %}
+          <button type="submit" class="h-9 rounded-lg border border-gray-300 px-4 text-sm font-medium transition duration-150 hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/10">Ask an admin to review</button>
+          <p class="mt-1.5 text-xs text-gray-500">Sends a reminder to close this task once the work is finished.</p>
+        </form>
+      {% elif task.nudged_at and task.assigned_to_id == request.user.pk %}
+        <p class="mt-3 text-sm text-gray-500">You reminded the admins {{ task.nudged_at|timesince }} ago.</p>
+      {% endif %}
     {% endif %}
   </section>
 

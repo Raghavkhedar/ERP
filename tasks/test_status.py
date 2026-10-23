@@ -110,3 +110,56 @@ def test_the_assignee_sees_no_buttons_and_is_refused(client, task, alice):
     assert b"Only an admin can change" in response.content
     task.refresh_from_db()
     assert task.status == Status.OPEN
+
+
+# Locking and nudging
+
+
+def test_a_done_task_takes_no_updates_from_the_assignee(task, boss, alice):
+    from .services import add_update, updatable_tasks
+
+    set_status(task, boss, Status.DONE)
+
+    assert task not in updatable_tasks(alice)
+    with pytest.raises(TaskError):
+        add_update(task, alice, "More work")
+    add_update(task, boss, "Admin note")  # admins still can
+
+
+def test_nudging_notifies_the_assigner_once_a_day(task, boss, alice):
+    from chat.models import Message
+
+    from .services import can_nudge, nudge
+
+    assert can_nudge(task, alice)
+    nudge(task, alice)
+
+    [notice] = Message.objects.filter(body__startswith="asks you to review")
+    assert notice.author == alice
+    task.refresh_from_db()
+    assert not can_nudge(task, alice)
+    with pytest.raises(TaskError):
+        nudge(task, alice)
+
+
+def test_only_the_assignee_nudges_and_not_once_reviewed(task, boss, bob, alice):
+    from .services import can_nudge, nudge
+
+    assert not can_nudge(task, bob)
+    with pytest.raises(PermissionDenied):
+        nudge(task, bob)
+    set_status(task, boss, Status.DONE)
+    task.refresh_from_db()
+    assert not can_nudge(task, alice)
+
+
+def test_nudge_and_confirm_dialog_on_the_page(client, task, boss, alice):
+    client.force_login(alice)
+    page = client.get(reverse("tasks:detail", args=[task.pk]))
+    assert b"Ask an admin to review" in page.content
+    client.post(reverse("tasks:nudge", args=[task.pk]))
+    page = client.get(reverse("tasks:detail", args=[task.pk]))
+    assert b"You reminded the admins" in page.content
+    client.force_login(boss)
+    page = client.get(reverse("tasks:detail", args=[task.pk]))
+    assert b"Yes, mark" in page.content

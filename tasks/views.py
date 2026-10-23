@@ -20,6 +20,9 @@ from .services import (
     allowed_statuses,
     assign,
     can_assign,
+    can_nudge,
+    can_update,
+    nudge,
     set_status,
     updatable_tasks,
     visible_tasks,
@@ -154,8 +157,8 @@ def task_detail(request, pk):
         "updates": updates,
         "statuses": allowed_statuses(task, request.user),
         "can_assign": can_assign(request.user),
-        "can_update": not task.is_closed
-        and (task.assigned_to_id == request.user.pk or can_assign(request.user)),
+        "can_update": can_update(task, request.user),
+        "can_nudge": can_nudge(task, request.user),
     }
     return render(request, "tasks/detail.html", context)
 
@@ -172,6 +175,19 @@ def change_status(request, pk):
             messages.error(request, str(error))
         else:
             messages.success(request, f"Marked {task.get_status_display()}.")
+    return redirect("tasks:detail", pk=task.pk)
+
+
+@login_required
+@require_POST
+def nudge_task(request, pk):
+    task = get_object_or_404(visible_tasks(request.user), pk=pk)
+    try:
+        nudge(task, request.user)
+    except TaskError as error:
+        messages.error(request, str(error))
+    else:
+        messages.success(request, "Reminder sent.")
     return redirect("tasks:detail", pk=task.pk)
 
 

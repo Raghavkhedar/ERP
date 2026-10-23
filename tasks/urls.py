@@ -11,6 +11,7 @@ urlpatterns = [
     path("<int:pk>/", views.task_detail, name="detail"),
     path("<int:pk>/edit/", views.edit_task, name="edit"),
     path("<int:pk>/status/", views.change_status, name="status"),
+    path("<int:pk>/nudge/", views.nudge_task, name="nudge"),
     path("updates/new/", views.new_update, name="update_new"),
     path("files/<int:pk>/", views.attachment, name="attachment"),
 ]
