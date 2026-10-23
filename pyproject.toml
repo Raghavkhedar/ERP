@@ -15,6 +15,9 @@ dependencies = [
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings"
 python_files = ["test_*.py", "tests.py"]
+markers = [
+    "office_hours_on_demand: let meetings pages open office hours (off by default in tests)",
+]
 
 [dependency-groups]
 dev = [

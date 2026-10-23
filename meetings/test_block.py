@@ -133,7 +133,7 @@ def test_sunday_says_it_is_not_an_office_day(client, alice):
 def test_days_not_open_yet_say_so(client, alice):
     client.force_login(alice)
     html = client.get(BLOCK_URL).content.decode()
-    assert "open a week ahead" in html
+    assert "open the office day before" in html
 
 
 def test_impossible_day_is_404(client, alice):
