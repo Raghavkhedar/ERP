@@ -15,7 +15,15 @@ from django.views.decorators.http import require_POST
 
 from .forms import BookingForm
 from .models import Slot
-from .services import SlotError, block, book, cancel, live_slots, unblock
+from .services import (
+    SlotError,
+    block,
+    book,
+    cancel,
+    live_slots,
+    open_upcoming_office_hours,
+    unblock,
+)
 
 
 def _with_days(slots):
@@ -64,6 +72,7 @@ def _my_slots(user, first_day, last_day):
 @login_required
 def schedule(request, year=None, month=None):
     """The month calendar; the current month when none is given."""
+    open_upcoming_office_hours()
     today = timezone.localdate()
     if year is None:
         year, month = today.year, today.month
@@ -137,6 +146,7 @@ def _merge_open_hours(slots):
 
 @login_required
 def day_view(request, year, month, day):
+    open_upcoming_office_hours()
     try:
         shown = date(year, month, day)
     except ValueError:
@@ -239,6 +249,7 @@ def _runs(slots):
 @login_required
 def block_time(request, year=None, month=None, day=None):
     """The user's slots for one day, to block or unblock times."""
+    open_upcoming_office_hours()
     today = timezone.localdate()
     try:
         shown = today if year is None else date(year, month, day)
@@ -300,6 +311,7 @@ def block_time(request, year=None, month=None, day=None):
 
 @login_required
 def people(request):
+    open_upcoming_office_hours()
     free = Q(
         hosted_slots__booked_by__isnull=True,
         hosted_slots__cancelled_at__isnull=True,
@@ -317,6 +329,7 @@ def people(request):
 
 @login_required
 def person_slots(request, user_id):
+    open_upcoming_office_hours()
     person = get_object_or_404(get_user_model(), pk=user_id, is_active=True)
     if person == request.user:
         return redirect("meetings:schedule")

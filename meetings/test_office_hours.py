@@ -1,16 +1,21 @@
 from datetime import date, datetime, time, timedelta
 
 import pytest
-from django.core.management import call_command
 from django.urls import reverse
 from django.utils import timezone
 
 from .models import Slot
-from .services import book, open_office_hours
+from .services import (
+    book,
+    office_days_open,
+    open_office_hours,
+    open_upcoming_office_hours,
+)
 
 pytestmark = pytest.mark.django_db
 
 MONDAY = date(2030, 1, 7)
+SATURDAY = date(2030, 1, 12)
 SUNDAY = date(2030, 1, 13)
 
 
@@ -101,26 +106,56 @@ def test_office_hours_can_be_booked(alice, bob):
     assert slot.booked_by == bob
 
 
-# Command
+# Opening on demand
 
 
-def test_command_opens_the_coming_week_for_active_people(alice, bob, now_is):
+@pytest.mark.parametrize(
+    "moment, days",
+    [
+        (at(MONDAY, 8), [MONDAY, MONDAY + timedelta(days=1)]),
+        (at(MONDAY, 17, 59), [MONDAY, MONDAY + timedelta(days=1)]),
+        (at(MONDAY, 18), [MONDAY + timedelta(days=1)]),  # today's are over
+        (at(SATURDAY, 9), [SATURDAY, MONDAY + timedelta(days=7)]),  # skips Sunday
+        (at(SUNDAY, 9), [MONDAY + timedelta(days=7)]),
+    ],
+)
+def test_office_days_open_are_today_and_the_next_office_day(now_is, moment, days):
+    now_is(moment)
+    assert office_days_open() == days
+
+
+def test_upcoming_office_hours_open_for_active_people(alice, bob, now_is):
     now_is(at(MONDAY, 8))
     bob.is_active = False
     bob.save()
 
-    call_command("open_office_hours")
+    open_upcoming_office_hours()
 
     assert not Slot.objects.filter(host=bob).exists()
     days = {timezone.localdate(s.starts_at) for s in Slot.objects.all()}
-    assert days == {MONDAY + timedelta(days=n) for n in range(6)}  # no Sunday
-
-
-def test_command_can_run_again(alice, now_is):
-    now_is(at(MONDAY, 8))
-    call_command("open_office_hours", days=2)
-    call_command("open_office_hours", days=2)
+    assert days == {MONDAY, MONDAY + timedelta(days=1)}
     assert Slot.objects.count() == 60
+
+
+def test_opening_upcoming_office_hours_again_changes_nothing(alice, bob, now_is):
+    now_is(at(MONDAY, 8))
+    open_upcoming_office_hours()
+    Slot.objects.filter(host=alice).first().delete()  # a gap is not refilled
+
+    open_upcoming_office_hours()
+
+    assert Slot.objects.count() == 119
+
+
+@pytest.mark.office_hours_on_demand
+def test_meetings_pages_open_office_hours(client, alice, bob, now_is):
+    now_is(at(MONDAY, 8))
+    client.force_login(bob)
+
+    response = client.get(reverse("meetings:people"))
+
+    [person] = response.context["people"]
+    assert person == alice and person.free_slots == 60
 
 
 # Day view

@@ -62,7 +62,6 @@ echo "erp ALL=(root) NOPASSWD: /usr/bin/systemctl restart erp" > /etc/sudoers.d/
 chmod 440 /etc/sudoers.d/erp
 sed "s/ERP_DOMAIN/$DOMAIN/" "$APP/deploy/Caddyfile" > /etc/caddy/Caddyfile
 echo "30 2 * * * root $APP/deploy/backup.sh" > /etc/cron.d/erp-backup
-echo "5 0 * * * erp cd $APP && .venv/bin/python manage.py open_office_hours" > /etc/cron.d/erp-office-hours
 
 echo "==> First deploy"
 sudo -u erp -i "$APP/deploy/deploy.sh"

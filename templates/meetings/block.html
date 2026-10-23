@@ -18,7 +18,7 @@
     <p class="border-y border-gray-100 py-6 text-sm text-gray-500">
       {% if is_sunday %}Sunday is not an office day.
       {% elif day < today %}There were no office hours on this day.
-      {% else %}Office hours for this day aren't open yet. They open a week ahead.{% endif %}
+      {% else %}Office hours for this day aren't open yet. They open the office day before.{% endif %}
     </p>
   {% else %}
     <p class="max-w-prose text-sm text-gray-500">Colleagues can book any open time in your office hours. Select the times you're not available and block them.<span class="hidden sm:inline"> Shift-click selects a range.</span></p>
