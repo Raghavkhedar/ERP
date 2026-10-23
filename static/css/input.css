@@ -29,6 +29,11 @@
   --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Instrument Serif", ui-serif, Georgia, serif;
 
+  /* Roomier lines for reading; sizes come from the root size below. */
+  --text-xs--line-height: 1.55;
+  --text-sm--line-height: 1.6;
+  --text-base--line-height: 1.65;
+
   /* The Senken palette, "Sea glass": calm, cool and easy to read.
      Templates keep Tailwind's colour names; these redefine them, so the
      whole app follows this one place. */
@@ -159,6 +164,14 @@
     75% {
       transform: rotate(2deg);
     }
+  }
+}
+
+/* 17px instead of 16px: text, spacing and widths are in rem, so all of it
+   grows together and stays in proportion. */
+@layer base {
+  html {
+    font-size: 106.25%;
   }
 }
 
