@@ -25,7 +25,25 @@
 
     <form method="post" class="mt-8"
           x-data="{
-            free: 0, blocked: 0, last: null,
+            free: 0, blocked: 0, last: null, stretches: [], mode: 'block',
+            ask(mode) {
+              this.mode = mode
+              const boxes = [...$root.querySelectorAll('input[data-state=free]:not(:disabled)')]
+                .filter(box => mode === 'block_day' || box.checked)
+              this.stretches = []
+              for (const box of boxes) {
+                const last = this.stretches[this.stretches.length - 1]
+                if (mode === 'block_day') {
+                  if (!last) this.stretches.push({ key: 'day', from: box.dataset.start, to: box.dataset.end })
+                  else last.to = box.dataset.end
+                } else if (last && last.endTs === box.dataset.startTs) {
+                  last.to = box.dataset.end; last.endTs = box.dataset.endTs
+                } else {
+                  this.stretches.push({ key: box.value, from: box.dataset.start, to: box.dataset.end, endTs: box.dataset.endTs })
+                }
+              }
+              if (this.stretches.length) $refs.reasons.showModal()
+            },
             count() {
               this.free = $root.querySelectorAll('input[data-state=free]:checked').length
               this.blocked = $root.querySelectorAll('input[data-state=blocked]:checked').length
@@ -61,11 +79,13 @@
                                   {% if slot.started %}text-gray-400{% else %}cursor-pointer hover:bg-gray-50{% endif %}
                                   {% if slot.state == 'blocked' %}bg-[repeating-linear-gradient(135deg,var(--color-gray-100)_0_5px,transparent_5px_10px)] text-gray-500{% endif %}">
                       <input type="checkbox" name="slot" value="{{ slot.pk }}" data-state="{{ slot.state }}"
+                             data-start="{{ slot.starts_at|time:'H:i' }}" data-end="{{ slot.ends_at|time:'H:i' }}"
+                             data-start-ts="{{ slot.starts_at|date:'U' }}" data-end-ts="{{ slot.ends_at|date:'U' }}"
                              {% if slot.started %}disabled{% endif %} @click="pick($event)"
                              class="size-4 shrink-0 accent-blue-600">
                       <span class="w-24 shrink-0 tabular-nums">{{ slot.starts_at|time:"H:i" }}–{{ slot.ends_at|time:"H:i" }}</span>
                       <span class="truncate {% if slot.state == 'free' %}text-gray-500{% endif %}">
-                        {% if slot.state == "blocked" %}Blocked
+                        {% if slot.state == "blocked" %}Blocked{% if slot.block_reason %}: {{ slot.block_reason }}{% endif %}
                         {% elif slot.meeting %}You're meeting {{ slot.meeting.host.display_name }}
                         {% else %}Open{% endif %}
                       </span>
@@ -80,18 +100,35 @@
       </div>
 
       <div class="sticky bottom-0 -mx-6 mt-8 flex flex-wrap items-center gap-3 border-t border-gray-100 bg-white/95 px-6 py-4 pr-24 backdrop-blur sm:-mx-8 sm:px-8 sm:pr-24">
-        <button type="submit" name="action" value="block" :disabled="!free"
+        <button type="button" @click="ask('block')" :disabled="!free"
                 class="h-11 rounded-lg bg-blue-600 px-5 text-sm font-medium text-white transition duration-150 hover:bg-blue-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30"
                 x-text="free ? `Block ${free} slot${free === 1 ? '' : 's'}` : 'Block selected'">Block selected</button>
         <button type="submit" name="action" value="unblock" x-show="blocked" x-cloak
                 class="h-11 rounded-lg border border-gray-300 px-5 text-sm font-medium transition duration-150 hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/10"
                 x-text="`Unblock ${blocked} slot${blocked === 1 ? '' : 's'}`">Unblock selected</button>
         {% if can_block %}
-          <button type="submit" name="action" value="block_day"
-                  onclick="return confirm('Block all your open time on {{ day|date:'l j F' }}? Booked meetings stay as they are.')"
+          <button type="button" @click="ask('block_day')"
                   class="h-11 px-2 text-sm font-medium text-gray-600 transition-colors hover:text-gray-900">Block whole day</button>
         {% endif %}
       </div>
+
+      <dialog x-ref="reasons" class="m-auto w-[min(26rem,calc(100vw-2rem))] rounded-xl p-6 shadow-lg backdrop:bg-black/30">
+        <h3 class="title text-xl" x-text="mode === 'block_day' ? 'Block the whole day' : 'Why are you blocking this time?'"></h3>
+        <p class="mt-1 text-sm text-gray-500">Only you can see the reason.<span x-show="mode === 'block_day'"> Booked meetings stay as they are.</span></p>
+        <div class="mt-5 space-y-4">
+          <template x-for="stretch in stretches" :key="stretch.key">
+            <label class="block text-sm">
+              <span class="mb-1.5 block font-medium tabular-nums" x-text="mode === 'block_day' ? 'Reason for {{ day|date:"l j F" }}' : stretch.from + '–' + stretch.to"></span>
+              <input type="text" required maxlength="200" :name="'reason_' + stretch.key" placeholder="e.g. Doctor's appointment"
+                     class="h-11 w-full rounded-lg border border-gray-300 px-3 outline-none transition focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10">
+            </label>
+          </template>
+        </div>
+        <div class="mt-6 flex items-center justify-end gap-4">
+          <button type="button" @click="$refs.reasons.close()" class="text-sm text-gray-500 hover:text-gray-900">Cancel</button>
+          <button type="submit" name="action" :value="mode" class="h-11 rounded-lg bg-blue-600 px-5 text-sm font-medium text-white transition duration-150 hover:bg-blue-700 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30">Block time</button>
+        </div>
+      </dialog>
     </form>
   {% endif %}
 {% endblock %}

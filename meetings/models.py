@@ -25,6 +25,11 @@ class Slot(models.Model):
     booked_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
+    block_reason = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Why the host blocked this time. Only the host sees it.",
+    )
     office_hours = models.BooleanField(
         default=False, help_text="Opened automatically for the person's office hours."
     )

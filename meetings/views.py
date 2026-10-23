@@ -214,11 +214,38 @@ def _block_or_unblock(request, shown):
         )
         pks = list(day_slots.values_list("pk", flat=True))
     if action in ("block", "block_day"):
-        blocked = block(request.user, pks)
-        if blocked:
-            messages.success(request, f"Blocked {_plural(blocked, 'slot')}.")
-        else:
+        # One reason per stretch of back-to-back slots; a whole day has one.
+        free = list(
+            Slot.objects.filter(
+                pk__in=pks,
+                host=request.user,
+                cancelled_at__isnull=True,
+                booked_by__isnull=True,
+                starts_at__gt=timezone.now(),
+            )
+        )
+        if not free:
             messages.error(request, "There were no free slots to block.")
+            return
+        if action == "block_day":
+            stretches = [(free, request.POST.get("reason_day", ""))]
+        else:
+            stretches = [
+                (run, request.POST.get(f"reason_{run[0].pk}", ""))
+                for run in _runs(free)
+            ]
+        if not all(reason.strip() for _, reason in stretches):
+            messages.error(request, "Say why you're blocking each stretch of time.")
+            return
+        try:
+            blocked = sum(
+                block(request.user, [s.pk for s in run], reason)
+                for run, reason in stretches
+            )
+        except SlotError as error:
+            messages.error(request, str(error))
+            return
+        messages.success(request, f"Blocked {_plural(blocked, 'slot')}.")
     elif action == "unblock":
         opened = unblock(request.user, pks)
         if opened:

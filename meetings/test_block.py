@@ -5,7 +5,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .models import Slot
-from .services import block, book, cancel, open_office_hours, unblock
+from .services import SlotError, block, book, cancel, open_office_hours, unblock
 from .testing import open_slots
 
 pytestmark = pytest.mark.django_db
@@ -36,7 +36,7 @@ def free(host):
 
 
 def test_blocked_slots_cannot_be_booked(alice, hours):
-    assert block(alice, pks(hours[:4])) == 4
+    assert block(alice, pks(hours[:4]), "Away") == 4
     assert free(alice).count() == 26
     assert all(s.is_cancelled for s in Slot.objects.filter(pk__in=pks(hours[:4])))
 
@@ -45,7 +45,7 @@ def test_only_your_own_free_future_office_hours_are_blocked(alice, bob, hours):
     bobs = open_office_hours(bob, MONDAY)
     book(hours[0], bob, "Leave request")
 
-    assert block(alice, [hours[0].pk] + pks(bobs[:1])) == 0
+    assert block(alice, [hours[0].pk] + pks(bobs[:1]), "Away") == 0
 
     assert hours[0] in free(alice)  # booked
     assert free(bob).count() == 30
@@ -53,12 +53,12 @@ def test_only_your_own_free_future_office_hours_are_blocked(alice, bob, hours):
 
 def test_block_ignores_past_slots(alice, hours, monkeypatch):
     monkeypatch.setattr(timezone, "now", lambda: at(MONDAY, 12))
-    assert block(alice, pks(hours)) == 21  # 12:15–13:30 and 14:00–18:00
+    assert block(alice, pks(hours), "Away") == 21  # 12:15–13:30 and 14:00–18:00
     assert free(alice).count() == 9  # 10:00 to 12:00, already started
 
 
 def test_unblock_opens_the_slots_again(alice, hours):
-    block(alice, pks(hours[:3]))
+    block(alice, pks(hours[:3]), "Away")
 
     assert unblock(alice, pks(hours[:3])) == 3
 
@@ -76,7 +76,7 @@ def test_unblock_does_not_bring_back_a_cancelled_meeting(alice, bob, hours):
 
 
 def test_unblock_keeps_times_you_are_meeting_someone_blocked(alice, bob, hours):
-    block(alice, [hours[0].pk])
+    block(alice, [hours[0].pk], "Away")
     [bobs_10am] = open_office_hours(bob, MONDAY)[:1]
     book(bobs_10am, alice, "Review")
 
@@ -86,7 +86,10 @@ def test_unblock_keeps_times_you_are_meeting_someone_blocked(alice, bob, hours):
 
 def test_blocking_is_recorded_in_history_with_who(client, alice, hours):
     client.force_login(alice)
-    client.post(BLOCK_URL, {"action": "block", "slot": [hours[0].pk]})
+    client.post(
+        BLOCK_URL,
+        {"action": "block", "slot": [hours[0].pk], f"reason_{hours[0].pk}": "Dentist"},
+    )
     assert Slot.objects.get(pk=hours[0].pk).history.first().history_user == alice
 
 
@@ -95,7 +98,7 @@ def test_blocking_is_recorded_in_history_with_who(client, alice, hours):
 
 def test_page_lists_office_hours_before_and_after_lunch(client, alice, bob, hours):
     book(hours[1], bob, "Leave request")
-    block(alice, [hours[2].pk])
+    block(alice, [hours[2].pk], "Away")
     client.force_login(alice)
 
     response = client.get(BLOCK_URL)
@@ -146,26 +149,80 @@ def test_block_button_blocks_selected_slots(client, alice, hours):
     client.force_login(alice)
 
     response = client.post(
-        BLOCK_URL, {"action": "block", "slot": pks(hours[:2])}, follow=True
+        BLOCK_URL,
+        {
+            "action": "block",
+            "slot": pks(hours[:2]),
+            f"reason_{hours[0].pk}": "  Dentist  ",
+        },
+        follow=True,
     )
 
     assert response.redirect_chain == [(BLOCK_URL, 302)]
     assert free(alice).count() == 28
     assert "Blocked 2 slots." in response.content.decode()
+    assert {s.block_reason for s in Slot.objects.filter(pk__in=pks(hours[:2]))} == {
+        "Dentist"
+    }
+    assert "Blocked: Dentist" in client.get(BLOCK_URL).content.decode()
+
+
+def test_separate_stretches_each_need_their_own_reason(client, alice, hours):
+    client.force_login(alice)
+    picked = [hours[0], hours[1], hours[3]]  # 10:00–11:00 and 11:30–12:00
+    data = {"action": "block", "slot": pks(picked), f"reason_{hours[0].pk}": "Dentist"}
+
+    response = client.post(BLOCK_URL, data, follow=True)
+
+    assert "blocking each stretch" in response.content.decode()
+    assert free(alice).count() == 30  # nothing was blocked
+
+    data[f"reason_{hours[3].pk}"] = "Call"
+    client.post(BLOCK_URL, data)
+    reasons = {s.pk: s.block_reason for s in Slot.objects.filter(pk__in=pks(picked))}
+    assert reasons == {
+        hours[0].pk: "Dentist",
+        hours[1].pk: "Dentist",
+        hours[3].pk: "Call",
+    }
+
+
+def test_blocking_needs_a_reason(client, alice, hours):
+    client.force_login(alice)
+
+    client.post(BLOCK_URL, {"action": "block", "slot": [hours[0].pk]})
+    client.post(
+        BLOCK_URL,
+        {"action": "block", "slot": [hours[0].pk], f"reason_{hours[0].pk}": "  "},
+    )
+    client.post(BLOCK_URL, {"action": "block_day"})
+
+    assert free(alice).count() == 30
+    with pytest.raises(SlotError):
+        block(alice, [hours[0].pk], " ")
+
+
+def test_unblocking_clears_the_reason(alice, hours):
+    block(alice, [hours[0].pk], "Dentist")
+    unblock(alice, [hours[0].pk])
+
+    assert Slot.objects.get(pk=hours[0].pk).block_reason == ""
 
 
 def test_block_whole_day_leaves_meetings_alone(client, alice, bob, hours):
     book(hours[5], bob, "Leave request")
     client.force_login(alice)
 
-    response = client.post(BLOCK_URL, {"action": "block_day"}, follow=True)
+    response = client.post(
+        BLOCK_URL, {"action": "block_day", "reason_day": "Offsite"}, follow=True
+    )
 
     assert list(free(alice)) == [Slot.objects.get(pk=hours[5].pk)]
     assert "Blocked 29 slots." in response.content.decode()
 
 
 def test_unblock_button_reports_slots_that_stayed_blocked(client, alice, bob, hours):
-    block(alice, pks(hours[:2]))
+    block(alice, pks(hours[:2]), "Away")
     book(open_office_hours(bob, MONDAY)[0], alice, "Review")  # 10:00
     client.force_login(alice)
 
@@ -209,4 +266,4 @@ def test_slots_opened_by_hand_are_listed_and_can_be_blocked(client, alice):
     shown = [s for run in runs for s in run]
     assert len(shown) == 32  # 10:00–18:00, with the 13:00 office-hours slot
     assert by_hand[12] not in shown  # the removed one isn't shown twice
-    assert block(alice, [by_hand[0].pk]) == 1
+    assert block(alice, [by_hand[0].pk], "Away") == 1

@@ -10,6 +10,8 @@ from chat.services import post_notice
 
 from .models import Slot
 
+BLOCK_REASON_MAX = 200
+
 
 class SlotError(Exception):
     """A request that breaks a scheduling rule; the message is shown to the user."""
@@ -127,17 +129,23 @@ def _own_future_slots(user, pks):
 
 
 @transaction.atomic
-def block(user, pks):
-    """Take the user's free slots out of booking. Returns how many.
+def block(user, pks, reason):
+    """Take the user's free slots out of booking for a reason. Returns how many.
 
     Slots someone booked in the meantime are left alone.
     """
+    reason = reason.strip()
+    if not reason:
+        raise SlotError("Say why you're blocking this time.")
+    if len(reason) > BLOCK_REASON_MAX:
+        raise SlotError(f"Keep the reason under {BLOCK_REASON_MAX} characters.")
     _lock(user)
     slots = _own_future_slots(user, pks).filter(
         cancelled_at__isnull=True, booked_by__isnull=True
     )
     for slot in slots:
         slot.cancelled_at = timezone.now()
+        slot.block_reason = reason
         slot.save()
     return len(slots)
 
@@ -160,6 +168,7 @@ def unblock(user, pks):
         slot.topic = ""
         slot.booked_at = None
         slot.cancelled_at = None
+        slot.block_reason = ""
         slot.save()
         opened += 1
     return opened
