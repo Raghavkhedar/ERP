@@ -6,7 +6,7 @@
 {% block header %}
   <div class="flex h-14 items-center gap-2.5 bg-slate-900 px-6 text-sm font-semibold tracking-tight text-white sm:px-8">
     {% include "_mark.html" %}
-    <span>Senken ERP</span>
+    <span class="title text-xl">Senken ERP</span>
   </div>
 {% endblock %}
 {% block main_class %}flex min-h-[calc(100dvh-3.5rem)] items-center justify-center px-6 pb-16{% endblock %}
@@ -17,7 +17,7 @@
     {% csrf_token %}
     <input type="hidden" name="next" value="{{ next }}">
 
-    <h1 class="text-3xl font-semibold tracking-tight">Log in</h1>
+    <h1 class="title text-4xl">Log in</h1>
     {% if form.non_field_errors %}
       <p role="alert" class="mt-2 text-sm text-red-600">
         {% for error in form.non_field_errors %}{{ error }}{% endfor %}

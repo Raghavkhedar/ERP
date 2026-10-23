@@ -8,7 +8,7 @@
   {% url 'meetings:day' following.year following.month following.day as next_url %}
   {% url 'meetings:day' today.year today.month today.day as today_url %}
   {% include "meetings/_calendar_nav.html" with previous_label="Previous day" next_label="Next day" %}
-  <h1 class="text-2xl font-semibold tracking-tight">{{ day|date:"l, j F" }}</h1>
+  <h1 class="title text-3xl">{{ day|date:"l, j F" }}</h1>
   <a href="{% url 'meetings:month' day.year day.month %}" class="text-sm text-blue-600 hover:underline">{{ day|date:"F" }}</a>
 {% endblock %}
 

@@ -1,7 +1,34 @@
 @import "tailwindcss";
+
+/* Fonts are served from static/vendor/fonts (see VERSIONS.md), not a CDN. */
+@font-face {
+  font-family: "Geist";
+  src: url("../vendor/fonts/Geist-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Instrument Serif";
+  src: url("../vendor/fonts/InstrumentSerif-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Instrument Serif";
+  src: url("../vendor/fonts/InstrumentSerif-Italic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
 @source "../../templates";
 
 @theme {
+  /* Geist for the interface; Instrument Serif for page titles only. */
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Instrument Serif", ui-serif, Georgia, serif;
+
   /* The Senken palette, "Sea glass": calm, cool and easy to read.
      Templates keep Tailwind's colour names; these redefine them, so the
      whole app follows this one place. */
@@ -137,4 +164,12 @@
 
 [x-cloak] {
   display: none !important;
+}
+
+/* Page titles: the serif, a touch tighter, never faux-bold. */
+@utility title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
 }

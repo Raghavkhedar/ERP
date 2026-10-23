@@ -5,6 +5,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Senken ERP{% endblock %}</title>
+  <link rel="preload" href="{% static 'vendor/fonts/Geist-Variable.woff2' %}" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="{% static 'vendor/fonts/InstrumentSerif-Regular.woff2' %}" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
   <script src="{% static 'vendor/htmx.min.js' %}" defer></script>
   <script src="{% static 'vendor/alpine.min.js' %}" defer></script>
@@ -15,7 +17,7 @@
     <nav class="flex h-full items-center gap-7">
       <a href="{% url 'home' %}" class="flex items-center gap-2.5 font-semibold tracking-tight text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/60 rounded">
         {% include "_mark.html" %}
-        <span>Senken ERP</span>
+        <span class="title text-xl">Senken ERP</span>
       </a>
       {% if user.is_authenticated %}
         {% with section=request.resolver_match.app_name %}
