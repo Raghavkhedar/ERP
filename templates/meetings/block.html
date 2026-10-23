@@ -21,15 +21,16 @@
       {% else %}Office hours for this day aren't open yet. They open the office day before.{% endif %}
     </p>
   {% else %}
-    <p class="max-w-prose text-sm text-gray-500">Colleagues can book any open time in your office hours. Tick the times you're not available, then say why.<span class="hidden sm:inline"> Shift-click selects a range.</span></p>
+    <p class="max-w-prose text-sm text-gray-500">Colleagues can book any open time in your office hours. Open a field, tick the times you're not available, then say why.<span class="hidden sm:inline"> Shift-click selects a range.</span></p>
 
     <div x-data="{
-           free: 0, blocked: 0, last: null, stretches: [], reasons: {},
+           free: 0, blocked: 0, last: null, stretches: [], reasons: {}, open: null, counts: [0, 0],
            boxes(selector) { return [...$root.querySelectorAll(selector)] },
            refresh() {
              const picked = this.boxes('input[data-state=free]:checked')
              this.blocked = this.boxes('input[data-state=blocked]:checked').length
              this.free = picked.length
+             this.counts = [0, 1].map(i => this.boxes(`input[name=slot][data-panel='${i}']:checked`).length)
              this.stretches = []
              for (const box of picked) {
                const tail = this.stretches[this.stretches.length - 1]
@@ -67,16 +68,28 @@
         {% csrf_token %}
         <div class="grid gap-6 sm:grid-cols-2">
           {% for panel in panels %}
-            <section aria-labelledby="panel-{{ forloop.counter }}" class="min-w-0">
-              <div class="mb-2 flex items-baseline justify-between gap-3">
-                <h2 id="panel-{{ forloop.counter }}" class="text-sm font-medium">{{ panel.title }} <span class="font-normal tabular-nums text-gray-500">{{ panel.hours }}</span></h2>
-                <div class="flex gap-3 text-xs text-gray-500">
+            <section class="relative min-w-0" @click.outside="open === {{ forloop.counter0 }} && (open = null)" @keydown.escape="open = null">
+              <button type="button" id="panel-{{ forloop.counter }}" @click="open = open === {{ forloop.counter0 }} ? null : {{ forloop.counter0 }}"
+                      :aria-expanded="open === {{ forloop.counter0 }}"
+                      class="flex h-12 w-full items-center justify-between gap-3 rounded-lg border border-gray-300 bg-white px-3 text-left text-sm outline-none transition hover:border-gray-400 focus-visible:border-blue-600 focus-visible:ring-4 focus-visible:ring-blue-600/10"
+                      :class="open === {{ forloop.counter0 }} && 'border-blue-600 ring-4 ring-blue-600/10'">
+                <span class="min-w-0">
+                  <span class="block font-medium">{{ panel.title }}</span>
+                  <span class="block text-xs tabular-nums text-gray-500">{{ panel.hours }}</span>
+                </span>
+                <span class="flex shrink-0 items-center gap-2">
+                  <span x-show="counts[{{ forloop.counter0 }}]" x-cloak class="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700" x-text="counts[{{ forloop.counter0 }}] + ' selected'"></span>
+                  <svg width="16" height="16" class="size-4 text-gray-400 transition-transform" :class="open === {{ forloop.counter0 }} && 'rotate-180'" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>
+                </span>
+              </button>
+              <div x-show="open === {{ forloop.counter0 }}" x-cloak x-transition.opacity.duration.100ms
+                   class="absolute inset-x-0 top-full z-20 mt-1.5 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
+                <div class="flex justify-end gap-4 border-b border-gray-100 px-3 py-2 text-xs text-gray-500">
                   <button type="button" @click="openIn($event)" class="transition-colors hover:text-gray-900">Select all open</button>
                   <button type="button" @click="clearIn($event)" class="transition-colors hover:text-gray-900">Clear</button>
                 </div>
-              </div>
               {% if panel.slots %}
-                <ul class="max-h-72 overflow-y-auto overscroll-contain rounded-lg border border-gray-200">
+                <ul class="max-h-64 overflow-y-auto overscroll-contain">
                   {% for slot in panel.slots %}
                     <li class="border-b border-gray-100 last:border-b-0">
                       {% if slot.state == "booked" %}
@@ -90,7 +103,7 @@
                         <label class="flex h-11 items-center gap-3 px-3 text-sm transition-colors has-checked:bg-blue-50
                                       {% if slot.started %}text-gray-400{% else %}cursor-pointer hover:bg-gray-50{% endif %}
                                       {% if slot.state == 'blocked' %}bg-[repeating-linear-gradient(135deg,var(--color-gray-100)_0_5px,transparent_5px_10px)] text-gray-500{% endif %}">
-                          <input type="checkbox" name="slot" value="{{ slot.pk }}" data-state="{{ slot.state }}"
+                          <input type="checkbox" name="slot" value="{{ slot.pk }}" data-state="{{ slot.state }}" data-panel="{{ forloop.parentloop.counter0 }}"
                                  data-start="{{ slot.starts_at|time:'H:i' }}" data-end="{{ slot.ends_at|time:'H:i' }}"
                                  data-start-ts="{{ slot.starts_at|date:'U' }}" data-end-ts="{{ slot.ends_at|date:'U' }}"
                                  {% if slot.started %}disabled{% endif %} @click="pick($event)"
@@ -107,8 +120,9 @@
                   {% endfor %}
                 </ul>
               {% else %}
-                <p class="rounded-lg border border-gray-200 px-3 py-4 text-sm text-gray-500">Nothing here to block.</p>
+                <p class="px-3 py-4 text-sm text-gray-500">Nothing here to block.</p>
               {% endif %}
+              </div>
             </section>
           {% endfor %}
         </div>
