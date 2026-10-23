@@ -345,6 +345,7 @@ def block_time(request, year=None, month=None, day=None):
         "today": today,
         "is_sunday": shown.weekday() == 6,
         "has_slots": bool(slots),
+        "all_past": not any(not s.started and s.state != "booked" for s in slots),
         "panels": _panels(slots),
         "can_block": any(s.state == "free" and not s.started for s in slots),
         "previous": shown - timedelta(days=1),
