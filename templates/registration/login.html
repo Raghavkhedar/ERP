@@ -10,7 +10,7 @@
 
 {% block content %}
   <form method="post" x-data="{ show: false, sending: false }" @submit="sending = true"
-        class="w-full max-w-[22rem] animate-rise motion-reduce:animate-none">
+        class="w-full max-w-88 animate-rise motion-reduce:animate-none">
     {% csrf_token %}
     <input type="hidden" name="next" value="{{ next }}">
 
