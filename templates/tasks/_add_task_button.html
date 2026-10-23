@@ -1,4 +1,4 @@
 <a href="{% url 'tasks:new' %}"
    hx-get="{% url 'tasks:new' %}?next={{ request.get_full_path|urlencode }}" hx-target="#task-dialog-body"
    hx-on::after:swap="document.getElementById('task-dialog').showModal()"
-   class="inline-flex h-10 items-center rounded-lg bg-blue-600 px-4 text-sm font-medium text-white transition duration-150 hover:bg-blue-700 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30">Add task</a>
+   class="inline-flex h-10 items-center rounded-lg bg-blue-600 px-4 text-sm font-medium text-on-accent transition duration-150 hover:bg-blue-700 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30">Add task</a>

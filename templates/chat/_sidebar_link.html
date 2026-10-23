@@ -1,6 +1,6 @@
 <li>
   <a href="{% url 'chat:conversation_detail' c.pk %}"
-     class="flex items-center gap-2 rounded px-2 py-1 text-[15px] {% if c.pk == current_id %}bg-blue-600 text-white{% elif c.unread %}font-semibold text-white hover:bg-slate-800{% else %}hover:bg-slate-800 hover:text-white{% endif %}">
+     class="flex items-center gap-2 rounded px-2 py-1 text-[15px] {% if c.pk == current_id %}bg-blue-600 text-on-accent{% elif c.unread %}font-semibold text-white hover:bg-slate-800{% else %}hover:bg-slate-800 hover:text-white{% endif %}">
     {% if c.kind == "direct" %}
       {% include "chat/_avatar.html" with name=c.title size="size-5 text-xs" %}
     {% elif c.is_private %}

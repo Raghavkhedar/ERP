@@ -16,7 +16,7 @@
         <span class="flex-1 font-medium">{{ person.display_name }}</span>
         <form method="post" action="{% url 'chat:add_person' conversation.pk person.pk %}">
           {% csrf_token %}
-          <button type="submit" class="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700">Add</button>
+          <button type="submit" class="rounded bg-blue-600 px-3 py-1 text-sm text-on-accent hover:bg-blue-700">Add</button>
         </form>
       </li>
     {% empty %}

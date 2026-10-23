@@ -37,7 +37,7 @@
         <textarea name="body" rows="2" maxlength="4000" required
                   placeholder="Message {{ title }}"
                   class="flex-1 rounded border p-2"></textarea>
-        <button type="submit" class="rounded bg-blue-600 px-4 text-white">Send</button>
+        <button type="submit" class="rounded bg-blue-600 px-4 text-on-accent">Send</button>
       </div>
       <p id="send-error" class="mt-1 text-sm text-red-600"></p>
     </form>
@@ -46,7 +46,7 @@
       <p class="text-gray-500">Join {{ title }} to see its messages.</p>
       <form method="post" action="{% url 'chat:join' conversation.pk %}">
         {% csrf_token %}
-        <button type="submit" class="rounded bg-blue-600 px-4 py-1.5 font-medium text-white hover:bg-blue-700">Join {{ title }}</button>
+        <button type="submit" class="rounded bg-blue-600 px-4 py-1.5 font-medium text-on-accent hover:bg-blue-700">Join {{ title }}</button>
       </form>
     </div>
   {% endif %}

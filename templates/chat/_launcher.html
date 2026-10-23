@@ -6,12 +6,12 @@
     <a href="{% url 'chat:conversation_list' %}"
        :aria-label="unread ? `Chat, ${unread} unread` : 'Chat'" aria-label="Chat" title="Chat"
        :class="ringing && 'animate-ring'"
-       class="fixed bottom-6 right-6 z-40 grid size-14 place-items-center rounded-full bg-blue-600 text-white shadow-lg shadow-blue-600/25 transition duration-150 hover:bg-blue-700 active:scale-95 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30 motion-reduce:animate-none">
+       class="fixed bottom-6 right-6 z-40 grid size-14 place-items-center rounded-full bg-blue-600 text-on-accent shadow-lg shadow-blue-600/25 transition duration-150 hover:bg-blue-700 active:scale-95 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30 motion-reduce:animate-none">
       <svg class="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M4.5 5.5h15a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4.5 3.5v-3.5h-1a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1Z"/>
       </svg>
       <span x-show="unread" x-cloak x-text="unread > 99 ? '99+' : unread"
-            class="absolute -right-1 -top-1 h-5 min-w-5 rounded-full bg-rose-500 px-1.5 text-center text-xs font-semibold leading-5 text-white ring-2 ring-white"></span>
+            class="absolute -right-1 -top-1 h-5 min-w-5 rounded-full bg-rose-500 px-1.5 text-center text-xs font-semibold leading-5 text-white ring-2 ring-canvas"></span>
     </a>
   {% endif %}
 </div>

@@ -5,7 +5,7 @@
 {% block band %}
   {# The navbar runs on into this band; faint contour lines, like water over sea glass. #}
   <div class="relative overflow-hidden bg-slate-900 text-white">
-    <svg class="pointer-events-none absolute inset-0 h-full w-full text-blue-300/[0.13]" viewBox="0 0 1200 240" preserveAspectRatio="none" aria-hidden="true">
+    <svg class="pointer-events-none absolute inset-0 h-full w-full text-blue-600/[0.12]" viewBox="0 0 1200 240" preserveAspectRatio="none" aria-hidden="true">
       <g fill="none" stroke="currentColor" stroke-width="1.2">
         <path d="M0 40C150 10 300 70 450 45S750 5 900 35 1100 80 1200 50"/>
         <path d="M0 75C160 45 310 105 470 80S760 40 920 70 1110 115 1200 85"/>
@@ -59,7 +59,7 @@
 
       <div class="mt-6 flex flex-wrap gap-3">
         <a href="{% url 'meetings:people' %}"
-           class="inline-flex h-11 items-center rounded-lg bg-blue-600 px-5 text-sm font-medium text-white transition duration-150 hover:bg-blue-700 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30">Book a meeting</a>
+           class="inline-flex h-11 items-center rounded-lg bg-blue-600 px-5 text-sm font-medium text-on-accent transition duration-150 hover:bg-blue-700 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30">Book a meeting</a>
         <a href="{% url 'meetings:block_time' %}"
            class="inline-flex h-11 items-center rounded-lg border border-gray-300 px-5 text-sm font-medium transition duration-150 hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/10">Block time</a>
       </div>

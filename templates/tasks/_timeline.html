@@ -78,7 +78,7 @@
                   <span class="sr-only">{{ task.get_status_display }}, received {{ task.received_at|date:"j M" }}, due {{ task.due_date|date:"j M" }}{% if task.is_overdue %}, overdue{% endif %}</span>
                 </div>
                 {% if bar.has_main %}
-                  <div aria-hidden="true" class="pointer-events-none row-start-1 flex items-center {% if task.status == 'ongoing' %}text-blue-600{% elif task.status == 'done' %}text-emerald-500{% elif task.status == 'closed' %}text-gray-200{% else %}text-gray-300{% endif %}"
+                  <div aria-hidden="true" class="pointer-events-none row-start-1 flex items-center {% if task.status == 'ongoing' %}text-blue-600{% elif task.status == 'done' %}text-emerald-500{% elif task.status == 'closed' %}text-gray-300{% else %}text-gray-400{% endif %}"
                        style="grid-column: {{ bar.start }} / {{ bar.main_end }}">
                     <div class="relative h-1.5 flex-1 bg-current {% if bar.clipped_left %}rounded-r-full mask-[linear-gradient(to_right,transparent,black_1.5rem)]{% else %}ml-1.5 rounded-full{% endif %} {% if bar.overdue_from %}rounded-r-none{% elif bar.clipped_right %}rounded-r-none mask-[linear-gradient(to_left,transparent,black_1.5rem)]{% else %}mr-1.5{% endif %}">
                       {% if bar.shows_due %}<span class="absolute -right-px top-1/2 h-3.5 w-0.5 -translate-y-1/2 rounded-full bg-current"></span>{% endif %}
@@ -92,7 +92,7 @@
                 {% endif %}
                 {% for dot in bar.updates %}
                   <a href="{% url 'tasks:detail' task.pk %}#update-{{ dot.update.pk }}" title="{{ dot.update.summary }}{% if dot.count > 1 %} (+{{ dot.count|add:-1 }} more){% endif %}"
-                     class="relative z-1 row-start-1 size-3 self-center justify-self-center rounded-full border-2 border-white bg-white ring-2 ring-blue-600 transition-transform hover:scale-125 focus-visible:scale-125 focus-visible:outline-none focus-visible:ring-4"
+                     class="relative z-1 row-start-1 size-3 self-center justify-self-center rounded-full border-2 border-surface bg-field ring-2 ring-blue-600 transition-transform hover:scale-125 focus-visible:scale-125 focus-visible:outline-none focus-visible:ring-4"
                      style="grid-column: {{ dot.column }}"><span class="sr-only">Update on {{ dot.update.created_at|date:"j M" }}: {{ dot.update.summary }}</span></a>
                 {% endfor %}
               </div>
