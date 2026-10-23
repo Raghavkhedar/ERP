@@ -36,6 +36,8 @@ echo "==> App user and code"
 id erp >/dev/null 2>&1 || useradd --create-home --shell /bin/bash erp
 install -d -o erp -g erp "$APP"
 [[ -d "$APP/.git" ]] || sudo -u erp git clone "$REPO" "$APP"
+# Task attachments; served by the app after a permission check.
+install -d -o erp -g erp -m 750 "$APP/media"
 [[ -x ~erp/.local/bin/uv ]] || sudo -u erp -i sh -c 'curl -LsSf https://astral.sh/uv/install.sh | sh'
 
 echo "==> Secrets (.env, readable only by erp)"

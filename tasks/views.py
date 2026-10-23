@@ -1,7 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.http import HttpResponse
+from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -9,14 +9,16 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from . import timeline as task_timeline
-from .forms import StatusForm, TaskForm
-from .models import Status
+from .forms import StatusForm, TaskForm, UpdateForm
+from .models import Attachment, Status
 from .services import (
     TaskError,
+    add_update,
     allowed_statuses,
     assign,
     can_assign,
     set_status,
+    updatable_tasks,
     visible_tasks,
 )
 
@@ -38,11 +40,13 @@ def _next(request, default):
     return default
 
 
-def _form_page(request, context):
+def _form_page(request, context, form="tasks/_task_form.html"):
     """The form alone for the dialog, or as its own page without JavaScript."""
     in_dialog = bool(request.headers.get("HX-Request"))
-    template = "tasks/_task_form.html" if in_dialog else "tasks/task_form_page.html"
-    return render(request, template, {**context, "in_dialog": in_dialog})
+    template = form if in_dialog else "tasks/form_page.html"
+    return render(
+        request, template, {**context, "in_dialog": in_dialog, "form_template": form}
+    )
 
 
 @login_required
@@ -87,6 +91,7 @@ def new_task(request):
         "form": form,
         "action": reverse("tasks:new"),
         "received": timezone.now(),
+        "heading": "Assign a task",
         "submit": "Assign task",
         "next": _next(request, ""),
     }
@@ -108,6 +113,7 @@ def edit_task(request, pk):
         "task": task,
         "action": reverse("tasks:edit", args=[task.pk]),
         "received": task.received_at,
+        "heading": "Edit task",
         "submit": "Save changes",
     }
     return _form_page(request, context)
@@ -116,10 +122,14 @@ def edit_task(request, pk):
 @login_required
 def task_detail(request, pk):
     task = get_object_or_404(visible_tasks(request.user), pk=pk)
+    updates = task.updates.select_related("author").prefetch_related("attachments")
     context = {
         "task": task,
+        "updates": updates,
         "statuses": allowed_statuses(task, request.user),
         "can_assign": can_assign(request.user),
+        "can_update": not task.is_closed
+        and (task.assigned_to_id == request.user.pk or can_assign(request.user)),
     }
     return render(request, "tasks/detail.html", context)
 
@@ -139,12 +149,57 @@ def change_status(request, pk):
     return redirect("tasks:detail", pk=task.pk)
 
 
+@login_required
+def new_update(request):
+    tasks = updatable_tasks(request.user)
+    only = tasks[:2]
+    initial = {
+        "task": request.GET.get("task") or (only[0].pk if len(only) == 1 else None)
+    }
+    form = UpdateForm(
+        request.POST or None, request.FILES or None, tasks=tasks, initial=initial
+    )
+    if request.method == "POST" and form.is_valid():
+        data = form.cleaned_data
+        try:
+            update = add_update(data["task"], request.user, data["body"], data["files"])
+        except TaskError as error:
+            form.add_error(None, str(error))
+        else:
+            messages.success(request, f"Update added to {update.task.title}.")
+            return _done(
+                request, _next(request, reverse("tasks:detail", args=[update.task_id]))
+            )
+    context = {
+        "form": form,
+        "action": reverse("tasks:update_new"),
+        "heading": "Add an update",
+        "submit": "Add update",
+        "today": timezone.localdate(),
+        "next": _next(request, ""),
+    }
+    return _form_page(request, context, form="tasks/_update_form.html")
+
+
+@login_required
+def attachment(request, pk):
+    file = get_object_or_404(
+        Attachment.objects.filter(update__task__in=visible_tasks(request.user)), pk=pk
+    )
+    return FileResponse(
+        file.file.open("rb"),
+        as_attachment=not file.is_image,
+        filename=file.original_name,
+    )
+
+
 def timeline_context(request):
     today = timezone.localdate()
     start = task_timeline.parse_start(request.GET.get("from"), today)
     return {
         "timeline": task_timeline.build(request.user, start),
         "can_assign": can_assign(request.user),
+        "can_log": updatable_tasks(request.user).exists(),
     }
 
 

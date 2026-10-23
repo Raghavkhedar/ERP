@@ -1,0 +1,8 @@
+{% extends "tasks/base_tasks.html" %}
+
+{% block title %}{{ heading }} · Tasks{% endblock %}
+{% block heading %}{{ heading }}{% endblock %}
+
+{% block page %}
+  <div class="-mx-6 max-w-lg">{% include form_template %}</div>
+{% endblock %}

@@ -1,5 +1,8 @@
+from pathlib import Path
+
 from django import forms
 from django.contrib.auth import get_user_model
+from django.template.defaultfilters import filesizeformat
 from django.utils import timezone
 
 from .models import PRIORITIES, Status, Task
@@ -69,3 +72,87 @@ class TaskForm(forms.ModelForm):
 
 class StatusForm(forms.Form):
     status = forms.ChoiceField(choices=Status.choices)
+
+
+MAX_FILE_SIZE = 10 * 1024 * 1024
+MAX_FILES = 10
+ALLOWED_EXTENSIONS = {
+    ".png", ".jpg", ".jpeg", ".webp", ".gif",
+    ".pdf", ".txt", ".csv",
+    ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+}  # fmt: skip
+
+
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class MultipleFileField(forms.FileField):
+    """Several files from one input; the Django docs' recipe."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("widget", MultipleFileInput())
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        single = super().clean
+        if isinstance(data, list | tuple):
+            return [single(file, initial) for file in data]
+        return [single(data, initial)] if data else []
+
+
+class TaskChoiceField(forms.ModelChoiceField):
+    def label_from_instance(self, task):
+        return f"P{task.priority} {task.title}"
+
+
+class UpdateForm(forms.Form):
+    task = TaskChoiceField(
+        queryset=Task.objects.none(),
+        label="Task",
+        empty_label="Choose a task",
+        error_messages={"required": "Choose the task this is for."},
+    )
+    body = forms.CharField(
+        label="What did you do?",
+        max_length=4000,
+        widget=forms.Textarea(
+            attrs={"rows": 4, "placeholder": "e.g. Collected the bank statements"}
+        ),
+        error_messages={"required": "Say what you did."},
+    )
+    files = MultipleFileField(
+        label="Files and screenshots",
+        required=False,
+        help_text="Images, PDFs and Office files, up to 10 MB each. "
+        "You can also paste a screenshot.",
+    )
+
+    def __init__(self, *args, tasks, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["task"].queryset = tasks
+        self.fields["files"].widget.attrs["accept"] = ",".join(
+            sorted(ALLOWED_EXTENSIONS)
+        )
+
+    def clean_body(self):
+        body = self.cleaned_data["body"].strip()
+        if not body:
+            raise forms.ValidationError("Say what you did.")
+        return body
+
+    def clean_files(self):
+        files = self.cleaned_data["files"]
+        if len(files) > MAX_FILES:
+            raise forms.ValidationError(f"Attach at most {MAX_FILES} files at a time.")
+        for file in files:
+            if Path(file.name).suffix.lower() not in ALLOWED_EXTENSIONS:
+                raise forms.ValidationError(
+                    f"{file.name} can't be attached. Use images, PDFs or Office files."
+                )
+            if file.size > MAX_FILE_SIZE:
+                raise forms.ValidationError(
+                    f"{file.name} is {filesizeformat(file.size)}. "
+                    f"Files can be up to {filesizeformat(MAX_FILE_SIZE)}."
+                )
+        return files
