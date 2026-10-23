@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.db.models import Q
 from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -14,6 +15,7 @@ from .forms import StatusForm, TaskForm, UpdateForm
 from .models import Attachment, Status
 from .services import (
     TaskError,
+    add_task_files,
     add_update,
     allowed_statuses,
     assign,
@@ -90,7 +92,7 @@ def task_list(request):
 def new_task(request):
     if not can_assign(request.user):
         raise PermissionDenied("Only admins assign tasks.")
-    form = TaskForm(request.POST or None)
+    form = TaskForm(request.POST or None, request.FILES or None)
     if request.method == "POST" and form.is_valid():
         data = form.cleaned_data
         try:
@@ -100,6 +102,7 @@ def new_task(request):
                 data["priority"],
                 data["description"],
                 data["due_date"],
+                data["files"],
             )
         except TaskError as error:
             form.add_error(None, str(error))
@@ -124,9 +127,10 @@ def edit_task(request, pk):
     if not can_assign(request.user):
         raise PermissionDenied("Only admins change tasks.")
     task = get_object_or_404(visible_tasks(request.user), pk=pk)
-    form = TaskForm(request.POST or None, instance=task)
+    form = TaskForm(request.POST or None, request.FILES or None, instance=task)
     if request.method == "POST" and form.is_valid():
         form.save()
+        add_task_files(task, request.user, form.cleaned_data["files"])
         messages.success(request, "Task saved.")
         return _done(request, reverse("tasks:detail", args=[task.pk]))
     context = {
@@ -146,6 +150,7 @@ def task_detail(request, pk):
     updates = task.updates.select_related("author").prefetch_related("attachments")
     context = {
         "task": task,
+        "files": task.attachments.all(),
         "updates": updates,
         "statuses": allowed_statuses(task, request.user),
         "can_assign": can_assign(request.user),
@@ -205,7 +210,11 @@ def new_update(request):
 @login_required
 def attachment(request, pk):
     file = get_object_or_404(
-        Attachment.objects.filter(update__task__in=visible_tasks(request.user)), pk=pk
+        Attachment.objects.filter(
+            Q(task__in=visible_tasks(request.user))
+            | Q(update__task__in=visible_tasks(request.user))
+        ),
+        pk=pk,
     )
     return FileResponse(
         file.file.open("rb"),

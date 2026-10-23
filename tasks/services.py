@@ -29,7 +29,7 @@ def short_date(day):
 
 
 @transaction.atomic
-def assign(by, to, priority, description, due_date):
+def assign(by, to, priority, description, due_date, files=()):
     if not can_assign(by):
         raise PermissionDenied("Only admins assign tasks.")
     if not to.is_active:
@@ -47,12 +47,29 @@ def assign(by, to, priority, description, due_date):
         description=description,
         due_date=due_date,
     )
+    attach(files, task=task)
     if to != by:
         due = short_date(due_date)
         post_notice(
             by, to, f"assigned you a task (P{priority}, due {due}): {task.title}"
         )
     return task
+
+
+def attach(files, **owner):
+    """Store uploads on a task or one of its updates (`task=` or `update=`)."""
+    for upload in files:
+        Attachment.objects.create(
+            file=upload, original_name=upload.name, size=upload.size, **owner
+        )
+
+
+@transaction.atomic
+def add_task_files(task, user, files):
+    """Add files to a task after it was assigned."""
+    if not can_assign(user):
+        raise PermissionDenied("Only admins attach files to a task.")
+    attach(files, task=task)
 
 
 def allowed_statuses(task, user):
@@ -105,10 +122,7 @@ def add_update(task, user, body, files=()):
         raise TaskError("Say what you did.")
 
     update = TaskUpdate.objects.create(task=task, author=user, body=body)
-    for upload in files:
-        Attachment.objects.create(
-            update=update, file=upload, original_name=upload.name, size=upload.size
-        )
+    attach(files, update=update)
     if task.status == Status.OPEN and task.assigned_to_id == user.pk:
         task.status = Status.ONGOING
         task.save()

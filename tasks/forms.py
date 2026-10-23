@@ -13,7 +13,61 @@ class PersonChoiceField(forms.ModelChoiceField):
         return user.display_name
 
 
-class TaskForm(forms.ModelForm):
+MAX_FILE_SIZE = 10 * 1024 * 1024
+MAX_FILES = 10
+ALLOWED_EXTENSIONS = {
+    ".png", ".jpg", ".jpeg", ".webp", ".gif",
+    ".pdf", ".txt", ".csv",
+    ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+}  # fmt: skip
+
+
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class MultipleFileField(forms.FileField):
+    """Several files from one input; the Django docs' recipe."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("widget", MultipleFileInput())
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        single = super().clean
+        if isinstance(data, list | tuple):
+            return [single(file, initial) for file in data]
+        return [single(data, initial)] if data else []
+
+
+class FilesMixin(forms.Form):
+    """The `files` field and its checks, shared by the task and update forms."""
+
+    files = MultipleFileField(
+        label="Files and screenshots",
+        required=False,
+        help_text="Images, PDFs and Office files, up to 10 MB each. "
+        "You can also paste a screenshot.",
+    )
+
+    def clean_files(self):
+        files = self.cleaned_data["files"]
+        if len(files) > MAX_FILES:
+            raise forms.ValidationError(f"Attach at most {MAX_FILES} files at a time.")
+        for file in files:
+            if Path(file.name).suffix.lower() not in ALLOWED_EXTENSIONS:
+                raise forms.ValidationError(
+                    f"{file.name} can't be attached. Use images, PDFs or Office files."
+                )
+            if file.size > MAX_FILE_SIZE:
+                raise forms.ValidationError(
+                    f"{file.name} is {filesizeformat(file.size)}. "
+                    f"Files can be up to {filesizeformat(MAX_FILE_SIZE)}."
+                )
+        return files
+
+
+class TaskForm(FilesMixin, forms.ModelForm):
     assigned_to = PersonChoiceField(
         queryset=get_user_model().objects.none(),
         label="Assign to",
@@ -74,39 +128,12 @@ class StatusForm(forms.Form):
     status = forms.ChoiceField(choices=Status.choices)
 
 
-MAX_FILE_SIZE = 10 * 1024 * 1024
-MAX_FILES = 10
-ALLOWED_EXTENSIONS = {
-    ".png", ".jpg", ".jpeg", ".webp", ".gif",
-    ".pdf", ".txt", ".csv",
-    ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
-}  # fmt: skip
-
-
-class MultipleFileInput(forms.ClearableFileInput):
-    allow_multiple_selected = True
-
-
-class MultipleFileField(forms.FileField):
-    """Several files from one input; the Django docs' recipe."""
-
-    def __init__(self, *args, **kwargs):
-        kwargs.setdefault("widget", MultipleFileInput())
-        super().__init__(*args, **kwargs)
-
-    def clean(self, data, initial=None):
-        single = super().clean
-        if isinstance(data, list | tuple):
-            return [single(file, initial) for file in data]
-        return [single(data, initial)] if data else []
-
-
 class TaskChoiceField(forms.ModelChoiceField):
     def label_from_instance(self, task):
         return f"P{task.priority} {task.title}"
 
 
-class UpdateForm(forms.Form):
+class UpdateForm(FilesMixin, forms.Form):
     task = TaskChoiceField(
         queryset=Task.objects.none(),
         label="Task",
@@ -121,12 +148,6 @@ class UpdateForm(forms.Form):
         ),
         error_messages={"required": "Say what you did."},
     )
-    files = MultipleFileField(
-        label="Files and screenshots",
-        required=False,
-        help_text="Images, PDFs and Office files, up to 10 MB each. "
-        "You can also paste a screenshot.",
-    )
 
     def __init__(self, *args, tasks, **kwargs):
         super().__init__(*args, **kwargs)
@@ -140,19 +161,3 @@ class UpdateForm(forms.Form):
         if not body:
             raise forms.ValidationError("Say what you did.")
         return body
-
-    def clean_files(self):
-        files = self.cleaned_data["files"]
-        if len(files) > MAX_FILES:
-            raise forms.ValidationError(f"Attach at most {MAX_FILES} files at a time.")
-        for file in files:
-            if Path(file.name).suffix.lower() not in ALLOWED_EXTENSIONS:
-                raise forms.ValidationError(
-                    f"{file.name} can't be attached. Use images, PDFs or Office files."
-                )
-            if file.size > MAX_FILE_SIZE:
-                raise forms.ValidationError(
-                    f"{file.name} is {filesizeformat(file.size)}. "
-                    f"Files can be up to {filesizeformat(MAX_FILE_SIZE)}."
-                )
-        return files

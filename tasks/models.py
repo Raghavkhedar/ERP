@@ -131,8 +131,21 @@ def attachment_path(attachment, filename):
 
 
 class Attachment(models.Model):
+    """A file on a task: from whoever assigned it, or on one of its updates."""
+
+    task = models.ForeignKey(
+        Task,
+        on_delete=models.PROTECT,
+        related_name="attachments",
+        null=True,
+        blank=True,
+    )
     update = models.ForeignKey(
-        TaskUpdate, on_delete=models.PROTECT, related_name="attachments"
+        TaskUpdate,
+        on_delete=models.PROTECT,
+        related_name="attachments",
+        null=True,
+        blank=True,
     )
     file = models.FileField(upload_to=attachment_path, max_length=200)
     original_name = models.CharField(max_length=255)
@@ -140,6 +153,13 @@ class Attachment(models.Model):
 
     class Meta:
         ordering = ["id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(task__isnull=False, update__isnull=True)
+                | Q(task__isnull=True, update__isnull=False),
+                name="tasks_attachment_task_xor_update",
+            ),
+        ]
 
     def __str__(self):
         return self.original_name
