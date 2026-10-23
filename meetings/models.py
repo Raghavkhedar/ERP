@@ -25,6 +25,9 @@ class Slot(models.Model):
     booked_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
+    office_hours = models.BooleanField(
+        default=False, help_text="Opened automatically for the person's office hours."
+    )
 
     history = HistoricalRecords()
 

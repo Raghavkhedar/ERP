@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
@@ -9,8 +9,6 @@ from django.utils import timezone
 from chat.services import post_notice
 
 from .models import Slot
-
-SLOT_LENGTHS = [15, 30, 45, 60]
 
 
 class SlotError(Exception):
@@ -42,36 +40,98 @@ def _lock(*users):
     list(get_user_model().objects.select_for_update().filter(pk__in=pks).order_by("pk"))
 
 
-@transaction.atomic
-def open_slots(host, date, start_time, end_time, minutes):
-    """Split the time range into slots of the given length. All or nothing."""
-    start = timezone.make_aware(datetime.combine(date, start_time))
-    end = timezone.make_aware(datetime.combine(date, end_time))
-    length = timedelta(minutes=minutes)
-    if end <= start:
-        raise SlotError("The end time must be after the start time.")
-    if start < timezone.now():
-        raise SlotError("Slots can't start in the past.")
-    if end - start < length:
-        raise SlotError(f"The time range is shorter than one {minutes}-minute slot.")
+OFFICE_DAYS = range(6)  # Monday to Saturday
+OFFICE_HOURS = [(time(10), time(13, 30)), (time(14), time(18))]  # lunch 13:30–14:00
+OFFICE_SLOT = timedelta(minutes=15)
 
+
+@transaction.atomic
+def open_office_hours(host, day):
+    """Open the host's office hours on this day as free slots others can book.
+
+    A day is filled once: slots the host removes later don't come back. Times
+    the host already has a slot or a meeting, and times already past, are skipped.
+    """
+    if day.weekday() not in OFFICE_DAYS:
+        return []
     _lock(host)
-    clash = overlapping(live_slots().filter(host=host), start, end).first()
-    if clash:
-        raise SlotError(
-            f"This overlaps your slot at {local_time(clash.starts_at)}"
-            f"–{local_time(clash.ends_at)}."
-        )
-    if is_busy(host, start, end):
-        raise SlotError("You have a meeting booked during this time.")
+    midnight = timezone.make_aware(datetime.combine(day, time.min))
+    filled = Slot.objects.filter(
+        host=host,
+        office_hours=True,
+        starts_at__gte=midnight,
+        starts_at__lt=midnight + timedelta(days=1),
+    )
+    if filled.exists():
+        return []
+
+    day_start = timezone.make_aware(datetime.combine(day, OFFICE_HOURS[0][0]))
+    day_end = timezone.make_aware(datetime.combine(day, OFFICE_HOURS[-1][1]))
+    taken = overlapping(
+        live_slots().filter(Q(host=host) | Q(booked_by=host)), day_start, day_end
+    )
+    taken = [(slot.starts_at, slot.ends_at) for slot in taken]
 
     slots = []
-    while start + length <= end:
-        slots.append(Slot(host=host, starts_at=start, ends_at=start + length))
-        start += length
+    for first, last in OFFICE_HOURS:
+        start = timezone.make_aware(datetime.combine(day, first))
+        end = timezone.make_aware(datetime.combine(day, last))
+        while start + OFFICE_SLOT <= end:
+            stop = start + OFFICE_SLOT
+            clashes = any(s < stop and e > start for s, e in taken)
+            if start >= timezone.now() and not clashes:
+                slots.append(
+                    Slot(host=host, starts_at=start, ends_at=stop, office_hours=True)
+                )
+            start = stop
     for slot in slots:
         slot.save()
     return slots
+
+
+def _own_future_slots(user, pks):
+    return Slot.objects.select_for_update().filter(
+        pk__in=pks, host=user, starts_at__gt=timezone.now()
+    )
+
+
+@transaction.atomic
+def block(user, pks):
+    """Take the user's free slots out of booking. Returns how many.
+
+    Slots someone booked in the meantime are left alone.
+    """
+    _lock(user)
+    slots = _own_future_slots(user, pks).filter(
+        cancelled_at__isnull=True, booked_by__isnull=True
+    )
+    for slot in slots:
+        slot.cancelled_at = timezone.now()
+        slot.save()
+    return len(slots)
+
+
+@transaction.atomic
+def unblock(user, pks):
+    """Open the user's blocked slots for booking again. Returns how many.
+
+    A slot that clashes with a meeting the user has since booked stays blocked.
+    """
+    _lock(user)
+    mine = live_slots().filter(Q(host=user) | Q(booked_by=user))
+    opened = 0
+    for slot in _own_future_slots(user, pks).filter(cancelled_at__isnull=False):
+        if overlapping(mine, slot.starts_at, slot.ends_at).exists():
+            continue
+        # A meeting the host cancelled leaves its booker behind; clear it so
+        # unblocking doesn't bring the meeting back.
+        slot.booked_by = None
+        slot.topic = ""
+        slot.booked_at = None
+        slot.cancelled_at = None
+        slot.save()
+        opened += 1
+    return opened
 
 
 def describe(slot):
