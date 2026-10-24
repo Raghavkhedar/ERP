@@ -1,0 +1,77 @@
+{% extends "meetings/base_meetings.html" %}
+
+{% block title %}{{ conference.title }} · Meetings{% endblock %}
+{% block heading %}Conference{% endblock %}
+
+{% block page %}
+  <div class="max-w-xl">
+    <h2 class="title text-2xl">{{ conference.title }}</h2>
+    <p class="mt-1 text-gray-500">{{ conference.starts_at|date:"l, j F" }}, {{ conference.starts_at|time:"H:i" }}–{{ conference.ends_at|time:"H:i" }}</p>
+    <p class="mt-1 text-sm text-gray-500">Hosted by {% if conference.i_am_host %}you{% else %}{{ conference.host.display_name }}{% endif %}{% if conference.location %} · {{ conference.location }}{% endif %}</p>
+
+    {% if conference.agenda %}<p class="mt-5 whitespace-pre-line text-sm">{{ conference.agenda }}</p>{% endif %}
+
+    {% if conference.my_invitation and not over %}
+      <form method="post" action="{% url 'meetings:conference_respond' conference.pk %}" class="mt-6 flex items-center gap-3">
+        {% csrf_token %}
+        {% if conference.my_invitation.status == "invited" %}<p class="mr-2 text-sm text-gray-500">Are you going?</p>{% endif %}
+        {% if conference.my_invitation.status != "accepted" %}
+          <button type="submit" name="answer" value="accept" class="h-10 rounded-lg bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-700 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30">Accept</button>
+        {% else %}
+          <p class="mr-2 text-sm text-green-700">You're going.</p>
+        {% endif %}
+        {% if conference.my_invitation.status != "declined" %}
+          <button type="submit" name="answer" value="decline" class="h-10 rounded-lg border border-gray-300 px-4 text-sm font-medium transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/10">Decline</button>
+        {% else %}
+          <p class="text-sm text-gray-500">You declined.</p>
+        {% endif %}
+      </form>
+    {% endif %}
+
+    <h3 class="mt-8 text-sm font-medium text-gray-500">People</h3>
+    <ul class="mt-3 divide-y divide-gray-100 border-y border-gray-100">
+      <li class="flex items-center gap-3 py-3">
+        {% include "chat/_avatar.html" with name=conference.host.display_name size="size-8 text-sm" %}
+        <span class="flex-1">{{ conference.host.display_name }}</span>
+        <span class="text-sm text-gray-500">Host</span>
+      </li>
+      {% for invitation in invitations %}
+        <li class="flex items-center gap-3 py-3">
+          {% include "chat/_avatar.html" with name=invitation.user.display_name size="size-8 text-sm" %}
+          <span class="flex-1">{{ invitation.user.display_name }}</span>
+          <span class="text-sm {% if invitation.status == 'accepted' %}text-green-700{% else %}text-gray-500{% endif %}">{{ invitation.get_status_display }}</span>
+          {% if conference.i_am_host and not over %}
+            <form method="post" action="{% url 'meetings:conference_remove' conference.pk invitation.user.pk %}" onsubmit="return confirm('Remove {{ invitation.user.display_name|escapejs }} from this conference?')">
+              {% csrf_token %}
+              <button type="submit" class="text-sm text-red-600 hover:underline">Remove</button>
+            </form>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+
+    {% if conference.i_am_host and not over %}
+      {% if invite_form.invitees.field.queryset.exists %}
+        <details class="mt-6">
+          <summary class="cursor-pointer text-sm text-blue-600 hover:underline">Invite more people</summary>
+          <form method="post" action="{% url 'meetings:conference_invite' conference.pk %}" class="mt-3">
+            {% csrf_token %}
+            <ul class="max-h-48 divide-y divide-gray-100 overflow-y-auto rounded-lg border border-gray-300">
+              {% for choice in invite_form.invitees %}
+                <li><label class="flex cursor-pointer items-center gap-3 px-3 py-2.5 text-sm hover:bg-gray-50">{{ choice.tag }}<span>{{ choice.choice_label }}</span></label></li>
+              {% endfor %}
+            </ul>
+            <button type="submit" class="mt-3 h-10 rounded-lg bg-blue-600 px-4 text-sm font-medium text-white transition hover:bg-blue-700">Invite</button>
+          </form>
+        </details>
+      {% endif %}
+      <form method="post" action="{% url 'meetings:conference_cancel' conference.pk %}" class="mt-8"
+            onsubmit="return confirm('Cancel this conference? Everyone invited will be told.')">
+        {% csrf_token %}
+        <button type="submit" class="text-sm text-red-600 hover:underline">Cancel conference</button>
+      </form>
+    {% endif %}
+
+    <a href="{% url 'meetings:conferences' %}" class="mt-8 inline-block text-sm text-gray-500 hover:text-gray-900">All conferences</a>
+  </div>
+{% endblock %}

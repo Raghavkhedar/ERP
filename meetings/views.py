@@ -14,13 +14,15 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .forms import BookingForm
-from .models import Slot
+from .models import Invitation, Slot
 from .services import (
     OFFICE_HOURS,
     SlotError,
+    attending,
     block,
     book,
     cancel,
+    live_conferences,
     live_slots,
     open_upcoming_office_hours,
     unblock,
@@ -63,11 +65,58 @@ def _my_slots(user, first_day, last_day):
         .select_related("host", "booked_by")
     )
     slots = list(slots)
+    busy = list(
+        attending(user)
+        .filter(
+            starts_at__lt=_midnight(last_day + timedelta(days=1)),
+            ends_at__gt=_midnight(first_day),
+        )
+        .values_list("starts_at", "ends_at")
+    )
+    kept = []
     for slot in slots:
+        if not slot.is_booked and any(
+            start < slot.ends_at and end > slot.starts_at for start, end in busy
+        ):
+            continue  # a conference covers this free slot, so it can't be booked
         slot.day = timezone.localdate(slot.starts_at)
         if slot.is_booked:
             slot.other = slot.booked_by if slot.host_id == user.pk else slot.host
-    return slots
+        kept.append(slot)
+    return kept
+
+
+def _my_conferences(user, first_day, last_day):
+    """Conferences the user hosts or was invited to (not declined) on these days."""
+    mine = Q(host=user) | Q(
+        invitations__user=user,
+        invitations__status__in=[Invitation.Status.INVITED, Invitation.Status.ACCEPTED],
+    )
+    conferences = (
+        live_conferences()
+        .filter(mine)
+        .filter(
+            starts_at__gte=_midnight(first_day),
+            starts_at__lt=_midnight(last_day + timedelta(days=1)),
+        )
+        .select_related("host")
+        .distinct()
+    )
+    conferences = list(conferences)
+    answers = dict(
+        Invitation.objects.filter(user=user, conference__in=conferences).values_list(
+            "conference_id", "status"
+        )
+    )
+    for conference in conferences:
+        conference.day = timezone.localdate(conference.starts_at)
+        conference.is_conference = True
+        conference.is_booked = False
+        conference.is_open_hours = False
+        conference.anchor = f"conference-{conference.pk}"
+        conference.i_am_host = conference.host_id == user.pk
+        conference.pending = answers.get(conference.pk) == Invitation.Status.INVITED
+    return conferences
 
 
 @login_required
@@ -84,6 +133,9 @@ def schedule(request, year=None, month=None):
     by_day = defaultdict(list)
     for slot in _my_slots(request.user, weeks[0][0], weeks[-1][-1]):
         by_day[slot.day].append(slot)
+    conferences_by_day = defaultdict(list)
+    for conference in _my_conferences(request.user, weeks[0][0], weeks[-1][-1]):
+        conferences_by_day[conference.day].append(conference)
     weeks = [
         [
             {
@@ -91,6 +143,7 @@ def schedule(request, year=None, month=None):
                 "in_month": day.month == month,
                 "is_today": day == today,
                 "meetings": [s for s in by_day[day] if s.is_booked],
+                "conferences": conferences_by_day[day],
                 "free": sum(1 for s in by_day[day] if not s.is_booked),
             }
             for day in week
@@ -153,6 +206,8 @@ def day_view(request, year, month, day):
     except ValueError:
         raise Http404("No such day.") from None
     slots = _merge_open_hours(_my_slots(request.user, shown, shown))
+    slots += _my_conferences(request.user, shown, shown)
+    slots.sort(key=lambda entry: entry.starts_at)
 
     first_hour, last_hour = DAY_START, DAY_END
     for slot in slots:
@@ -381,6 +436,16 @@ def person_slots(request, user_id):
     slots = live_slots().filter(
         host=person, booked_by__isnull=True, starts_at__gt=timezone.now()
     )
+    busy = list(
+        attending(person)
+        .filter(ends_at__gt=timezone.now())
+        .values_list("starts_at", "ends_at")
+    )
+    slots = [
+        slot
+        for slot in slots
+        if not any(start < slot.ends_at and end > slot.starts_at for start, end in busy)
+    ]
     context = {"person": person, "slots": _with_days(slots)}
     return render(request, "meetings/person_slots.html", context)
 
