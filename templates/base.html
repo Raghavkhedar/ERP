@@ -23,8 +23,6 @@
           {% url 'meetings:schedule' as meetings_url %}{% url 'tasks:list' as tasks_url %}
           {% include "_nav_link.html" with url=meetings_url label="Schedule" name="meetings" %}
           {% include "_nav_link.html" with url=tasks_url label="Tasks" name="tasks" %}
-          {% url 'feedback:list' as feedback_url %}
-          {% include "_nav_link.html" with url=feedback_url label="Feedback" name="feedback" %}
         {% endwith %}
       {% endif %}
     </nav>

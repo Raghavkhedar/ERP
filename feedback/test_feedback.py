@@ -867,3 +867,27 @@ def test_lessons_are_listed_under_their_module(client, manager):
     assert page.index("Another") < page.index("Save the plan before leaving")
     assert ">Chat<" in page
     assert ">Daily plan<" in page
+
+
+# The top bar
+
+
+def test_the_top_bar_has_a_single_feedback_control(client, alice):
+    client.force_login(alice)
+
+    page = client.get(reverse("home")).content
+
+    assert page.count(b">Feedback<") == 1
+    assert b"Give feedback" in page
+    assert b"Your feedback" in page
+    assert b"Lessons" not in page
+
+
+def test_readers_get_inbox_and_lessons_in_the_same_menu(client, trainer):
+    client.force_login(trainer)
+
+    page = client.get(reverse("home")).content
+
+    assert page.count(b">Feedback<") == 1
+    assert b"Feedback inbox" in page
+    assert reverse("feedback:lessons").encode() in page
