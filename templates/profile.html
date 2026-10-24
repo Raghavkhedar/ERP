@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Profile · Senken ERP{% endblock %}
+{% block main_class %}container mx-auto max-w-xl p-4 pb-16{% endblock %}
+
+{% block content %}
+  <div class="animate-rise motion-reduce:animate-none">
+    <h1 class="title mt-6 text-3xl">Profile</h1>
+
+    <form method="post" x-data="{ email: '{{ profile_form.email.value|default:''|escapejs }}', original: '{{ user.email|escapejs }}', sending: false }" @submit="sending = true"
+          class="mt-6 rounded-2xl border border-gray-200/80 bg-surface p-5 sm:p-8">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="profile">
+      <h2 class="flex items-center justify-between gap-3 font-semibold">Your details{% if saved.profile %}<span role="status" class="inline-flex items-center gap-1.5 text-sm font-normal text-green-700 animate-rise motion-reduce:animate-none"><svg viewBox="0 0 20 20" class="size-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10.5l4 4 8-9"/></svg>{{ saved.profile }}</span>{% endif %}</h2>
+      {% for error in profile_form.non_field_errors %}<p role="alert" class="mt-3 text-sm text-red-600">{{ error }}</p>{% endfor %}
+      <div class="mt-5 space-y-3">
+        <div class="relative">
+          <input type="text" id="employee_id" value="{{ user.username }}" disabled
+                 class="block h-14 w-full cursor-not-allowed rounded-lg border border-gray-200 bg-gray-100 px-3.5 pt-5 text-gray-600">
+          <label for="employee_id" class="pointer-events-none absolute left-3.5 top-2 text-xs text-gray-500">Employee ID</label>
+        </div>
+        {% for field in profile_form %}
+          <div {% if field.name == "current_password" %}x-show="email !== original" x-cloak{% endif %}>
+            <div class="relative">
+              <input type="{% if field.name == 'email' %}email{% elif field.name == 'current_password' %}password{% else %}text{% endif %}"
+                     name="{{ field.html_name }}" id="{{ field.id_for_label }}" placeholder=" "
+                     value="{% if field.name != 'current_password' %}{{ field.value|default:'' }}{% endif %}"
+                     {% if field.name == "first_name" %}required{% endif %}
+                     {% if field.name == "email" %}x-model="email" autocomplete="email"{% endif %}
+                     {% if field.name == "current_password" %}autocomplete="current-password"{% endif %}
+                     class="peer block h-14 w-full rounded-lg border bg-white px-3.5 pt-5 outline-none transition duration-150 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10 {% if field.errors %}border-red-600{% else %}border-gray-300{% endif %}">
+              <label for="{{ field.id_for_label }}"
+                     class="pointer-events-none absolute left-3.5 top-2 text-xs text-gray-500 transition-all duration-150 ease-out peer-placeholder-shown:top-4 peer-placeholder-shown:text-base peer-focus:top-2 peer-focus:text-xs peer-focus:text-blue-600">{% if field.name == "current_password" %}Current password (needed to change email){% else %}{{ field.label }}{% endif %}</label>
+            </div>
+            {% for error in field.errors %}<p class="mt-1 text-sm text-red-600">{{ error }}</p>{% endfor %}
+          </div>
+        {% endfor %}
+      </div>
+      <button type="submit" :disabled="sending"
+              class="mt-6 h-12 w-full rounded-lg bg-blue-600 text-sm font-medium text-white transition duration-150 hover:bg-blue-700 active:scale-[0.99] disabled:opacity-70 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30">Save details</button>
+    </form>
+
+    <form method="post" x-data="{ show: false, sending: false }" @submit="sending = true"
+          class="mt-6 rounded-2xl border border-gray-200/80 bg-surface p-5 sm:p-8">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="password">
+      <h2 class="flex items-center justify-between gap-3 font-semibold">Password{% if saved.password %}<span role="status" class="inline-flex items-center gap-1.5 text-sm font-normal text-green-700 animate-rise motion-reduce:animate-none"><svg viewBox="0 0 20 20" class="size-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10.5l4 4 8-9"/></svg>{{ saved.password }}</span>{% endif %}</h2>
+      {% for error in password_form.non_field_errors %}<p role="alert" class="mt-3 text-sm text-red-600">{{ error }}</p>{% endfor %}
+      <div class="mt-5 space-y-3">
+        {% for field in password_form %}
+          <div>
+            <div class="relative">
+              <input :type="show ? 'text' : 'password'" type="password" name="{{ field.html_name }}" id="pw_{{ field.id_for_label }}" required placeholder=" "
+                     autocomplete="{% if forloop.first %}current-password{% else %}new-password{% endif %}"
+                     class="peer block h-14 w-full rounded-lg border bg-white px-3.5 pt-5 outline-none transition duration-150 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10 {% if field.errors %}border-red-600{% else %}border-gray-300{% endif %}">
+              <label for="pw_{{ field.id_for_label }}"
+                     class="pointer-events-none absolute left-3.5 top-2 text-xs text-gray-500 transition-all duration-150 ease-out peer-placeholder-shown:top-4 peer-placeholder-shown:text-base peer-focus:top-2 peer-focus:text-xs peer-focus:text-blue-600">{{ field.label }}</label>
+            </div>
+            {% for error in field.errors %}<p class="mt-1 text-sm text-red-600">{{ error }}</p>{% endfor %}
+            {% if field.name == "new_password1" %}<div class="mt-1.5 text-xs text-gray-500 [&_ul]:list-disc [&_ul]:space-y-0.5 [&_ul]:pl-5">{{ field.help_text|safe }}</div>{% endif %}
+          </div>
+        {% endfor %}
+        <button type="button" @click="show = !show" x-text="show ? 'Hide passwords' : 'Show passwords'" class="text-sm text-gray-500 transition-colors hover:text-gray-900">Show passwords</button>
+      </div>
+      <button type="submit" :disabled="sending"
+              class="mt-6 h-12 w-full rounded-lg bg-blue-600 text-sm font-medium text-white transition duration-150 hover:bg-blue-700 active:scale-[0.99] disabled:opacity-70 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30">Change password</button>
+    </form>
+  </div>
+{% endblock %}

@@ -59,6 +59,7 @@ urlpatterns = [
         auth_views.PasswordResetCompleteView.as_view(),
         name="password_reset_complete",
     ),
+    path("profile/", views.profile, name="profile"),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("chat/", include("chat.urls")),
     path("meetings/", include("meetings.urls")),

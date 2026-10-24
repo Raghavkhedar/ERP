@@ -29,11 +29,10 @@
     {% if user.is_authenticated %}
       <form method="post" action="{% url 'logout' %}" class="flex items-center gap-4">
         {% csrf_token %}
-        <span class="hidden items-center gap-2 text-gray-700 sm:flex">
+        <a href="{% url 'profile' %}" class="hidden items-center gap-2 text-gray-700 transition-colors hover:text-gray-900 sm:flex">
           {% include "chat/_avatar.html" with name=user.display_name size="size-6 text-xs" %}
           {{ user.display_name }}
-        </span>
-        <a href="{% url 'password_change' %}" class="hidden transition-colors hover:text-gray-900 sm:inline">Password</a>
+        </a>
         <button type="submit" class="rounded transition-colors hover:text-gray-900 focus-visible:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/40">Log out</button>
       </form>
     {% endif %}
