@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Today's plan · Senken ERP{% endblock %}
+
+{% block header %}
+  {% if locked %}
+    <div class="flex h-14 items-center justify-between gap-2.5 border-b border-gray-200/80 bg-surface px-6 text-sm font-semibold tracking-tight text-gray-800 sm:px-8">
+      <span class="flex items-center gap-2.5">{% include "_mark.html" %}<span class="title text-xl">Senken ERP</span></span>
+      <form method="post" action="{% url 'logout' %}">
+        {% csrf_token %}
+        <button type="submit" class="text-sm font-normal text-gray-500 transition-colors hover:text-gray-900">Log out</button>
+      </form>
+    </div>
+  {% else %}
+    {{ block.super }}
+  {% endif %}
+{% endblock %}
+
+{% block main_class %}mx-auto w-full max-w-2xl px-6 pb-28 pt-8 sm:px-8{% endblock %}
+
+{% block content %}
+  {{ rows|json_script:"plan-rows" }}
+  <form method="post" class="rounded-2xl border border-gray-200/80 bg-surface p-5 animate-rise motion-reduce:animate-none sm:p-8"
+        x-data="planForm('{{ goal }}', '{{ work }}')" @submit="sending = true">
+    {% csrf_token %}
+    <p class="text-sm text-gray-500">{{ date|date:"l, j F" }}</p>
+    <h1 class="title mt-1 text-3xl">{% if locked %}Plan your day{% else %}Today's plan{% endif %}</h1>
+    <p class="mt-2 text-sm text-gray-500">
+      {% if locked %}Set at least one goal to get started. You can change the plan any time today.{% else %}Change it as the day goes. Tick things off when they're done.{% endif %}
+    </p>
+
+    {% if error %}<p role="alert" class="mt-4 text-sm text-red-600">{{ error }}</p>{% endif %}
+
+    <template x-for="section in sections" :key="section.kind">
+      <div class="mt-8">
+        <h2 class="font-semibold" x-text="section.label"></h2>
+        <p class="text-sm text-gray-500" x-text="section.hint"></p>
+        <ul class="mt-3 space-y-2">
+          <template x-for="row in rows.filter(r => r.kind === section.kind)" :key="row.key">
+            <li class="flex items-center gap-3">
+              <input type="hidden" name="row" :value="row.key">
+              <input type="hidden" :name="'id_' + row.key" :value="row.id ?? ''">
+              <input type="hidden" :name="'kind_' + row.key" :value="row.kind">
+              <input type="checkbox" :name="'done_' + row.key" x-model="row.done" aria-label="Done"
+                     class="size-5 shrink-0 rounded border-gray-300 text-blue-600 focus:ring-blue-600/30">
+              <input type="text" :name="'text_' + row.key" x-model="row.text" maxlength="200" :placeholder="section.placeholder"
+                     :class="row.done && 'text-gray-400 line-through'"
+                     @keydown.enter.prevent="add(section.kind)"
+                     class="h-11 w-full rounded-lg border border-gray-300 bg-white px-3.5 outline-none transition duration-150 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10">
+              <button type="button" @click="remove(row)" aria-label="Remove" class="text-gray-400 transition-colors hover:text-gray-900">✕</button>
+            </li>
+          </template>
+        </ul>
+        <button type="button" @click="add(section.kind)" class="mt-3 text-sm text-blue-600 hover:underline" x-text="'+ Add ' + section.noun"></button>
+      </div>
+    </template>
+
+    <div class="mt-8">
+      <h2 class="font-semibold">Meetings today</h2>
+      {% if agenda %}
+        <ul class="mt-3 divide-y divide-gray-100 border-y border-gray-100">
+          {% for start, end, title in agenda %}
+            <li class="flex items-center gap-4 py-3 text-sm">
+              <span class="w-24 shrink-0 font-medium tabular-nums">{{ start|time:"H:i" }}–{{ end|time:"H:i" }}</span>
+              <span class="truncate">{{ title }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="mt-3 border-y border-gray-100 py-4 text-sm text-gray-500">Nothing booked yet.</p>
+      {% endif %}
+    </div>
+
+    <button type="submit" :disabled="sending"
+            class="mt-8 h-12 w-full rounded-lg bg-blue-600 text-sm font-medium text-white transition duration-150 hover:bg-blue-700 active:scale-[0.99] disabled:opacity-70 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30"
+            x-text="sending ? 'Saving…' : '{% if locked %}Start my day{% else %}Save plan{% endif %}'">Save plan</button>
+  </form>
+
+  <script>
+    function planForm(goal, work) {
+      const saved = JSON.parse(document.getElementById("plan-rows").textContent);
+      let next = 0;
+      const withKey = (r) => ({ ...r, key: next++ });
+      const rows = saved.map(withKey);
+      if (!rows.some((r) => r.kind === goal)) rows.push(withKey({ id: null, kind: goal, text: "", done: false }));
+      return {
+        sending: false,
+        rows,
+        sections: [
+          { kind: goal, label: "Goals", noun: "goal", hint: "What do you want to have achieved by tonight?", placeholder: "e.g. Finish the vendor report" },
+          { kind: work, label: "What I'll be doing", noun: "item", hint: "The work behind those goals.", placeholder: "e.g. Call suppliers about delivery dates" },
+        ],
+        add(kind) {
+          this.rows.push(withKey({ id: null, kind, text: "", done: false }));
+          this.$nextTick(() => {
+            const inputs = this.$root.querySelectorAll('input[type="text"]');
+            const last = [...inputs].reverse().find((el) => el.name === "text_" + (next - 1));
+            if (last) last.focus();
+          });
+        },
+        remove(row) {
+          this.rows = this.rows.filter((r) => r !== row);
+        },
+      };
+    }
+  </script>
+{% endblock %}

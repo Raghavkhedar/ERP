@@ -9,6 +9,8 @@ from core.forms import ChangePasswordForm, ProfileForm
 from core.models import User
 from meetings.models import Invitation
 from meetings.services import live_conferences, live_slots
+from plans.models import PlanItem
+from plans.services import is_plan_day, plan_for
 from tasks.views import timeline_context
 
 UPCOMING_LIMIT = 5
@@ -66,10 +68,16 @@ def home(request):
     today = timezone.localdate(now)
     for entry in meetings:
         entry.days_away = (timezone.localdate(entry.starts_at) - today).days
+    plan = plan_for(user, today)
+    plan_items = list(plan.items.all()) if plan else []
     context = {
         "greeting": _greeting(now),
         "today": today,
         "meetings": meetings,
+        "plan_day": is_plan_day(today),
+        "plan_goals": [i for i in plan_items if i.kind == PlanItem.Kind.GOAL],
+        "plan_done": sum(i.done for i in plan_items),
+        "plan_total": len(plan_items),
         **timeline_context(request),
     }
     return render(request, "home.html", context)

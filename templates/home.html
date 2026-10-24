@@ -31,6 +31,25 @@
       {% endfor %}
     </section>
 
+    {% if plan_day %}
+      <section class="mt-6 rounded-2xl border border-gray-200/80 bg-surface p-4 sm:p-6 lg:max-w-2xl">
+        <div class="flex items-baseline justify-between gap-4">
+          <h2 class="font-semibold">Today's plan</h2>
+          <a href="{% url 'plans:today' %}" class="text-sm text-blue-600 hover:underline">{% if plan_goals %}Edit{% else %}Set your plan{% endif %}</a>
+        </div>
+        {% if plan_goals %}
+          <ul class="mt-3 space-y-1.5 text-sm">
+            {% for goal in plan_goals %}
+              <li class="flex items-center gap-2.5 {% if goal.done %}text-gray-400 line-through{% endif %}"><span class="size-1.5 shrink-0 rounded-full bg-blue-600"></span>{{ goal.text }}</li>
+            {% endfor %}
+          </ul>
+          <p class="mt-3 text-sm text-gray-500">{{ plan_done }} of {{ plan_total }} done</p>
+        {% else %}
+          <p class="mt-3 text-sm text-gray-500">You haven't set a plan for today.</p>
+        {% endif %}
+      </section>
+    {% endif %}
+
     <section class="mt-6 rounded-2xl border border-gray-200/80 bg-surface p-4 sm:p-6 lg:max-w-2xl">
       <div class="flex items-baseline justify-between gap-4">
         <h2 class="font-semibold">Coming up</h2>
