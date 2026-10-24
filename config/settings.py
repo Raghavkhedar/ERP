@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "meetings",
     "tasks",
     "plans",
+    "notifications",
     "simple_history",
 ]
 

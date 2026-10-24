@@ -7,6 +7,8 @@ from django.db.models import Count, Max, Q
 from django.db.models.functions import Coalesce
 from django.urls import reverse
 
+from notifications.services import notify
+
 from .models import Conversation, ConversationKind, Membership, Message, MessageKind
 
 
@@ -102,11 +104,20 @@ def get_or_create_dm(user, other):
 
 
 @transaction.atomic
-def post_notice(author, recipient, body):
-    """An automatic message in their DM that counts as unread for the recipient."""
+def post_notice(author, recipient, body, url=""):
+    """An automatic message in their DM that counts as unread for the recipient.
+
+    The recipient is also notified (bell, popup and sound), pointing at `url`,
+    or at the DM when none is given.
+    """
     dm = get_or_create_dm(author, recipient)
     message = Message.objects.create(
         conversation=dm, author=author, kind=MessageKind.NOTICE, body=body
+    )
+    notify(
+        recipient,
+        body,
+        url or reverse("chat:conversation_detail", args=[dm.pk]),
     )
     transaction.on_commit(lambda: email_notice(message, recipient))
     return message
@@ -165,14 +176,14 @@ def unread_counts(user):
 
 
 def newest_incoming(user):
-    """Id of the newest message someone else sent the user, or None.
+    """Id of the newest message someone else wrote the user, or None.
 
-    Counts the same messages as unread_counts, so the bell rings for exactly
-    the messages that raise the badge.
+    The chat button rings for these. Notices are left out: they ring through
+    the notification popup instead, and still raise the unread badge.
     """
     return (
         Message.objects.filter(conversation__memberships__user=user)
         .exclude(author=user)
-        .exclude(kind=MessageKind.SYSTEM)
+        .exclude(kind__in=[MessageKind.SYSTEM, MessageKind.NOTICE])
         .aggregate(newest=Max("id"))["newest"]
     )

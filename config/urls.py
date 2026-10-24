@@ -65,5 +65,6 @@ urlpatterns = [
     path("meetings/", include("meetings.urls")),
     path("tasks/", include("tasks.urls")),
     path("plans/", include("plans.urls")),
+    path("notifications/", include("notifications.urls")),
     path("", views.home, name="home"),
 ]

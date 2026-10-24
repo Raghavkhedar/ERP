@@ -27,6 +27,8 @@
       {% endif %}
     </nav>
     {% if user.is_authenticated %}
+      <div class="flex items-center gap-4">
+        {% include "notifications/_bell.html" %}
       <form method="post" action="{% url 'logout' %}" class="flex items-center gap-4">
         {% csrf_token %}
         <a href="{% url 'profile' %}" class="hidden items-center gap-2 text-gray-700 transition-colors hover:text-gray-900 sm:flex">
@@ -35,6 +37,7 @@
         </a>
         <button type="submit" class="rounded transition-colors hover:text-gray-900 focus-visible:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/40">Log out</button>
       </form>
+      </div>
     {% endif %}
   </header>
   {% endblock %}
@@ -47,6 +50,7 @@
 
   {% if user.is_authenticated %}
     {% block chat_launcher %}{% include "chat/_launcher.html" %}{% endblock %}
+    {% include "notifications/_toasts.html" %}
   {% endif %}
 </body>
 </html>

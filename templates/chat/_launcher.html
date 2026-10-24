@@ -1,5 +1,6 @@
 {% load static %}
 {# Polls for new messages on every page: rings a bell and updates the badge. #}
+<script src="{% static 'js/bell.js' %}"></script>
 <script src="{% static 'js/chat_launcher.js' %}"></script>
 <div x-data="chatLauncher('{% url 'chat:pulse' %}', 'chat-seen-{{ user.pk }}')">
   {% if not hide_button %}
