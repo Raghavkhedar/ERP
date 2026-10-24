@@ -151,7 +151,7 @@ def can_view(viewer, owner):
 
 
 PANEL_HOUR_HEIGHT = 40  # pixels per hour in the home page's day panel
-PANEL_START, PANEL_END = 9, 18  # hours always shown
+PANEL_START, PANEL_END = 10, 18  # the hours the panel shows
 
 
 def day_panel(user, date):
@@ -187,29 +187,20 @@ def day_panel(user, date):
             }
         )
     blocks.sort(key=lambda b: b["start"])
-    first = min([PANEL_START] + [b["start"].hour for b in blocks])
-    last = max(
-        [PANEL_END]
-        + [
-            b["end"].hour + (1 if b["end"].minute or b["end"] == time.max else 0)
-            for b in blocks
-        ]
-    )
-    last = min(last, 24)
+    first, last = PANEL_START, PANEL_END
+    span = (last - first) * PANEL_HOUR_HEIGHT
 
     def offset(moment):
-        return round(
-            ((moment.hour - first) * 60 + moment.minute) * PANEL_HOUR_HEIGHT / 60
-        )
+        """Pixels below the top of the panel, kept inside it."""
+        minutes = (moment.hour - first) * 60 + moment.minute
+        return min(max(round(minutes * PANEL_HOUR_HEIGHT / 60), 0), span)
 
+    # Only 10:00 to 18:00 is drawn; blocks outside it are left off, others are cut.
+    blocks = [b for b in blocks if b["end"] > time(first) and b["start"] < time(last)]
     for block in blocks:
         block["top"] = offset(block["start"])
-        bottom = (
-            (last - first) * PANEL_HOUR_HEIGHT
-            if block["end"] == time.max
-            else offset(block["end"])
-        )
-        block["height"] = max(bottom - block["top"], 20)
+        bottom = span if block["end"] == time.max else offset(block["end"])
+        block["height"] = min(max(bottom - block["top"], 20), span - block["top"])
     now = timezone.localtime()
     now_top = None
     if now.date() == date and first <= now.hour < last:
