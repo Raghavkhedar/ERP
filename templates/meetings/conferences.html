@@ -1,0 +1,27 @@
+{% extends "meetings/base_meetings.html" %}
+
+{% block title %}Conferences · Schedule{% endblock %}
+{% block heading %}Conferences{% endblock %}
+
+{% block page %}
+  <div class="flex items-center justify-between gap-4">
+    <p class="text-sm text-gray-500">Group events with people you invite.</p>
+    <a href="{% url 'meetings:conference_new' %}" class="inline-flex h-10 items-center rounded-lg bg-blue-600 px-4 text-sm font-medium text-white transition duration-150 hover:bg-blue-700 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30">New conference</a>
+  </div>
+
+  {% if waiting %}
+    <h2 class="mt-8 text-sm font-medium text-gray-500">Waiting for your answer</h2>
+    {% include "meetings/_conference_rows.html" with rows=waiting note="invited" %}
+  {% endif %}
+  {% if hosting %}
+    <h2 class="mt-8 text-sm font-medium text-gray-500">You're hosting</h2>
+    {% include "meetings/_conference_rows.html" with rows=hosting note="hosting" %}
+  {% endif %}
+  {% if going %}
+    <h2 class="mt-8 text-sm font-medium text-gray-500">You're going</h2>
+    {% include "meetings/_conference_rows.html" with rows=going note="going" %}
+  {% endif %}
+  {% if not waiting and not hosting and not going %}
+    <p class="mt-10 text-sm text-gray-500">No upcoming conferences. <a href="{% url 'meetings:conference_new' %}" class="text-blue-600 hover:underline">Create one</a> and invite people.</p>
+  {% endif %}
+{% endblock %}

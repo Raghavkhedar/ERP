@@ -1,0 +1,73 @@
+{% extends "meetings/base_meetings.html" %}
+
+{% block title %}{% if conference %}Edit conference{% else %}New conference{% endif %} · Schedule{% endblock %}
+{% block heading %}{% if conference %}Edit conference{% else %}New conference{% endif %}{% endblock %}
+
+{% block page %}
+  <form method="post" class="max-w-xl [&_input[type=text]]:h-11 [&_input[type=text]]:w-full [&_input[type=date]]:h-11 [&_input[type=date]]:w-full [&_input[type=time]]:h-11 [&_input[type=time]]:w-full [&_input[type=text]]:rounded-lg [&_input[type=date]]:rounded-lg [&_input[type=time]]:rounded-lg [&_input[type=text]]:border [&_input[type=date]]:border [&_input[type=time]]:border [&_input[type=text]]:border-gray-300 [&_input[type=date]]:border-gray-300 [&_input[type=time]]:border-gray-300 [&_input[type=text]]:bg-white [&_input[type=date]]:bg-white [&_input[type=time]]:bg-white [&_input[type=text]]:px-3 [&_input[type=date]]:px-3 [&_input[type=time]]:px-3 [&_input]:outline-none [&_input:focus]:border-blue-600 [&_textarea]:w-full [&_textarea]:rounded-lg [&_textarea]:border [&_textarea]:border-gray-300 [&_textarea]:bg-white [&_textarea]:p-3 [&_textarea]:outline-none [&_textarea:focus]:border-blue-600">
+    {% csrf_token %}
+    {% for error in form.non_field_errors %}
+      <p role="alert" class="mb-4 text-sm text-red-600">{{ error }}</p>
+    {% endfor %}
+
+    <label for="{{ form.title.id_for_label }}" class="mb-1.5 block text-sm font-medium">Title</label>
+    {{ form.title }}
+    {% for error in form.title.errors %}<p class="mt-1 text-sm text-red-600">{{ error }}</p>{% endfor %}
+
+    <div class="mt-5 grid grid-cols-3 gap-3">
+      <div>
+        <label for="{{ form.day.id_for_label }}" class="mb-1.5 block text-sm font-medium">Day</label>
+        {{ form.day }}
+      </div>
+      <div>
+        <label for="{{ form.start.id_for_label }}" class="mb-1.5 block text-sm font-medium">From</label>
+        {{ form.start }}
+      </div>
+      <div>
+        <label for="{{ form.end.id_for_label }}" class="mb-1.5 block text-sm font-medium">To</label>
+        {{ form.end }}
+      </div>
+    </div>
+    {% for field in form %}{% if field.name == "day" or field.name == "start" or field.name == "end" %}{% for error in field.errors %}<p class="mt-1 text-sm text-red-600">{{ error }}</p>{% endfor %}{% endif %}{% endfor %}
+
+    <label for="{{ form.location.id_for_label }}" class="mb-1.5 mt-5 block text-sm font-medium">Where <span class="font-normal text-gray-500">(optional)</span></label>
+    {{ form.location }}
+
+    <label for="{{ form.agenda.id_for_label }}" class="mb-1.5 mt-5 block text-sm font-medium">Agenda <span class="font-normal text-gray-500">(optional)</span></label>
+    {{ form.agenda }}
+
+    {% if not conference %}
+    <fieldset class="mt-5">
+      <legend class="mb-1.5 text-sm font-medium">Who to invite</legend>
+      <ul class="max-h-56 divide-y divide-gray-100 overflow-y-auto rounded-lg border border-gray-300">
+        {% for choice in form.invitees %}
+          <li>
+            <label class="flex cursor-pointer items-center gap-3 px-3 py-2.5 text-sm transition-colors hover:bg-gray-50">
+              {{ choice.tag }}
+              <span>{{ choice.choice_label }}</span>
+            </label>
+          </li>
+        {% endfor %}
+      </ul>
+      {% for error in form.invitees.errors %}<p class="mt-1 text-sm text-red-600">{{ error }}</p>{% endfor %}
+    </fieldset>
+    {% endif %}
+
+    {% if clashes %}
+      <div role="alert" class="mt-6 rounded-lg bg-amber-50 p-4 text-sm text-amber-900">
+        <p class="font-medium">Some people are busy at this time:</p>
+        <p class="mt-1">{% for person in clashes %}{{ person.display_name }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+        <p class="mt-1">They can still be invited and decide for themselves.</p>
+      </div>
+    {% endif %}
+
+    <div class="mt-6 flex items-center gap-4">
+      {% if clashes %}
+        <button type="submit" name="confirm" value="1" class="h-11 rounded-lg bg-blue-600 px-5 text-sm font-medium text-white transition duration-150 hover:bg-blue-700 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30">{% if conference %}Save anyway{% else %}Create anyway{% endif %}</button>
+      {% else %}
+        <button type="submit" class="h-11 rounded-lg bg-blue-600 px-5 text-sm font-medium text-white transition duration-150 hover:bg-blue-700 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30">{% if conference %}Save changes{% else %}Create and invite{% endif %}</button>
+      {% endif %}
+      <a href="{% if conference %}{% url 'meetings:conference_detail' conference.pk %}{% else %}{% url 'meetings:conferences' %}{% endif %}" class="text-sm text-gray-500 hover:text-gray-900">Back</a>
+    </div>
+  </form>
+{% endblock %}

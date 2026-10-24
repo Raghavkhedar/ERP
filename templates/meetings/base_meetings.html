@@ -5,11 +5,12 @@
 {% block content %}
   <div class="rounded-2xl border border-gray-200/80 bg-surface p-5 sm:p-8">
     <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
-      <div class="flex min-w-0 flex-wrap items-center gap-3">{% block toolbar %}<h1 class="title text-3xl">{% block heading %}Meetings{% endblock %}</h1>{% endblock %}</div>
+      <div class="flex min-w-0 flex-wrap items-center gap-3">{% block toolbar %}<h1 class="title text-3xl">{% block heading %}Schedule{% endblock %}</h1>{% endblock %}</div>
       <nav class="flex gap-5 text-sm text-gray-500">
         {% with page=request.resolver_match.url_name %}
           <a href="{% url 'meetings:schedule' %}" class="transition-colors hover:text-gray-900 {% if page == 'schedule' or page == 'month' or page == 'day' %}font-medium text-gray-900{% endif %}">Calendar</a>
           <a href="{% url 'meetings:people' %}" class="transition-colors hover:text-gray-900 {% if page == 'people' or page == 'person_slots' or page == 'book' %}font-medium text-gray-900{% endif %}">Book a meeting</a>
+          <a href="{% url 'meetings:conferences' %}" class="transition-colors hover:text-gray-900 {% if page == 'conferences' or page == 'conference_new' or page == 'conference_detail' %}font-medium text-gray-900{% endif %}">Conferences</a>
           <a href="{% url 'meetings:block_time' %}" class="transition-colors hover:text-gray-900 {% if page == 'block_time' or page == 'block_day' %}font-medium text-gray-900{% endif %}">Block time</a>
         {% endwith %}
       </nav>

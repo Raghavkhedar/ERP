@@ -21,7 +21,7 @@
       {% if user.is_authenticated %}
         {% with section=request.resolver_match.app_name %}
           {% url 'meetings:schedule' as meetings_url %}{% url 'tasks:list' as tasks_url %}
-          {% include "_nav_link.html" with url=meetings_url label="Meetings" name="meetings" %}
+          {% include "_nav_link.html" with url=meetings_url label="Schedule" name="meetings" %}
           {% include "_nav_link.html" with url=tasks_url label="Tasks" name="tasks" %}
         {% endwith %}
       {% endif %}

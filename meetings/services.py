@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from chat.services import post_notice
 
-from .models import Slot
+from .models import Conference, Invitation, Slot
 
 BLOCK_REASON_MAX = 200
 
@@ -25,11 +25,29 @@ def overlapping(slots, start, end):
     return slots.filter(starts_at__lt=end, ends_at__gt=start)
 
 
-def is_busy(user, start, end):
-    """Whether the user has a booked meeting, as host or guest, in this time."""
+def live_conferences():
+    return Conference.objects.filter(cancelled_at__isnull=True)
+
+
+def attending(user):
+    """Live conferences the user hosts or has accepted."""
+    accepted = Q(invitations__user=user, invitations__status=Invitation.Status.ACCEPTED)
+    return live_conferences().filter(Q(host=user) | accepted)
+
+
+def is_busy(user, start, end, ignore=None):
+    """Whether the user has a booked meeting or a conference in this time.
+
+    `ignore` is a conference to leave out, when checking whether it clashes.
+    """
     booked = live_slots().filter(booked_by__isnull=False)
     mine = booked.filter(Q(host=user) | Q(booked_by=user))
-    return overlapping(mine, start, end).exists()
+    if overlapping(mine, start, end).exists():
+        return True
+    others = attending(user)
+    if ignore:
+        others = others.exclude(pk=ignore.pk)
+    return overlapping(others, start, end).exists()
 
 
 def local_time(moment):
@@ -211,6 +229,52 @@ def send_reminders(now=None):
             # update(), not save(): a reminder is not an edit worth a history row.
             Slot.objects.filter(pk=slot.pk).update(reminded_at=now)
             sent += 1
+        sent += _remind_conferences(now)
+    return sent
+
+
+def _remind_conferences(now):
+    """Remind the host and everyone who accepted; returns how many conferences.
+
+    A conference nobody has accepted yet is left for the next run, so the first
+    people to accept before it starts still get reminded.
+    """
+    sent = 0
+    due = (
+        live_conferences()
+        .select_for_update(of=("self",))
+        .filter(
+            reminded_at__isnull=True,
+            starts_at__gt=now,
+            starts_at__lte=now + REMINDER_LEAD,
+        )
+        .select_related("host")
+    )
+    for conference in due:
+        going = [
+            i.user
+            for i in conference.invitations.filter(
+                status=Invitation.Status.ACCEPTED, user__is_active=True
+            ).select_related("user")
+        ]
+        if not going:
+            continue
+        when = f"{local_time(conference.starts_at)}–{local_time(conference.ends_at)}"
+        where = f" at {conference.location}" if conference.location else ""
+        for person in going:
+            post_notice(
+                conference.host,
+                person,
+                f"Reminder: {conference.title} starts at {when}{where}.",
+            )
+        post_notice(
+            going[0],
+            conference.host,
+            f"Reminder: {conference.title} starts at {when}{where}. "
+            f"{len(going)} accepted.",
+        )
+        Conference.objects.filter(pk=conference.pk).update(reminded_at=now)
+        sent += 1
     return sent
 
 
@@ -283,3 +347,170 @@ def cancel(slot, user):
     if guest:
         post_notice(user, guest, f"cancelled your booking for {when}")
     return slot
+
+
+CONFERENCE_TITLE_MAX = 200
+
+
+def _active_users(users):
+    return [user for user in users if user.is_active]
+
+
+def _clean_conference(title, start, end, location):
+    title = title.strip()
+    if not title:
+        raise SlotError("Give the conference a title.")
+    if len(title) > CONFERENCE_TITLE_MAX:
+        raise SlotError(f"Keep the title under {CONFERENCE_TITLE_MAX} characters.")
+    if end <= start:
+        raise SlotError("The conference must end after it starts.")
+    if start <= timezone.now():
+        raise SlotError("The conference must start in the future.")
+    return title, location.strip()
+
+
+def conference_clashes(users, start, end, conference=None):
+    """Of these people, those already busy in this time, so the host can be warned."""
+    return [user for user in users if is_busy(user, start, end, ignore=conference)]
+
+
+@transaction.atomic
+def create_conference(host, title, start, end, invitees, agenda="", location=""):
+    """Create a conference and invite people. Clashes are warned about, not refused."""
+    title, location = _clean_conference(title, start, end, location)
+    people = [u for u in _active_users(invitees) if u.pk != host.pk]
+    conference = Conference.objects.create(
+        host=host,
+        title=title,
+        agenda=agenda.strip(),
+        location=location,
+        starts_at=start,
+        ends_at=end,
+    )
+    for person in people:
+        invite(conference, person, notify=False)
+        post_notice(host, person, _invited_text(conference))
+    return conference
+
+
+def _invited_text(conference):
+    where = f" at {conference.location}" if conference.location else ""
+    return f"invited you to {conference.title}, {describe(conference)}{where}"
+
+
+def _live_conference(conference):
+    conference = Conference.objects.select_for_update().get(pk=conference.pk)
+    if conference.is_cancelled:
+        raise SlotError("This conference has been cancelled.")
+    if conference.ends_at <= timezone.now():
+        raise SlotError("This conference is already over.")
+    return conference
+
+
+def _require_host(conference, user):
+    if conference.host_id != user.pk:
+        raise PermissionDenied("Only the host can change this conference.")
+
+
+@transaction.atomic
+def invite(conference, person, notify=True):
+    if person.pk == conference.host_id:
+        raise SlotError("The host is already attending.")
+    invitation, created = Invitation.objects.get_or_create(
+        conference=conference, user=person
+    )
+    if created and notify:
+        post_notice(conference.host, person, _invited_text(conference))
+    return invitation
+
+
+@transaction.atomic
+def add_invitees(conference, host, people):
+    conference = _live_conference(conference)
+    _require_host(conference, host)
+    added = []
+    for person in _active_users(people):
+        if (
+            person.pk != host.pk
+            and not conference.invitations.filter(user=person).exists()
+        ):
+            added.append(invite(conference, person))
+    return added
+
+
+@transaction.atomic
+def remove_invitee(conference, host, person):
+    conference = _live_conference(conference)
+    _require_host(conference, host)
+    removed, _ = conference.invitations.filter(user=person).delete()
+    if removed:
+        post_notice(
+            host, person, f"removed you from {conference.title}, {describe(conference)}"
+        )
+    return bool(removed)
+
+
+@transaction.atomic
+def respond(conference, user, accept):
+    """An invitee accepts or declines; the host is told."""
+    conference = _live_conference(conference)
+    _lock(user)
+    try:
+        invitation = conference.invitations.select_for_update().get(user=user)
+    except Invitation.DoesNotExist:
+        raise PermissionDenied("You aren't invited to this conference.") from None
+    invitation.status = (
+        Invitation.Status.ACCEPTED if accept else Invitation.Status.DECLINED
+    )
+    invitation.responded_at = timezone.now()
+    invitation.save()
+    verb = "accepted" if accept else "declined"
+    post_notice(
+        user, conference.host, f"{verb} {conference.title}, {describe(conference)}"
+    )
+    return invitation
+
+
+@transaction.atomic
+def cancel_conference(conference, host):
+    conference = _live_conference(conference)
+    _require_host(conference, host)
+    conference.cancelled_at = timezone.now()
+    conference.save()
+    for invitation in conference.invitations.exclude(
+        status=Invitation.Status.DECLINED
+    ).select_related("user"):
+        post_notice(
+            host,
+            invitation.user,
+            f"cancelled {conference.title}, {describe(conference)}",
+        )
+    return conference
+
+
+@transaction.atomic
+def edit_conference(conference, host, title, start, end, agenda="", location=""):
+    """Change a conference. A new time asks everyone who hasn't declined again."""
+    conference = _live_conference(conference)
+    _require_host(conference, host)
+    title, location = _clean_conference(title, start, end, location)
+    moved = (start, end) != (conference.starts_at, conference.ends_at)
+    conference.title, conference.location = title, location
+    conference.agenda = agenda.strip()
+    conference.starts_at, conference.ends_at = start, end
+    if moved:
+        conference.reminded_at = None
+    conference.save()
+    people = conference.invitations.exclude(status=Invitation.Status.DECLINED)
+    if moved:
+        people.filter(status=Invitation.Status.ACCEPTED).update(
+            status=Invitation.Status.INVITED, responded_at=None
+        )
+    ask = " Please accept again." if moved else ""
+    for invitation in people.select_related("user"):
+        post_notice(
+            host,
+            invitation.user,
+            f"changed {conference.title}: {describe(conference)}.{ask}",
+        )
+    return conference

@@ -73,3 +73,22 @@ def test_home_needs_login(client):
     response = client.get(reverse("home"))
 
     assert response.status_code == 302
+
+
+def test_home_lists_conferences_with_meetings(client, asha, django_user_model):
+    from datetime import timedelta
+
+    from meetings.services import create_conference
+
+    host = django_user_model.objects.create_user(
+        username="S900", first_name="Dev", password="pw"
+    )
+    start = timezone.now() + timedelta(days=1)
+    create_conference(
+        host, "Quarterly review", start, start + timedelta(hours=1), [asha]
+    )
+    client.force_login(asha)
+
+    html = client.get(reverse("home")).content.decode()
+
+    assert "Quarterly review" in html and "Conference · Dev" in html
