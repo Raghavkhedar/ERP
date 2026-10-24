@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block main_class %}relative mx-auto -mt-16 w-full max-w-5xl px-4 pb-28 sm:px-6{% endblock %}
+{% block main_class %}relative mx-auto -mt-16 w-full max-w-7xl px-4 pb-28 sm:px-6{% endblock %}
 
 {% block band %}
   {# The navbar runs on into this band; faint contour lines, like water over sea glass. #}
@@ -15,7 +15,7 @@
         <path d="M0 215C200 185 350 245 550 220S800 180 1000 210 1150 255 1200 225"/>
       </g>
     </svg>
-    <div class="relative mx-auto max-w-5xl px-6 pb-28 pt-12 sm:pt-16 animate-rise motion-reduce:animate-none">
+    <div class="relative mx-auto max-w-7xl px-6 pb-28 pt-12 sm:pt-16 animate-rise motion-reduce:animate-none">
       <p class="text-sm text-gray-500">{{ today|date:"l, j F" }}</p>
       <h1 class="title mt-1 text-3xl sm:text-4xl">{{ greeting }}, {{ user.first_name|default:user.display_name }}</h1>
     </div>
@@ -24,12 +24,19 @@
 
 {% block content %}
   <div>
-    <section class="rounded-2xl border border-gray-200/80 bg-surface p-4 sm:p-6">
-      {% include "tasks/_timeline.html" %}
-      {% for message in messages %}
-        <p role="status" class="mt-3 text-sm {% if message.tags == 'error' %}text-red-600{% else %}text-green-700{% endif %}">{{ message }}</p>
-      {% endfor %}
-    </section>
+    <div class="overflow-hidden rounded-2xl border border-gray-200/80 bg-surface xl:grid xl:grid-cols-[minmax(0,1fr)_21rem]">
+      <section class="min-w-0 p-4 sm:p-6">
+        {% include "tasks/_timeline.html" %}
+        {% for message in messages %}
+          <p role="status" class="mt-3 text-sm {% if message.tags == 'error' %}text-red-600{% else %}text-green-700{% endif %}">{{ message }}</p>
+        {% endfor %}
+      </section>
+      {% if plan_day %}
+        <aside class="border-t border-gray-200/80 bg-canvas/50 p-4 sm:p-6 xl:border-l xl:border-t-0">
+          {% include "plans/_day_panel.html" %}
+        </aside>
+      {% endif %}
+    </div>
 
     <section class="mt-6 rounded-2xl border border-gray-200/80 bg-surface p-4 sm:p-6 lg:max-w-2xl">
       <div class="flex items-baseline justify-between gap-4">

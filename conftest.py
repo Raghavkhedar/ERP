@@ -18,3 +18,13 @@ def accounts_start_ready(request):
     field.default = False
     yield
     field.default = original
+
+
+@pytest.fixture(autouse=True)
+def plan_gate_off(request, monkeypatch):
+    """Tests can use the app without setting today's plan first.
+
+    Tests that cover the gate opt back in with @pytest.mark.real_plan_gate.
+    """
+    if not request.node.get_closest_marker("real_plan_gate"):
+        monkeypatch.setattr("core.middleware.has_plan_today", lambda user: True)

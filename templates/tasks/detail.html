@@ -31,6 +31,7 @@
     <div>
       <dt class="text-gray-500">Assigned to</dt>
       <dd class="mt-1 font-medium">{{ task.assigned_to.display_name }}</dd>
+      {% if task.assigned_by_id == request.user.pk %}<a href="{% url 'plans:view' task.assigned_to_id today.year today.month today.day %}" class="text-xs text-blue-600 hover:underline">Their plan today</a>{% endif %}
     </div>
     <div>
       <dt class="text-gray-500">Received</dt>

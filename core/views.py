@@ -9,6 +9,7 @@ from core.forms import ChangePasswordForm, ProfileForm
 from core.models import User
 from meetings.models import Invitation
 from meetings.services import live_conferences, live_slots
+from plans.services import day_panel, is_plan_day
 from tasks.views import timeline_context
 
 UPCOMING_LIMIT = 5
@@ -70,6 +71,8 @@ def home(request):
         "greeting": _greeting(now),
         "today": today,
         "meetings": meetings,
+        "plan_day": is_plan_day(today),
+        "panel": day_panel(user, today),
         **timeline_context(request),
     }
     return render(request, "home.html", context)

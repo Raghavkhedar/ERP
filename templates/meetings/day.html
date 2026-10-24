@@ -73,4 +73,20 @@
       </ul>
     </section>
   </div>
+
+  <section aria-label="Plan" class="mt-10 border-t border-gray-100 pt-6">
+    <div class="flex items-baseline justify-between gap-4">
+      <h2 class="font-semibold">Your plan</h2>
+      {% if is_today %}<a href="{% url 'plans:today' %}" class="text-sm text-blue-600 hover:underline">Edit</a>{% endif %}
+    </div>
+    {% if plan_items %}
+      <ul class="mt-3 space-y-1.5 text-sm">
+        {% for item in plan_items %}
+          <li class="flex items-center gap-2.5 {% if item.done %}text-gray-400 line-through{% endif %}"><span class="size-1.5 shrink-0 rounded-full {% if item.kind == 'goal' %}bg-blue-600{% else %}bg-gray-300{% endif %}"></span>{% if item.starts_at %}<span class="tabular-nums text-gray-500">{{ item.starts_at|time:"H:i" }}–{{ item.ends_at|time:"H:i" }}</span>{% endif %}{{ item.text }}</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="mt-3 text-sm text-gray-500">No plan for this day.{% if is_today %} <a href="{% url 'plans:today' %}" class="text-blue-600 hover:underline">Set it</a>.{% endif %}</p>
+    {% endif %}
+  </section>
 {% endblock %}

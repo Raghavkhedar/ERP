@@ -159,6 +159,7 @@ def task_detail(request, pk):
         "can_assign": can_assign(request.user),
         "can_update": can_update(task, request.user),
         "can_nudge": can_nudge(task, request.user),
+        "today": timezone.localdate(),
     }
     return render(request, "tasks/detail.html", context)
 

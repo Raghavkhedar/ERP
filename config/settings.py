@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "chat",
     "meetings",
     "tasks",
+    "plans",
     "simple_history",
 ]
 
@@ -61,6 +62,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "core.middleware.ForcePasswordChangeMiddleware",
+    "core.middleware.DailyPlanMiddleware",
     "core.middleware.HtmxLoginRedirectMiddleware",
 ]
 
