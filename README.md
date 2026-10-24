@@ -229,6 +229,10 @@ becomes private, add a read-only deploy key on the server first.
   before a booked meeting both people get a chat reminder, sent by
   `manage.py send_meeting_reminders`, which cron runs every minute on the server
   (`/etc/cron.d/erp-reminders`, installed by `deploy/setup-server.sh`).
+- **Passwords:** new accounts, and accounts whose password an admin reset in the
+  admin site, must choose their own password before anything else
+  (`ForcePasswordChangeMiddleware`, page at `/password/`). People already using the
+  app are not affected. Anyone can change theirs later from the "Password" link.
 - **Chat** (`chat/`): direct messages and channels; automatic notices (task
   assigned, nudged, status changed) arrive here.
 

@@ -34,6 +34,12 @@ class User(AbstractUser):
         error_messages={"unique": "Someone already has this employee ID."},
     )
 
+    must_change_password = models.BooleanField(
+        default=True,
+        help_text="Set for new accounts and after an admin resets the password: "
+        "the person must choose their own before using the app.",
+    )
+
     objects = OfficeUserManager()
     history = HistoricalRecords(excluded_fields=["password", "last_login"])
 
