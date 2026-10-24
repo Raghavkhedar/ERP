@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.db.models import F, Q
 from simple_history.models import HistoricalRecords
 
 
@@ -36,12 +37,21 @@ class PlanItem(models.Model):
     kind = models.CharField(max_length=4, choices=Kind.choices)
     text = models.CharField(max_length=200)
     done = models.BooleanField(default=False)
+    starts_at = models.TimeField(null=True, blank=True)
+    ends_at = models.TimeField(null=True, blank=True)
     position = models.PositiveSmallIntegerField(default=0)
 
     history = HistoricalRecords()
 
     class Meta:
         ordering = ["kind", "position", "id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(starts_at__isnull=True, ends_at__isnull=True)
+                | Q(ends_at__gt=F("starts_at")),
+                name="plans_item_ends_after_start",
+            ),
+        ]
         indexes = [
             models.Index(fields=["plan", "kind"], name="plans_item_plan_kind_idx"),
         ]

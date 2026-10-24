@@ -13,6 +13,8 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from plans.services import plan_for
+
 from .forms import BookingForm
 from .models import Invitation, Slot
 from .services import (
@@ -223,6 +225,7 @@ def day_view(request, year, month, day):
         slot.top = round(minutes * HOUR_HEIGHT / 60)
         slot.height = max(round(length * HOUR_HEIGHT / 60), 18)
 
+    plan = plan_for(request.user, shown)
     today = timezone.localdate()
     context = {
         "day": shown,
@@ -238,6 +241,7 @@ def day_view(request, year, month, day):
         "previous": shown - timedelta(days=1),
         "following": shown + timedelta(days=1),
         "now_top": _now_top(shown, first_hour, last_hour),
+        "plan_items": list(plan.items.all()) if plan else [],
     }
     return render(request, "meetings/day.html", context)
 

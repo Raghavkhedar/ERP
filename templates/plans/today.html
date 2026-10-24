@@ -47,6 +47,15 @@
                      :class="row.done && 'text-gray-400 line-through'"
                      @keydown.enter.prevent="add(section.kind)"
                      class="h-11 w-full rounded-lg border border-gray-300 bg-white px-3.5 outline-none transition duration-150 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10">
+              <template x-if="row.kind === work">
+                <span class="flex shrink-0 items-center gap-1.5">
+                  <input type="time" :name="'start_' + row.key" x-model="row.start" aria-label="Starts"
+                         class="h-11 w-[6.5rem] rounded-lg border border-gray-300 bg-white px-2 tabular-nums outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10">
+                  <span class="text-gray-400">–</span>
+                  <input type="time" :name="'end_' + row.key" x-model="row.end" aria-label="Ends"
+                         class="h-11 w-[6.5rem] rounded-lg border border-gray-300 bg-white px-2 tabular-nums outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10">
+                </span>
+              </template>
               <button type="button" @click="remove(row)" aria-label="Remove" class="text-gray-400 transition-colors hover:text-gray-900">✕</button>
             </li>
           </template>
@@ -82,16 +91,17 @@
       let next = 0;
       const withKey = (r) => ({ ...r, key: next++ });
       const rows = saved.map(withKey);
-      if (!rows.some((r) => r.kind === goal)) rows.push(withKey({ id: null, kind: goal, text: "", done: false }));
+      if (!rows.some((r) => r.kind === goal)) rows.push(withKey({ id: null, kind: goal, text: "", done: false, start: "", end: "" }));
       return {
+        work,
         sending: false,
         rows,
         sections: [
           { kind: goal, label: "Goals", noun: "goal", hint: "What do you want to have achieved by tonight?", placeholder: "e.g. Finish the vendor report" },
-          { kind: work, label: "What I'll be doing", noun: "item", hint: "The work behind those goals.", placeholder: "e.g. Call suppliers about delivery dates" },
+          { kind: work, label: "What I'll be doing", noun: "item", hint: "The work behind those goals. Give each a time slot so the day is laid out.", placeholder: "e.g. Call suppliers about delivery dates" },
         ],
         add(kind) {
-          this.rows.push(withKey({ id: null, kind, text: "", done: false }));
+          this.rows.push(withKey({ id: null, kind, text: "", done: false, start: "", end: "" }));
           this.$nextTick(() => {
             const inputs = this.$root.querySelectorAll('input[type="text"]');
             const last = [...inputs].reverse().find((el) => el.name === "text_" + (next - 1));

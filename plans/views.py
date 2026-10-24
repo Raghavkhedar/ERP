@@ -1,10 +1,16 @@
+from datetime import date as make_date
+from datetime import datetime
+
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import redirect, render
+from django.core.exceptions import PermissionDenied
+from django.http import Http404
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from .models import PlanItem
-from .services import PlanError, agenda, is_set, plan_for, save_plan
+from .services import PlanError, agenda, can_view, is_set, plan_for, progress, save_plan
 
 
 def _rows(post):
@@ -18,9 +24,18 @@ def _rows(post):
                 post.get(f"kind_{key}", ""),
                 post.get(f"text_{key}", ""),
                 f"done_{key}" in post,
+                _time(post.get(f"start_{key}")),
+                _time(post.get(f"end_{key}")),
             )
         )
     return rows
+
+
+def _time(value):
+    try:
+        return datetime.strptime(value or "", "%H:%M").time()
+    except ValueError:
+        return None
 
 
 @login_required
@@ -40,11 +55,22 @@ def today(request):
             return redirect("home")
     if rows is None:
         rows = [
-            (i.pk, i.kind, i.text, i.done) for i in (plan.items.all() if plan else [])
+            (i.pk, i.kind, i.text, i.done, i.starts_at, i.ends_at)
+            for i in (plan.items.all() if plan else [])
         ]
     context = {
         "date": date,
-        "rows": [{"id": r[0], "kind": r[1], "text": r[2], "done": r[3]} for r in rows],
+        "rows": [
+            {
+                "id": r[0],
+                "kind": r[1],
+                "text": r[2],
+                "done": r[3],
+                "start": r[4].strftime("%H:%M") if r[4] else "",
+                "end": r[5].strftime("%H:%M") if r[5] else "",
+            }
+            for r in rows
+        ],
         "agenda": agenda(request.user, date),
         "locked": not is_set(plan),
         "error": error,
@@ -52,3 +78,27 @@ def today(request):
         "work": PlanItem.Kind.WORK,
     }
     return render(request, "plans/today.html", context)
+
+
+@login_required
+def view(request, user_id, year, month, day):
+    owner = get_object_or_404(get_user_model(), pk=user_id)
+    if not can_view(request.user, owner):
+        raise PermissionDenied
+    try:
+        shown = make_date(year, month, day)
+    except ValueError:
+        raise Http404("No such day.") from None
+    plan = plan_for(owner, shown)
+    done, total = progress(plan)
+    context = {
+        "owner": owner,
+        "day": shown,
+        "plan": plan,
+        "goals": plan.items.filter(kind=PlanItem.Kind.GOAL) if plan else [],
+        "work": plan.items.filter(kind=PlanItem.Kind.WORK) if plan else [],
+        "agenda": agenda(owner, shown),
+        "done": done,
+        "total": total,
+    }
+    return render(request, "plans/view.html", context)
