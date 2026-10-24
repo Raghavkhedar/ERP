@@ -1,8 +1,12 @@
+from django.contrib import messages
+from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.utils import timezone
 
+from core.forms import ChangePasswordForm, ProfileForm
+from core.models import User
 from meetings.models import Invitation
 from meetings.services import live_conferences, live_slots
 from tasks.views import timeline_context
@@ -69,3 +73,37 @@ def home(request):
         **timeline_context(request),
     }
     return render(request, "home.html", context)
+
+
+@login_required
+def profile(request):
+    # Fresh copy: a ModelForm writes cleaned data onto its instance even when
+    # invalid, which would leak half-edited names into the header.
+    user = User.objects.get(pk=request.user.pk)
+    profile_form = ProfileForm(instance=user)
+    password_form = ChangePasswordForm(user)
+    if request.method == "POST":
+        if request.POST.get("action") == "password":
+            password_form = ChangePasswordForm(user, request.POST)
+            if password_form.is_valid():
+                password_form.save()
+                update_session_auth_hash(request, user)
+                messages.success(request, "Password changed", extra_tags="password")
+                return redirect("profile")
+        else:
+            profile_form = ProfileForm(request.POST, instance=user)
+            if profile_form.is_valid():
+                profile_form.save()
+                messages.success(request, "Details saved", extra_tags="profile")
+                return redirect("profile")
+    saved = {m.extra_tags: str(m) for m in messages.get_messages(request)}
+    return render(
+        request,
+        "profile.html",
+        {
+            "saved": saved,
+            "profile_form": profile_form,
+            "password_form": password_form,
+            "active": "password" if request.POST.get("action") == "password" else "",
+        },
+    )
