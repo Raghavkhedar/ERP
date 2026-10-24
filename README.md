@@ -213,12 +213,29 @@ in `deploy/`.
 The server clones the repo over HTTPS, which works while the repo is public. If it
 becomes private, add a read-only deploy key on the server first.
 
+## What the app does
+
+- **Tasks** (`tasks/`): admins assign tasks with a priority, a completion date and
+  optional files. The home page shows a timeline of open and on-going tasks;
+  Done and Closed tasks leave it but stay in the Tasks tab. Employees log daily
+  updates (with files or pasted screenshots). Only admins change a task's status,
+  and Done/Closed asks for confirmation. After Done or Closed the assignee can't
+  add updates. An assignee can nudge the admin once a day ("Ask an admin to
+  review"), which sends a chat notice.
+- **Meetings** (`meetings/`): office hours open as 15-minute slots that colleagues
+  book. On **Block time** you tick slots in the Before-lunch and After-lunch
+  fields and give a reason for each stretch of back-to-back slots (one reason per
+  stretch; one for a whole day). Only the owner sees the reason.
+- **Chat** (`chat/`): direct messages and channels; automatic notices (task
+  assigned, nudged, status changed) arrive here.
+
 ## Project layout
 
 | Path | Purpose |
 | --- | --- |
 | `config/` | Project settings and URL configuration |
 | `core/` | Shared code, including the custom `User` model, the home view and the tests |
+| `tasks/`, `meetings/`, `chat/` | The task, meeting and chat apps, each with its own tests |
 | `templates/` | Shared HTML templates (`base.html`, login, home) |
 | `static/css/` | `input.css` (Tailwind source); `app.css` is generated |
 | `static/vendor/` | Pinned htmx and Alpine.js, with `VERSIONS.md` |
