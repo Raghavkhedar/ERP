@@ -175,5 +175,5 @@ def test_panel_places_work_by_time(alice):
     panel = day_panel(alice, DAY)
     (block,) = panel["blocks"]
     assert block["title"] == "Draft"
-    assert block["top"] == 44  # an hour below the 08:00 start
-    assert block["height"] == 88
+    assert block["top"] == 0  # the panel starts at 09:00
+    assert block["height"] == 80

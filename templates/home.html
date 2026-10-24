@@ -24,15 +24,15 @@
 
 {% block content %}
   <div>
-    <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
-      <section class="min-w-0 rounded-2xl border border-gray-200/80 bg-surface p-4 sm:p-6">
+    <div class="overflow-hidden rounded-2xl border border-gray-200/80 bg-surface xl:grid xl:grid-cols-[minmax(0,1fr)_21rem]">
+      <section class="min-w-0 p-4 sm:p-6">
         {% include "tasks/_timeline.html" %}
         {% for message in messages %}
           <p role="status" class="mt-3 text-sm {% if message.tags == 'error' %}text-red-600{% else %}text-green-700{% endif %}">{{ message }}</p>
         {% endfor %}
       </section>
       {% if plan_day %}
-        <aside class="rounded-2xl border border-gray-200/80 bg-surface p-4 sm:p-6">
+        <aside class="border-t border-gray-200/80 bg-canvas/50 p-4 sm:p-6 xl:border-l xl:border-t-0">
           {% include "plans/_day_panel.html" %}
         </aside>
       {% endif %}

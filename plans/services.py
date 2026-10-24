@@ -59,7 +59,9 @@ def save_plan(user, date, rows):
         if kind == PlanItem.Kind.GOAL:
             start = end = None
         elif start is None or end is None:
-            raise PlanError(f"Give \u201c{text}\u201d a start and end time.")
+            raise PlanError(
+                f"Give \u201c{text}\u201d a start and end time, like 09:30."
+            )
         elif end <= start:
             raise PlanError(f"\u201c{text}\u201d should end after it starts.")
         cleaned.append((item_id, kind, text, done, start, end))
@@ -148,8 +150,8 @@ def can_view(viewer, owner):
     return Task.objects.filter(assigned_by=viewer, assigned_to=owner).exists()
 
 
-PANEL_HOUR_HEIGHT = 44  # pixels per hour in the home page's day panel
-PANEL_START, PANEL_END = 8, 19  # hours always shown
+PANEL_HOUR_HEIGHT = 40  # pixels per hour in the home page's day panel
+PANEL_START, PANEL_END = 9, 18  # hours always shown
 
 
 def day_panel(user, date):
