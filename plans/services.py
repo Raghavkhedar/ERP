@@ -210,7 +210,7 @@ def day_panel(user, date):
         "goals": [i for i in items if i.kind == PlanItem.Kind.GOAL],
         "blocks": blocks,
         "hours": [
-            (time(h), (h - first) * PANEL_HOUR_HEIGHT) for h in range(first, last)
+            (time(h), (h - first) * PANEL_HOUR_HEIGHT) for h in range(first, last + 1)
         ],
         "height": (last - first) * PANEL_HOUR_HEIGHT,
         "now_top": now_top,

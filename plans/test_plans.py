@@ -181,4 +181,4 @@ def test_panel_places_work_by_time(alice):
     assert block["top"] == 0  # the panel starts at 10:00, so this is cut
     assert block["height"] == 40
     assert call["top"] == 40 and call["height"] == 40
-    assert [hour.hour for hour, _ in panel["hours"]] == list(range(10, 18))
+    assert [hour.hour for hour, _ in panel["hours"]] == list(range(10, 19))
