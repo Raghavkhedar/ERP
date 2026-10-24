@@ -134,7 +134,7 @@ def test_no_limit_on_bookings_with_the_same_host(alice, bob, tomorrow):
 # Views
 
 
-def test_people_page_counts_free_upcoming_slots(client, alice, bob, tomorrow):
+def test_people_page_says_who_has_free_upcoming_slots(client, alice, bob, tomorrow):
     slots = open_slots(alice, tomorrow, time(10), time(11, 30), 30)
     book(slots[0], bob, "Leave request")
     Slot.objects.filter(pk=slots[1].pk).update(cancelled_at=timezone.now())
@@ -142,9 +142,9 @@ def test_people_page_counts_free_upcoming_slots(client, alice, bob, tomorrow):
 
     response = client.get(PEOPLE_URL)
 
-    people = {p.first_name: p.free_slots for p in response.context["people"]}
-    assert people == {"alice": 1}
-    assert "1 free slot" in response.content.decode()
+    people = {p.first_name: p.available for p in response.context["people"]}
+    assert people == {"alice": True}
+    assert "Available" in response.content.decode()
 
 
 def test_person_page_lists_only_their_free_slots(client, alice, bob, tomorrow):

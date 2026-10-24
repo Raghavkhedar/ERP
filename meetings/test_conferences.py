@@ -17,6 +17,7 @@ from .services import (
     is_busy,
     remove_invitee,
     respond,
+    send_reminders,
 )
 from .testing import open_slots
 
@@ -167,3 +168,46 @@ def test_hosts_can_add_and_remove_invitees(conference, alice, bob, django_user_m
     assert remove_invitee(conference, alice, dan)
     assert not remove_invitee(conference, alice, dan)
     assert any("removed you from" in m.body for m in notices(dan))
+
+
+def reminders():
+    return Message.objects.filter(body__startswith="Reminder:")
+
+
+def test_conference_reminder_goes_to_host_and_accepted_only(
+    conference, alice, bob, carol
+):
+    respond(conference, bob, True)
+
+    assert send_reminders(now=at(9, 50)) == 1
+
+    got = {
+        m.conversation.memberships.exclude(user=m.author).get().user
+        for m in reminders()
+    }
+    assert got == {alice, bob}
+    assert any("1 accepted" in m.body for m in reminders())
+    assert any("Room 2" in m.body for m in reminders())
+    conference.refresh_from_db()
+    assert conference.reminded_at == at(9, 50)
+
+
+def test_conference_is_reminded_once_and_not_when_too_early(conference, bob):
+    respond(conference, bob, True)
+    assert send_reminders(now=at(9, 49)) == 0
+    assert send_reminders(now=at(9, 50)) == 1
+    assert send_reminders(now=at(9, 55)) == 0
+    assert reminders().count() == 2
+
+
+def test_conference_nobody_accepted_waits_for_someone_to_accept(conference, bob):
+    assert send_reminders(now=at(9, 50)) == 0
+    assert not reminders().exists()
+    respond(conference, bob, True)
+    assert send_reminders(now=at(9, 55)) == 1
+
+
+def test_cancelled_conference_is_not_reminded(conference, alice, bob):
+    respond(conference, bob, True)
+    cancel_conference(conference, alice)
+    assert send_reminders(now=at(9, 50)) == 0

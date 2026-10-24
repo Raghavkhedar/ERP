@@ -45,10 +45,10 @@
                 <div class="font-medium tabular-nums">{{ slot.starts_at|time:"H:i" }}</div>
                 <div class="text-gray-500">{% if slot.days_away == 0 %}Today{% elif slot.days_away == 1 %}Tomorrow{% else %}{{ slot.starts_at|date:"D j M" }}{% endif %}</div>
               </div>
-              {% include "chat/_avatar.html" with name=slot.other.display_name size="size-8 text-sm" %}
+              {% include "chat/_avatar.html" with name=slot.avatar.display_name size="size-8 text-sm" %}
               <div class="min-w-0">
-                <div class="truncate font-medium">{{ slot.other.display_name }}</div>
-                <div class="truncate text-sm text-gray-500">{{ slot.topic }}</div>
+                <div class="truncate font-medium">{{ slot.title }}</div>
+                <div class="truncate text-sm text-gray-500">{{ slot.subtitle }}</div>
               </div>
             </li>
           {% endfor %}

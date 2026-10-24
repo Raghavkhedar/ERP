@@ -229,6 +229,52 @@ def send_reminders(now=None):
             # update(), not save(): a reminder is not an edit worth a history row.
             Slot.objects.filter(pk=slot.pk).update(reminded_at=now)
             sent += 1
+        sent += _remind_conferences(now)
+    return sent
+
+
+def _remind_conferences(now):
+    """Remind the host and everyone who accepted; returns how many conferences.
+
+    A conference nobody has accepted yet is left for the next run, so the first
+    people to accept before it starts still get reminded.
+    """
+    sent = 0
+    due = (
+        live_conferences()
+        .select_for_update(of=("self",))
+        .filter(
+            reminded_at__isnull=True,
+            starts_at__gt=now,
+            starts_at__lte=now + REMINDER_LEAD,
+        )
+        .select_related("host")
+    )
+    for conference in due:
+        going = [
+            i.user
+            for i in conference.invitations.filter(
+                status=Invitation.Status.ACCEPTED, user__is_active=True
+            ).select_related("user")
+        ]
+        if not going:
+            continue
+        when = f"{local_time(conference.starts_at)}–{local_time(conference.ends_at)}"
+        where = f" at {conference.location}" if conference.location else ""
+        for person in going:
+            post_notice(
+                conference.host,
+                person,
+                f"Reminder: {conference.title} starts at {when}{where}.",
+            )
+        post_notice(
+            going[0],
+            conference.host,
+            f"Reminder: {conference.title} starts at {when}{where}. "
+            f"{len(going)} accepted.",
+        )
+        Conference.objects.filter(pk=conference.pk).update(reminded_at=now)
+        sent += 1
     return sent
 
 

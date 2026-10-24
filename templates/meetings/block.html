@@ -1,6 +1,6 @@
 {% extends "meetings/base_meetings.html" %}
 
-{% block title %}Block time · {{ day|date:"j F" }} · Meetings{% endblock %}
+{% block title %}Block time · {{ day|date:"j F" }} · Schedule{% endblock %}
 
 {% block toolbar %}
   {% url 'meetings:block_day' previous.year previous.month previous.day as previous_url %}

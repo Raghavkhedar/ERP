@@ -150,3 +150,20 @@ def test_host_can_invite_more_and_remove(client, conference, alice, django_user_
 
     client.post(reverse("meetings:conference_remove", args=[conference.pk, dan.pk]))
     assert not conference.invitations.filter(user=dan).exists()
+
+
+def test_people_page_only_says_available_or_not(client, conference, alice, bob):
+    respond(conference, bob, True)
+    open_slots(bob, DAY, time(10), time(11), 15)
+    client.force_login(alice)
+
+    response = client.get(reverse("meetings:people"))
+    assert {p.first_name: p.available for p in response.context["people"]}[
+        "bob"
+    ] is False
+    assert "No slots available" in response.content.decode()
+    assert "free slot" not in response.content.decode()
+
+    open_slots(bob, DAY, time(12), time(12, 15), 15)
+    response = client.get(reverse("meetings:people"))
+    assert {p.first_name: p.available for p in response.context["people"]}["bob"]

@@ -155,7 +155,7 @@ def test_meetings_pages_open_office_hours(client, alice, bob, now_is):
     response = client.get(reverse("meetings:people"))
 
     [person] = response.context["people"]
-    assert person == alice and person.free_slots == 60
+    assert person == alice and person.available
 
 
 # Day view

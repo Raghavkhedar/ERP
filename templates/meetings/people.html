@@ -1,20 +1,20 @@
 {% extends "meetings/base_meetings.html" %}
 
-{% block title %}Book a meeting · Meetings{% endblock %}
+{% block title %}Book a meeting · Schedule{% endblock %}
 {% block heading %}Book a meeting{% endblock %}
 
 {% block page %}
-  <p class="text-sm text-gray-500">Pick a colleague to see their free slots.</p>
+  <p class="text-sm text-gray-500">Pick a colleague to see when they're free.</p>
   <ul class="mt-4 divide-y divide-gray-100 border-y border-gray-100">
     {% for person in people %}
       <li>
         <a href="{% url 'meetings:person_slots' person.pk %}" class="-mx-3 flex items-center gap-3 rounded-lg px-3 py-3 transition-colors hover:bg-gray-50">
           {% include "chat/_avatar.html" with name=person.display_name size="size-8 text-sm" %}
           <span class="flex-1 truncate font-medium">{{ person.display_name }}</span>
-          {% if person.free_slots %}
-            <span class="text-sm text-blue-600">{{ person.free_slots }} free slot{{ person.free_slots|pluralize }}</span>
+          {% if person.available %}
+            <span class="text-sm text-blue-600">Available</span>
           {% else %}
-            <span class="text-sm text-gray-400">No free slots</span>
+            <span class="text-sm text-gray-400">No slots available</span>
           {% endif %}
         </a>
       </li>

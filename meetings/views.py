@@ -6,7 +6,7 @@ from datetime import date, datetime, time, timedelta
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count, Q
+from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -409,21 +409,44 @@ def block_time(request, year=None, month=None, day=None):
     return render(request, "meetings/block.html", context)
 
 
+def _hosts_with_open_slots():
+    """Ids of people with a free upcoming slot not covered by a conference."""
+    now = timezone.now()
+    busy = defaultdict(list)
+    conferences = (
+        live_conferences().filter(ends_at__gt=now).prefetch_related("invitations")
+    )
+    for conference in conferences:
+        going = [conference.host_id] + [
+            i.user_id
+            for i in conference.invitations.all()
+            if i.status == Invitation.Status.ACCEPTED
+        ]
+        for user_id in going:
+            busy[user_id].append((conference.starts_at, conference.ends_at))
+    free = live_slots().filter(booked_by__isnull=True, starts_at__gt=now)
+    return {
+        slot.host_id
+        for slot in free
+        if not any(
+            start < slot.ends_at and end > slot.starts_at
+            for start, end in busy[slot.host_id]
+        )
+    }
+
+
 @login_required
 def people(request):
     open_upcoming_office_hours()
-    free = Q(
-        hosted_slots__booked_by__isnull=True,
-        hosted_slots__cancelled_at__isnull=True,
-        hosted_slots__starts_at__gt=timezone.now(),
-    )
-    people = (
+    people = list(
         get_user_model()
         .objects.filter(is_active=True)
         .exclude(pk=request.user.pk)
-        .annotate(free_slots=Count("hosted_slots", filter=free))
         .order_by("first_name", "last_name", "username")
     )
+    available = _hosts_with_open_slots()
+    for person in people:
+        person.available = person.pk in available
     return render(request, "meetings/people.html", {"people": people})
 
 
