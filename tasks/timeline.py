@@ -4,7 +4,6 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from itertools import groupby
 
-from django.db.models import Q
 from django.utils import timezone
 
 from .models import Status, TaskUpdate
@@ -135,7 +134,7 @@ def build(user, start=None, person=None):
     tasks = (
         visible_tasks(user)
         .filter(received_at__lt=window_end)
-        .filter(~Q(status=Status.CLOSED) | Q(closed_at__gte=window_start))
+        .filter(status__in=(Status.OPEN, Status.ONGOING))
     )
     if person is not None:
         tasks = tasks.filter(assigned_to=person)

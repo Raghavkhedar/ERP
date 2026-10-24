@@ -14,84 +14,178 @@
 {% endblock %}
 
 {% block page %}
-  {% if not runs %}
+  {% if not has_slots %}
     <p class="border-y border-gray-100 py-6 text-sm text-gray-500">
       {% if is_sunday %}Sunday is not an office day.
       {% elif day < today %}There were no office hours on this day.
       {% else %}Office hours for this day aren't open yet. They open the office day before.{% endif %}
     </p>
   {% else %}
-    <p class="max-w-prose text-sm text-gray-500">Colleagues can book any open time in your office hours. Select the times you're not available and block them.<span class="hidden sm:inline"> Shift-click selects a range.</span></p>
+    {% if all_past %}
+      <p class="mb-4 max-w-prose rounded-lg bg-gray-100 px-4 py-3 text-sm text-gray-600">{% if day < today %}This day is over, so its times can't be changed.{% else %}Today's office hours are over, so there is nothing left to block. Pick another day with the arrows or the date box.{% endif %}</p>
+    {% endif %}
+    <p class="max-w-prose text-sm text-gray-500">Colleagues can book any open time in your office hours. Open a field, tick the times you're not available, then say why.<span class="hidden sm:inline"> Shift-click selects a range.</span></p>
 
-    <form method="post" class="mt-8"
-          x-data="{
-            free: 0, blocked: 0, last: null,
-            count() {
-              this.free = $root.querySelectorAll('input[data-state=free]:checked').length
-              this.blocked = $root.querySelectorAll('input[data-state=blocked]:checked').length
-            },
-            pick(event) {
-              const boxes = [...$root.querySelectorAll('input[name=slot]:not(:disabled)')]
-              if (event.shiftKey && this.last) {
-                const [a, b] = [boxes.indexOf(this.last), boxes.indexOf(event.target)].sort((x, y) => x - y)
-                boxes.slice(a, b + 1).forEach(box => box.checked = event.target.checked)
-              }
-              this.last = event.target
-              this.count()
-            },
-          }">
-      {% csrf_token %}
-      <div class="grid gap-8 sm:grid-cols-2">
-        {% for run in runs %}
-          {% with first=run|first end=run|last %}
-            <section aria-labelledby="run-{{ forloop.counter }}" class="min-w-0">
-              <h2 id="run-{{ forloop.counter }}" class="mb-2 text-sm tabular-nums text-gray-500">{{ first.starts_at|time:"H:i" }}–{{ end.ends_at|time:"H:i" }}</h2>
-            <ul class="overflow-hidden rounded-lg border border-gray-200">
-              {% for slot in run %}
-                <li class="border-b border-gray-100 last:border-b-0">
-                  {% if slot.state == "booked" %}
-                    <a href="{% url 'meetings:day' day.year day.month day.day %}#slot-{{ slot.pk }}"
-                       class="flex h-11 items-center gap-3 border-l-[3px] border-blue-600 bg-blue-50 pl-2.25 pr-3 text-sm text-blue-950 transition-colors hover:bg-blue-100 {% if slot.started %}opacity-60{% endif %}">
-                      <span class="w-4 shrink-0"></span>
-                      <span class="w-24 shrink-0 tabular-nums">{{ slot.starts_at|time:"H:i" }}–{{ slot.ends_at|time:"H:i" }}</span>
-                      <span class="truncate font-medium">{{ slot.booked_by.display_name }}: {{ slot.topic }}</span>
-                    </a>
-                  {% else %}
-                    <label class="flex h-11 items-center gap-3 px-3 text-sm transition-colors has-checked:bg-blue-50
-                                  {% if slot.started %}text-gray-400{% else %}cursor-pointer hover:bg-gray-50{% endif %}
-                                  {% if slot.state == 'blocked' %}bg-[repeating-linear-gradient(135deg,var(--color-gray-100)_0_5px,transparent_5px_10px)] text-gray-500{% endif %}">
-                      <input type="checkbox" name="slot" value="{{ slot.pk }}" data-state="{{ slot.state }}"
-                             {% if slot.started %}disabled{% endif %} @click="pick($event)"
-                             class="size-4 shrink-0 accent-blue-600">
-                      <span class="w-24 shrink-0 tabular-nums">{{ slot.starts_at|time:"H:i" }}–{{ slot.ends_at|time:"H:i" }}</span>
-                      <span class="truncate {% if slot.state == 'free' %}text-gray-500{% endif %}">
-                        {% if slot.state == "blocked" %}Blocked
-                        {% elif slot.meeting %}You're meeting {{ slot.meeting.host.display_name }}
-                        {% else %}Open{% endif %}
-                      </span>
-                    </label>
-                  {% endif %}
-                </li>
-              {% endfor %}
-            </ul>
+    <div x-data="{
+           free: 0, blocked: 0, last: null, stretches: [], reasons: {}, open: null, counts: [0, 0],
+           boxes(selector) { return [...$root.querySelectorAll(selector)] },
+           refresh() {
+             const picked = this.boxes('input[data-state=free]:checked')
+             this.blocked = this.boxes('input[data-state=blocked]:checked').length
+             this.free = picked.length
+             this.counts = [0, 1].map(i => this.boxes(`input[name=slot][data-panel='${i}']:checked`).length)
+             this.stretches = []
+             for (const box of picked) {
+               const tail = this.stretches[this.stretches.length - 1]
+               if (tail && tail.endTs === box.dataset.startTs) {
+                 tail.to = box.dataset.end; tail.endTs = box.dataset.endTs; tail.pks.push(box.value)
+               } else {
+                 this.stretches.push({ key: box.value, from: box.dataset.start, to: box.dataset.end, endTs: box.dataset.endTs, pks: [box.value] })
+               }
+             }
+           },
+           ready() { return this.stretches.every(s => (this.reasons[s.key] || '').trim()) },
+           pick(event) {
+             const all = this.boxes('input[name=slot]:not(:disabled)')
+             if (event.shiftKey && this.last) {
+               const [a, b] = [all.indexOf(this.last), all.indexOf(event.target)].sort((x, y) => x - y)
+               all.slice(a, b + 1).forEach(box => box.checked = event.target.checked)
+             }
+             this.last = event.target
+             this.refresh()
+           },
+           openIn(event) {
+             event.target.closest('section').querySelectorAll('input[data-state=free]:not(:disabled)').forEach(box => box.checked = true)
+             this.refresh()
+           },
+           clearIn(event) {
+             event.target.closest('section').querySelectorAll('input[name=slot]').forEach(box => box.checked = false)
+             this.refresh()
+           },
+           drop(stretch) {
+             this.boxes('input[name=slot]').filter(box => stretch.pks.includes(box.value)).forEach(box => box.checked = false)
+             this.refresh()
+           },
+         }">
+      <form method="post">
+        {% csrf_token %}
+        <div class="grid gap-6 sm:grid-cols-2">
+          {% for panel in panels %}
+            <section class="relative min-w-0" @click.outside="open === {{ forloop.counter0 }} && (open = null)" @keydown.escape="open = null">
+              <button type="button" id="panel-{{ forloop.counter }}" @click="open = open === {{ forloop.counter0 }} ? null : {{ forloop.counter0 }}; $nextTick(() => open !== null && document.getElementById('pop-' + open)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }))"
+                      :aria-expanded="open === {{ forloop.counter0 }}"
+                      class="flex h-12 w-full items-center justify-between gap-3 rounded-lg border border-gray-300 bg-white px-3 text-left text-sm outline-none transition hover:border-gray-400 focus-visible:border-blue-600 focus-visible:ring-4 focus-visible:ring-blue-600/10"
+                      :class="open === {{ forloop.counter0 }} && 'border-blue-600 ring-4 ring-blue-600/10'">
+                <span class="min-w-0">
+                  <span class="block font-medium">{{ panel.title }}</span>
+                  <span class="block text-xs tabular-nums text-gray-500">{{ panel.hours }}</span>
+                </span>
+                <span class="flex shrink-0 items-center gap-2">
+                  <span x-show="counts[{{ forloop.counter0 }}]" x-cloak class="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700" x-text="counts[{{ forloop.counter0 }}] + ' selected'"></span>
+                  <svg width="16" height="16" class="size-4 text-gray-400 transition-transform" :class="open === {{ forloop.counter0 }} && 'rotate-180'" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>
+                </span>
+              </button>
+              <div id="pop-{{ forloop.counter0 }}" x-show="open === {{ forloop.counter0 }}" x-cloak
+                   x-transition:enter="transition duration-150 ease-out" x-transition:enter-start="opacity-0 -translate-y-1"
+                   x-transition:leave="transition duration-100 ease-in" x-transition:leave-end="opacity-0"
+                   class="absolute inset-x-0 top-full z-30 mt-1.5 scroll-mb-28 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
+                <div class="flex justify-end gap-4 border-b border-gray-100 px-3 py-2 text-xs text-gray-500">
+                  <button type="button" @click="openIn($event)" class="transition-colors hover:text-gray-900">Select all open</button>
+                  <button type="button" @click="clearIn($event)" class="transition-colors hover:text-gray-900">Clear</button>
+                </div>
+              {% if panel.slots %}
+                <ul class="max-h-64 overflow-y-auto overscroll-contain">
+                  {% for slot in panel.slots %}
+                    <li class="border-b border-gray-100 last:border-b-0">
+                      {% if slot.state == "booked" %}
+                        <a href="{% url 'meetings:day' day.year day.month day.day %}#slot-{{ slot.pk }}"
+                           class="flex h-11 items-center gap-3 border-l-[3px] border-blue-600 bg-blue-50 pl-2.25 pr-3 text-sm text-blue-950 transition-colors hover:bg-blue-100 {% if slot.started %}opacity-60{% endif %}">
+                          <span class="w-4 shrink-0"></span>
+                          <span class="w-24 shrink-0 tabular-nums">{{ slot.starts_at|time:"H:i" }}–{{ slot.ends_at|time:"H:i" }}</span>
+                          <span class="truncate font-medium">{{ slot.booked_by.display_name }}: {{ slot.topic }}</span>
+                        </a>
+                      {% else %}
+                        <label class="flex h-11 items-center gap-3 px-3 text-sm transition-colors has-checked:bg-blue-50
+                                      {% if slot.started %}text-gray-400{% else %}cursor-pointer hover:bg-gray-50{% endif %}
+                                      {% if slot.state == 'blocked' %}bg-[repeating-linear-gradient(135deg,var(--color-gray-100)_0_5px,transparent_5px_10px)] text-gray-500{% endif %}">
+                          <input type="checkbox" name="slot" value="{{ slot.pk }}" data-state="{{ slot.state }}" data-panel="{{ forloop.parentloop.counter0 }}"
+                                 data-start="{{ slot.starts_at|time:'H:i' }}" data-end="{{ slot.ends_at|time:'H:i' }}"
+                                 data-start-ts="{{ slot.starts_at|date:'U' }}" data-end-ts="{{ slot.ends_at|date:'U' }}"
+                                 {% if slot.started %}disabled{% endif %} @click="pick($event)"
+                                 class="size-4 shrink-0 accent-blue-600">
+                          <span class="w-24 shrink-0 tabular-nums">{{ slot.starts_at|time:"H:i" }}–{{ slot.ends_at|time:"H:i" }}</span>
+                          <span class="truncate {% if slot.state == 'free' %}text-gray-500{% endif %}">
+                            {% if slot.state == "blocked" %}Blocked{% if slot.block_reason %}: {{ slot.block_reason }}{% endif %}
+                            {% elif slot.meeting %}You're meeting {{ slot.meeting.host.display_name }}
+                            {% else %}Open{% endif %}
+                          </span>
+                        </label>
+                      {% endif %}
+                    </li>
+                  {% endfor %}
+                </ul>
+              {% else %}
+                <p class="px-3 py-4 text-sm text-gray-500">Nothing here to block.</p>
+              {% endif %}
+              </div>
             </section>
-          {% endwith %}
-        {% endfor %}
-      </div>
+          {% endfor %}
+        </div>
 
-      <div class="sticky bottom-0 -mx-6 mt-8 flex flex-wrap items-center gap-3 border-t border-gray-100 bg-white/95 px-6 py-4 pr-24 backdrop-blur sm:-mx-8 sm:px-8 sm:pr-24">
-        <button type="submit" name="action" value="block" :disabled="!free"
-                class="h-11 rounded-lg bg-blue-600 px-5 text-sm font-medium text-white transition duration-150 hover:bg-blue-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30"
-                x-text="free ? `Block ${free} slot${free === 1 ? '' : 's'}` : 'Block selected'">Block selected</button>
-        <button type="submit" name="action" value="unblock" x-show="blocked" x-cloak
-                class="h-11 rounded-lg border border-gray-300 px-5 text-sm font-medium transition duration-150 hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/10"
-                x-text="`Unblock ${blocked} slot${blocked === 1 ? '' : 's'}`">Unblock selected</button>
-        {% if can_block %}
-          <button type="submit" name="action" value="block_day"
-                  onclick="return confirm('Block all your open time on {{ day|date:'l j F' }}? Booked meetings stay as they are.')"
-                  class="h-11 px-2 text-sm font-medium text-gray-600 transition-colors hover:text-gray-900">Block whole day</button>
-        {% endif %}
-      </div>
-    </form>
+        <section class="mt-8" aria-live="polite">
+          <h2 class="text-sm font-medium">Selected</h2>
+          <p x-show="!free && !blocked" class="mt-2 text-sm text-gray-500">Pick the times you're not available.</p>
+          <ul class="mt-2 space-y-3">
+            <template x-for="stretch in stretches" :key="stretch.key">
+              <li class="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-gray-200 p-3">
+                <div class="w-36 shrink-0 text-sm">
+                  <span class="font-medium tabular-nums" x-text="stretch.from + '–' + stretch.to"></span>
+                  <span class="block text-xs text-gray-500" x-text="stretch.pks.length + (stretch.pks.length === 1 ? ' slot' : ' slots')"></span>
+                </div>
+                <input type="text" required maxlength="200" x-model="reasons[stretch.key]" :name="'reason_' + stretch.key"
+                       :aria-label="'Reason for ' + stretch.from + ' to ' + stretch.to" placeholder="Why? e.g. Doctor's appointment"
+                       class="h-10 min-w-0 flex-1 basis-56 rounded-lg border border-gray-300 px-3 text-sm outline-none transition focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10">
+                <button type="button" @click="drop(stretch)" class="shrink-0 text-gray-400 transition-colors hover:text-gray-900" :aria-label="'Remove ' + stretch.from + ' to ' + stretch.to">
+                  <svg width="16" height="16" class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/></svg>
+                </button>
+              </li>
+            </template>
+          </ul>
+          <p x-show="blocked" x-cloak class="mt-3 text-sm text-gray-600" x-text="`${blocked} blocked slot${blocked === 1 ? '' : 's'} selected to unblock.`"></p>
+        </section>
+
+        <div class="sticky bottom-0 z-20 -mx-5 mt-8 flex flex-wrap items-center gap-3 border-t border-gray-200/80 bg-surface/95 px-5 py-4 pr-24 backdrop-blur sm:-mx-8 sm:px-8 sm:pr-24">
+          <button type="submit" name="action" value="block" :disabled="!free || !ready()"
+                  class="h-11 rounded-lg bg-blue-600 px-5 text-sm font-medium text-white transition duration-150 hover:bg-blue-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30"
+                  x-text="free ? `Block ${free} slot${free === 1 ? '' : 's'}` : 'Block selected'">Block selected</button>
+          <button type="submit" name="action" value="unblock" formnovalidate x-show="blocked" x-cloak
+                  class="h-11 rounded-lg border border-gray-300 px-5 text-sm font-medium transition duration-150 hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/10"
+                  x-text="`Unblock ${blocked} slot${blocked === 1 ? '' : 's'}`">Unblock selected</button>
+          {% if can_block %}
+            <button type="button" @click="$refs.dayDialog.showModal()"
+                    class="h-11 px-2 text-sm font-medium text-gray-600 transition-colors hover:text-gray-900">Block whole day</button>
+          {% endif %}
+        </div>
+      </form>
+
+      {% if can_block %}
+        <dialog x-ref="dayDialog" class="m-auto w-[min(26rem,calc(100vw-2rem))] rounded-xl p-6 shadow-lg backdrop:bg-black/30">
+          <form method="post">
+            {% csrf_token %}
+            <h3 class="title text-xl">Block the whole day</h3>
+            <p class="mt-1 text-sm text-gray-500">{{ day|date:"l j F" }}. Only you can see the reason. Booked meetings stay as they are.</p>
+            <label class="mt-5 block text-sm">
+              <span class="mb-1.5 block font-medium">Why?</span>
+              <input type="text" name="reason_day" required maxlength="200" placeholder="e.g. Out of office"
+                     class="h-11 w-full rounded-lg border border-gray-300 px-3 outline-none transition focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10">
+            </label>
+            <div class="mt-6 flex items-center justify-end gap-4">
+              <button type="button" @click="$refs.dayDialog.close()" class="text-sm text-gray-500 hover:text-gray-900">Cancel</button>
+              <button type="submit" name="action" value="block_day" class="h-11 rounded-lg bg-blue-600 px-5 text-sm font-medium text-white transition duration-150 hover:bg-blue-700 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30">Block the day</button>
+            </div>
+          </form>
+        </dialog>
+      {% endif %}
+    </div>
   {% endif %}
 {% endblock %}

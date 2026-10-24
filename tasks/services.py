@@ -1,3 +1,6 @@
+from datetime import timedelta
+
+from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.utils import timezone
@@ -29,7 +32,7 @@ def short_date(day):
 
 
 @transaction.atomic
-def assign(by, to, priority, description, due_date):
+def assign(by, to, priority, description, due_date, files=()):
     if not can_assign(by):
         raise PermissionDenied("Only admins assign tasks.")
     if not to.is_active:
@@ -47,12 +50,29 @@ def assign(by, to, priority, description, due_date):
         description=description,
         due_date=due_date,
     )
+    attach(files, task=task)
     if to != by:
         due = short_date(due_date)
         post_notice(
             by, to, f"assigned you a task (P{priority}, due {due}): {task.title}"
         )
     return task
+
+
+def attach(files, **owner):
+    """Store uploads on a task or one of its updates (`task=` or `update=`)."""
+    for upload in files:
+        Attachment.objects.create(
+            file=upload, original_name=upload.name, size=upload.size, **owner
+        )
+
+
+@transaction.atomic
+def add_task_files(task, user, files):
+    """Add files to a task after it was assigned."""
+    if not can_assign(user):
+        raise PermissionDenied("Only admins attach files to a task.")
+    attach(files, task=task)
 
 
 def allowed_statuses(task, user):
@@ -87,9 +107,67 @@ def set_status(task, user, status):
     return task
 
 
+def can_update(task, user):
+    """Admins until it's closed; the assignee until an admin marks it done."""
+    if can_assign(user):
+        return not task.is_closed
+    return task.assigned_to_id == user.pk and not task.is_finished
+
+
 def updatable_tasks(user):
-    """Tasks the user can log work on: their own, or any for admins, not closed."""
-    return visible_tasks(user).exclude(status=Status.CLOSED)
+    """Tasks the user can log work on: see can_update."""
+    tasks = visible_tasks(user)
+    if can_assign(user):
+        return tasks.exclude(status=Status.CLOSED)
+    return tasks.exclude(status__in=(Status.DONE, Status.CLOSED))
+
+
+NUDGE_COOLDOWN = timedelta(hours=24)
+
+
+def can_nudge(task, user):
+    return (
+        task.assigned_to_id == user.pk
+        and task.status in (Status.OPEN, Status.ONGOING)
+        and not nudged_recently(task)
+    )
+
+
+def nudged_recently(task):
+    return (
+        task.nudged_at is not None and timezone.now() - task.nudged_at < NUDGE_COOLDOWN
+    )
+
+
+@transaction.atomic
+def nudge(task, user):
+    """Ask whoever assigned the task to review it and mark it done or closed."""
+    task = Task.objects.select_for_update(of=("self",)).get(pk=task.pk)
+    if task.assigned_to_id != user.pk:
+        raise PermissionDenied("This isn't your task.")
+    if task.status not in (Status.OPEN, Status.ONGOING):
+        raise TaskError("An admin has already reviewed this task.")
+    if nudged_recently(task):
+        raise TaskError("You already reminded the admins today.")
+
+    assigner = task.assigned_by
+    if assigner.is_active and can_assign(assigner):
+        admins = [assigner]
+    else:
+        admins = [
+            admin
+            for admin in get_user_model().objects.filter(is_active=True)
+            if admin.pk != user.pk and can_assign(admin)
+        ]
+    if not admins:
+        raise TaskError("There is no admin to remind.")
+    for admin in admins:
+        post_notice(
+            user, admin, f"asks you to review and close their task: {task.title}"
+        )
+    task.nudged_at = timezone.now()
+    task.save(update_fields=["nudged_at"])
+    return task
 
 
 @transaction.atomic
@@ -98,17 +176,14 @@ def add_update(task, user, body, files=()):
     task = Task.objects.select_for_update(of=("self",)).get(pk=task.pk)
     if task.assigned_to_id != user.pk and not can_assign(user):
         raise PermissionDenied("This isn't your task.")
-    if task.is_closed:
+    if task.is_closed or (task.is_finished and not can_assign(user)):
         raise TaskError("This task is closed.")
     body = body.strip()
     if not body:
         raise TaskError("Say what you did.")
 
     update = TaskUpdate.objects.create(task=task, author=user, body=body)
-    for upload in files:
-        Attachment.objects.create(
-            update=update, file=upload, original_name=upload.name, size=upload.size
-        )
+    attach(files, update=update)
     if task.status == Status.OPEN and task.assigned_to_id == user.pk:
         task.status = Status.ONGOING
         task.save()

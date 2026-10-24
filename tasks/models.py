@@ -36,6 +36,9 @@ class Task(models.Model):
         max_length=10, choices=Status.choices, default=Status.OPEN
     )
     closed_at = models.DateTimeField(null=True, blank=True)
+    nudged_at = models.DateTimeField(
+        null=True, blank=True, help_text="When the assignee last asked for a review."
+    )
 
     history = HistoricalRecords()
 
@@ -79,6 +82,11 @@ class Task(models.Model):
     @property
     def is_closed(self):
         return self.status == Status.CLOSED
+
+    @property
+    def is_finished(self):
+        """Done or closed: an admin has signed it off, so the assignee is done."""
+        return self.status in (Status.DONE, Status.CLOSED)
 
     @property
     def is_overdue(self):
@@ -131,8 +139,21 @@ def attachment_path(attachment, filename):
 
 
 class Attachment(models.Model):
+    """A file on a task: from whoever assigned it, or on one of its updates."""
+
+    task = models.ForeignKey(
+        Task,
+        on_delete=models.PROTECT,
+        related_name="attachments",
+        null=True,
+        blank=True,
+    )
     update = models.ForeignKey(
-        TaskUpdate, on_delete=models.PROTECT, related_name="attachments"
+        TaskUpdate,
+        on_delete=models.PROTECT,
+        related_name="attachments",
+        null=True,
+        blank=True,
     )
     file = models.FileField(upload_to=attachment_path, max_length=200)
     original_name = models.CharField(max_length=255)
@@ -140,6 +161,13 @@ class Attachment(models.Model):
 
     class Meta:
         ordering = ["id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(task__isnull=False, update__isnull=True)
+                | Q(task__isnull=True, update__isnull=False),
+                name="tasks_attachment_task_xor_update",
+            ),
+        ]
 
     def __str__(self):
         return self.original_name

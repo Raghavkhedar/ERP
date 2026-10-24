@@ -221,3 +221,29 @@ def test_the_plus_button_shows_for_people_with_open_tasks(client, task, alice, b
 
     client.force_login(bob)
     assert b"Add an update" not in client.get(reverse("home")).content
+
+
+# Files with the assignment
+
+
+def test_assigning_a_task_with_files(admin_user, alice, client):
+    client.force_login(admin_user)
+    response = client.post(
+        reverse("tasks:new"),
+        {
+            "assigned_to": alice.pk,
+            "priority": 3,
+            "description": "Review the contract",
+            "due_date": (timezone.localdate() + timedelta(days=2)).isoformat(),
+            "files": [screenshot("brief.png")],
+        },
+    )
+
+    assert response.status_code == 302
+    [file] = Attachment.objects.all()
+    assert file.task.assigned_to == alice
+    assert file.update is None
+    client.force_login(alice)
+    assert client.get(attachment_url(file)).status_code == 200
+    detail = client.get(reverse("tasks:detail", args=[file.task_id]))
+    assert b"brief.png" in detail.content

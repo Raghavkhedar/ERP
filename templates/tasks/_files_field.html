@@ -1,0 +1,25 @@
+<div>
+  <span class="mb-1.5 block text-sm font-medium">{{ form.files.label }}</span>
+  <label for="{{ form.files.id_for_label }}"
+         class="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-gray-300 px-4 py-3.5 text-sm text-gray-500 transition-colors hover:border-gray-400 hover:bg-gray-50 has-[:focus-visible]:border-blue-600 has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-blue-600/10"
+         @dragover.prevent @drop.prevent="add($event.dataTransfer.files)">
+    <svg width="20" height="20" class="size-5 shrink-0 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M15.62 4.38a3 3 0 0 0-4.24 0L5.6 10.16a1.75 1.75 0 0 0 2.47 2.47l5.07-5.06a.75.75 0 1 1 1.06 1.06l-5.06 5.07a3.25 3.25 0 0 1-4.6-4.6l5.78-5.78a4.5 4.5 0 0 1 6.36 6.37l-5.78 5.78a.75.75 0 0 1-1.06-1.06l5.78-5.78a3 3 0 0 0 0-4.25Z"/></svg>
+    <span>Choose files, drop them here, or paste a screenshot</span>
+    <input type="file" name="{{ form.files.html_name }}" id="{{ form.files.id_for_label }}" multiple
+           accept="{{ form.files.field.widget.attrs.accept }}" x-ref="input" @change="sync()" class="sr-only">
+  </label>
+  <ul class="mt-2 space-y-1 text-sm" x-show="names.length" x-cloak>
+    <template x-for="(name, index) in names" :key="index">
+      <li class="flex items-center justify-between gap-3 rounded-md bg-gray-50 px-3 py-1.5">
+        <span class="truncate" x-text="name"></span>
+        <button type="button" @click="remove(index)" class="shrink-0 text-gray-400 hover:text-gray-900" :aria-label="'Remove ' + name">
+          <svg width="16" height="16" class="size-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"/></svg>
+        </button>
+      </li>
+    </template>
+  </ul>
+  <p class="mt-1 text-xs text-gray-500">{{ form.files.help_text }}</p>
+  {% for error in form.files.errors %}
+    <p class="mt-1 text-sm text-red-600">{{ error }}</p>
+  {% endfor %}
+</div>

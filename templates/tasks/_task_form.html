@@ -1,4 +1,6 @@
-<form method="post" action="{{ action }}"
+<form method="post" action="{{ action }}" enctype="multipart/form-data"
+      x-data="updateFiles"
+      @paste="paste($event)"
       hx-post="{{ action }}" hx-target="this" hx-swap="outerHTML"
       hx-status:4xx="swap:none" hx-status:5xx="swap:none"
       hx-on::response:error="this.querySelector('[data-request-error]').hidden = false"
@@ -20,6 +22,7 @@
       {% with field=form.due_date %}{% include "tasks/_field.html" %}{% endwith %}
     </div>
     {% with field=form.description %}{% include "tasks/_field.html" %}{% endwith %}
+    {% include "tasks/_files_field.html" %}
   </div>
 
   <div class="mt-7 flex items-center justify-end gap-4">
