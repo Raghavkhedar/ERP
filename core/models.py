@@ -102,3 +102,8 @@ class User(AbstractUser):
     def is_office_admin(self):
         """Superusers and the Office admin group: they run the office's setup."""
         return self.is_superuser or self.groups.filter(name="Office admin").exists()
+
+    @property
+    def is_trainer(self):
+        """Members of the Trainer group: they read feedback and write lessons."""
+        return self.groups.filter(name="Trainer").exists()
