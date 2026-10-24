@@ -23,11 +23,14 @@
           {% url 'meetings:schedule' as meetings_url %}{% url 'tasks:list' as tasks_url %}
           {% include "_nav_link.html" with url=meetings_url label="Schedule" name="meetings" %}
           {% include "_nav_link.html" with url=tasks_url label="Tasks" name="tasks" %}
+          {% url 'feedback:list' as feedback_url %}
+          {% include "_nav_link.html" with url=feedback_url label="Feedback" name="feedback" %}
         {% endwith %}
       {% endif %}
     </nav>
     {% if user.is_authenticated %}
       <div class="flex items-center gap-4">
+        {% include "feedback/_button.html" %}
         {% include "notifications/_bell.html" %}
       <form method="post" action="{% url 'logout' %}" class="flex items-center gap-4">
         {% csrf_token %}
@@ -50,6 +53,7 @@
 
   {% if user.is_authenticated %}
     {% block chat_launcher %}{% include "chat/_launcher.html" %}{% endblock %}
+    {% include "feedback/_dialog.html" %}
     {% include "notifications/_toasts.html" %}
   {% endif %}
 </body>
