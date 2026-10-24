@@ -36,6 +36,13 @@ class Status(models.TextChoices):
     RESOLVED = "resolved", "Resolved"
 
 
+class Outcome(models.TextChoices):
+    LESSON = "lesson", "Becomes a lesson"
+    SOFTWARE_FIX = "software_fix", "Fixed in the software"
+    NOTHING = "not_actionable", "Nothing to do"
+    DUPLICATE = "duplicate", "Already reported"
+
+
 class Feedback(models.Model):
     """What someone told us, from any page, and what came of it."""
 
@@ -49,6 +56,12 @@ class Feedback(models.Model):
         max_length=300, blank=True, help_text="The page it was sent from."
     )
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.NEW)
+    outcome = models.CharField(
+        max_length=20,
+        choices=Outcome.choices,
+        blank=True,
+        help_text="What came of it. Needed before it can be resolved.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     history = HistoricalRecords()
@@ -66,6 +79,10 @@ class Feedback(models.Model):
             models.CheckConstraint(
                 condition=Q(message__regex=r"\S"),
                 name="feedback_message_not_blank",
+            ),
+            models.CheckConstraint(
+                condition=~Q(status="resolved") | ~Q(outcome=""),
+                name="feedback_resolved_has_outcome",
             ),
         ]
 
@@ -146,3 +163,29 @@ class Attachment(models.Model):
     @property
     def is_image(self):
         return Path(self.original_name).suffix.lower() in IMAGE_EXTENSIONS
+
+
+class Lesson(models.Model):
+    """What to teach, written up after feedback was discussed. This is what
+    trainers read when they build a training module.
+    """
+
+    title = models.CharField(max_length=120)
+    area = models.CharField(max_length=20, choices=Area.choices)
+    what_happened = models.TextField(max_length=4000)
+    why_it_happens = models.TextField(max_length=4000, blank=True)
+    what_to_teach = models.TextField(max_length=4000)
+    feedback = models.ManyToManyField(Feedback, related_name="lessons", blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    history = HistoricalRecords()
+
+    class Meta:
+        ordering = ["area", "title", "id"]
+
+    def __str__(self):
+        return self.title

@@ -1,0 +1,42 @@
+{% extends "feedback/base_feedback.html" %}
+
+{% block title %}{{ lesson.title }} · Lessons{% endblock %}
+{% block toolbar %}
+  <a href="{% url 'feedback:lessons' %}" class="text-sm text-gray-500 hover:text-gray-900">Lessons</a>
+{% endblock %}
+{% block actions %}
+  <a href="{% url 'feedback:lesson_edit' lesson.pk %}" class="inline-flex h-10 items-center rounded-lg border border-gray-300 px-4 text-sm font-medium transition duration-150 hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/10">Edit</a>
+{% endblock %}
+
+{% block page %}
+  <h2 class="title text-2xl">{{ lesson.title }}</h2>
+  <p class="mt-1 text-sm text-gray-500">{{ lesson.get_area_display }} · written by {{ lesson.created_by.display_name }}, {{ lesson.created_at|date:"j M Y" }}</p>
+
+  <section class="mt-8 rounded-xl bg-blue-50/60 p-5">
+    <h3 class="text-sm font-medium text-gray-600">What to teach</h3>
+    <p class="mt-2 whitespace-pre-line leading-relaxed">{{ lesson.what_to_teach }}</p>
+  </section>
+
+  <section class="mt-8">
+    <h3 class="text-sm font-medium text-gray-500">What went wrong</h3>
+    <p class="mt-2 whitespace-pre-line leading-relaxed">{{ lesson.what_happened }}</p>
+  </section>
+
+  {% if lesson.why_it_happens %}
+    <section class="mt-8">
+      <h3 class="text-sm font-medium text-gray-500">Why it happens</h3>
+      <p class="mt-2 whitespace-pre-line leading-relaxed">{{ lesson.why_it_happens }}</p>
+    </section>
+  {% endif %}
+
+  {% if sources %}
+    <section class="mt-10">
+      <h3 class="text-sm font-medium text-gray-500">Written from</h3>
+      <ul class="mt-2 divide-y divide-gray-100 border-y border-gray-100 text-sm">
+        {% for item in sources %}
+          <li><a href="{% url 'feedback:detail' item.pk %}" class="flex justify-between gap-4 py-3 hover:text-blue-600"><span class="truncate">{{ item.summary }}</span><span class="shrink-0 text-gray-400">{{ item.submitter.display_name }}, {{ item.created_at|date:"j M Y" }}</span></a></li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+{% endblock %}

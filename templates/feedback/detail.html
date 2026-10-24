@@ -27,6 +27,12 @@
       <dt class="text-gray-500">About</dt>
       <dd class="mt-1 font-medium">{{ feedback.get_area_display }}</dd>
     </div>
+    {% if feedback.outcome %}
+      <div>
+        <dt class="text-gray-500">Outcome</dt>
+        <dd class="mt-1 font-medium">{{ feedback.get_outcome_display }}</dd>
+      </div>
+    {% endif %}
     {% if feedback.page_url %}
       <div class="col-span-2 sm:col-span-4">
         <dt class="text-gray-500">Sent from</dt>
@@ -34,6 +40,38 @@
       </div>
     {% endif %}
   </dl>
+
+  {% if is_reader %}
+    <section class="mt-8">
+      <h2 class="text-sm font-medium text-gray-500">Resolution</h2>
+      <form method="post" action="{% url 'feedback:resolve' feedback.pk %}"
+            class="mt-3 flex flex-wrap items-end gap-3 [&_select]:h-11 [&_select]:rounded-lg [&_select]:border [&_select]:border-gray-300 [&_select]:bg-white [&_select]:px-3 [&_select]:outline-none [&_select:focus]:border-blue-600 [&_select:focus]:ring-4 [&_select:focus]:ring-blue-600/10">
+        {% csrf_token %}
+        <div>
+          <label for="{{ resolution.status.id_for_label }}" class="mb-1.5 block text-sm font-medium">Status</label>
+          {{ resolution.status }}
+        </div>
+        <div>
+          <label for="{{ resolution.outcome.id_for_label }}" class="mb-1.5 block text-sm font-medium">What came of it</label>
+          {{ resolution.outcome }}
+        </div>
+        <button type="submit" class="h-11 rounded-lg border border-gray-300 px-5 text-sm font-medium transition duration-150 hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/10">Save</button>
+      </form>
+      {% for error in resolution.non_field_errors %}<p role="alert" class="mt-2 text-sm text-red-600">{{ error }}</p>{% endfor %}
+      {% for error in resolution.outcome.errors %}<p role="alert" class="mt-2 text-sm text-red-600">{{ error }}</p>{% endfor %}
+
+      {% if lessons %}
+        <ul class="mt-4 space-y-1 text-sm">
+          {% for lesson in lessons %}
+            <li>Lesson: <a href="{% url 'feedback:lesson' lesson.pk %}" class="text-blue-600 hover:underline">{{ lesson.title }}</a></li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+      {% if feedback.outcome == 'lesson' %}
+        <a href="{% url 'feedback:lesson_new' %}?feedback={{ feedback.pk }}" class="mt-4 inline-flex h-10 items-center rounded-lg bg-blue-600 px-4 text-sm font-medium text-white transition duration-150 hover:bg-blue-700 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30">Write a lesson from this</a>
+      {% endif %}
+    </section>
+  {% endif %}
 
   <section class="mt-12">
     <h2 class="font-semibold">Discussion</h2>

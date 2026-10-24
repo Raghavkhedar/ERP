@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -7,9 +8,18 @@ from django.urls import Resolver404, resolve, reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
-from .forms import CommentForm, FeedbackForm
-from .models import Area, Attachment, Status
-from .services import add_comment, is_reader, submit, visible_feedback
+from .forms import CommentForm, FeedbackForm, LessonForm, ResolutionForm
+from .models import Area, Attachment, Feedback, Lesson, Status
+from .services import (
+    FeedbackError,
+    add_comment,
+    is_reader,
+    save_lesson,
+    search_lessons,
+    set_resolution,
+    submit,
+    visible_feedback,
+)
 
 FILTERS = {
     "open": "Open",
@@ -42,8 +52,20 @@ def _guess_area(url):
     return app if app in Area.values else Area.OTHER
 
 
-def _detail(request, feedback, form):
+def _require_reader(user):
+    if not is_reader(user):
+        raise PermissionDenied("Only admins use lessons.")
+
+
+def _detail(request, feedback, form, resolution=None):
+    reader = is_reader(request.user)
+    if reader and resolution is None:
+        resolution = ResolutionForm(
+            initial={"status": feedback.status, "outcome": feedback.outcome}
+        )
     context = {
+        "resolution": resolution,
+        "lessons": feedback.lessons.all() if reader else [],
         "feedback": feedback,
         "comments": feedback.comments.select_related("author").prefetch_related(
             "attachments"
@@ -139,3 +161,90 @@ def attachment(request, pk):
         as_attachment=not file.is_image,
         filename=file.original_name,
     )
+
+
+@login_required
+@require_POST
+def change_resolution(request, pk):
+    feedback = get_object_or_404(visible_feedback(request.user), pk=pk)
+    _require_reader(request.user)
+    form = ResolutionForm(request.POST)
+    if form.is_valid():
+        try:
+            set_resolution(
+                feedback,
+                request.user,
+                form.cleaned_data["status"],
+                form.cleaned_data["outcome"],
+            )
+        except FeedbackError as error:
+            form.add_error(None, str(error))
+        else:
+            messages.success(request, "Saved.")
+            return redirect("feedback:detail", pk=feedback.pk)
+    return _detail(request, feedback, CommentForm(), resolution=form)
+
+
+@login_required
+def lesson_list(request):
+    _require_reader(request.user)
+    query = request.GET.get("q", "").strip()
+    area = request.GET.get("area", "")
+    if area not in Area.values:
+        area = ""
+    context = {
+        "lessons": search_lessons(query, area),
+        "query": query,
+        "area": area,
+        "areas": Area.choices,
+    }
+    return render(request, "feedback/lessons.html", context)
+
+
+@login_required
+def lesson_detail(request, pk):
+    _require_reader(request.user)
+    lesson = get_object_or_404(Lesson.objects.select_related("created_by"), pk=pk)
+    context = {"lesson": lesson, "sources": lesson.feedback.select_related("submitter")}
+    return render(request, "feedback/lesson_detail.html", context)
+
+
+def _lesson_form(request, lesson=None):
+    source = None
+    linked = []
+    initial = None
+    # The form posts back to the same url, so ?feedback= is still here on save.
+    wanted = request.GET.get("feedback", "")
+    if lesson is None and wanted.isdigit():
+        source = Feedback.objects.filter(pk=wanted).first()
+    if source:
+        linked = [source.pk]
+    if source and request.method == "GET":
+        initial = {
+            "title": source.summary[:120],
+            "area": source.area,
+            "what_happened": source.message,
+            "feedback": linked,
+        }
+    form = LessonForm(
+        request.POST or None, instance=lesson, initial=initial, linked=linked
+    )
+    if request.method == "POST" and form.is_valid():
+        saved = save_lesson(form, request.user)
+        messages.success(request, "Lesson saved.")
+        return redirect("feedback:lesson", pk=saved.pk)
+    heading = "Edit lesson" if lesson else "Write a lesson"
+    context = {"form": form, "heading": heading, "lesson": lesson}
+    return render(request, "feedback/lesson_form.html", context)
+
+
+@login_required
+def new_lesson(request):
+    _require_reader(request.user)
+    return _lesson_form(request)
+
+
+@login_required
+def edit_lesson(request, pk):
+    _require_reader(request.user)
+    return _lesson_form(request, get_object_or_404(Lesson, pk=pk))
