@@ -63,3 +63,13 @@ class OfficeUserAdmin(UserAdmin):
         if request.user.is_superuser:
             return users
         return users.filter(is_superuser=False, is_staff=False)
+
+    def user_change_password(self, request, id, form_url=""):
+        # A password an admin sets is known to the admin: make the person
+        # choose their own at next login.
+        before = User.objects.filter(pk=id).values_list("password", flat=True).first()
+        response = super().user_change_password(request, id, form_url)
+        after = User.objects.filter(pk=id).values_list("password", flat=True).first()
+        if before is not None and after != before:
+            User.objects.filter(pk=id).update(must_change_password=True)
+        return response

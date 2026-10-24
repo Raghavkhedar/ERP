@@ -20,7 +20,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
 from core import views
-from core.forms import LoginForm
+from core.forms import ChangePasswordForm, LoginForm, ResetPasswordForm
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -28,6 +28,36 @@ urlpatterns = [
         "login/",
         auth_views.LoginView.as_view(authentication_form=LoginForm),
         name="login",
+    ),
+    path(
+        "password/",
+        auth_views.PasswordChangeView.as_view(
+            form_class=ChangePasswordForm, success_url="/"
+        ),
+        name="password_change",
+    ),
+    path(
+        "forgot/",
+        auth_views.PasswordResetView.as_view(
+            email_template_name="registration/password_reset_email.txt",
+            subject_template_name="registration/password_reset_subject.txt",
+        ),
+        name="password_reset",
+    ),
+    path(
+        "forgot/sent/",
+        auth_views.PasswordResetDoneView.as_view(),
+        name="password_reset_done",
+    ),
+    path(
+        "forgot/<uidb64>/<token>/",
+        auth_views.PasswordResetConfirmView.as_view(form_class=ResetPasswordForm),
+        name="password_reset_confirm",
+    ),
+    path(
+        "forgot/done/",
+        auth_views.PasswordResetCompleteView.as_view(),
+        name="password_reset_complete",
     ),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("chat/", include("chat.urls")),

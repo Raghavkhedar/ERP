@@ -64,6 +64,9 @@ echo "erp ALL=(root) NOPASSWD: /usr/bin/systemctl restart erp" > /etc/sudoers.d/
 chmod 440 /etc/sudoers.d/erp
 sed "s/ERP_DOMAIN/$DOMAIN/" "$APP/deploy/Caddyfile" > /etc/caddy/Caddyfile
 echo "30 2 * * * root $APP/deploy/backup.sh" > /etc/cron.d/erp-backup
+# Meeting reminders: a chat notice ten minutes before each meeting.
+echo "* * * * * erp cd $APP && .venv/bin/python manage.py send_meeting_reminders >> /var/log/erp-reminders.log 2>&1" > /etc/cron.d/erp-reminders
+touch /var/log/erp-reminders.log && chown erp:erp /var/log/erp-reminders.log
 
 echo "==> First deploy"
 sudo -u erp -i "$APP/deploy/deploy.sh"

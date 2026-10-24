@@ -1,6 +1,11 @@
+import logging
+
+from django.conf import settings
+from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Count, Max, Q
 from django.db.models.functions import Coalesce
+from django.urls import reverse
 
 from .models import Conversation, ConversationKind, Membership, Message, MessageKind
 
@@ -100,9 +105,37 @@ def get_or_create_dm(user, other):
 def post_notice(author, recipient, body):
     """An automatic message in their DM that counts as unread for the recipient."""
     dm = get_or_create_dm(author, recipient)
-    return Message.objects.create(
+    message = Message.objects.create(
         conversation=dm, author=author, kind=MessageKind.NOTICE, body=body
     )
+    transaction.on_commit(lambda: email_notice(message, recipient))
+    return message
+
+
+logger = logging.getLogger(__name__)
+
+
+def email_notice(message, recipient):
+    """Email a notice to someone who works here and has an email address.
+
+    Never raises: a mail outage must not undo the task or booking that caused
+    the notice. The chat notice is always there either way.
+    """
+    if not recipient.is_active or not recipient.email:
+        return
+    text = f"{message.author.display_name} {message.body}"
+    link = settings.SITE_URL + reverse(
+        "chat:conversation_detail", args=[message.conversation_id]
+    )
+    try:
+        send_mail(
+            subject=f"Senken ERP: {text}"[:100],
+            message=f"{text}\n\nOpen it: {link}\n",
+            from_email=None,
+            recipient_list=[recipient.email],
+        )
+    except Exception:
+        logger.exception("Could not email a notice to user %s", recipient.pk)
 
 
 def mark_read(conversation, user):

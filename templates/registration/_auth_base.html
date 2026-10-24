@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block body_class %}min-h-dvh bg-canvas text-gray-900 antialiased{% endblock %}
+{% block header %}
+  <div class="flex h-14 items-center gap-2.5 border-b border-gray-200/80 bg-surface px-6 text-sm font-semibold tracking-tight text-gray-800 sm:px-8">
+    {% include "_mark.html" %}
+    <span class="title text-xl">Senken ERP</span>
+  </div>
+{% endblock %}
+{% block main_class %}flex min-h-[calc(100dvh-3.5rem)] items-center justify-center px-6 pb-16{% endblock %}
+
+{% block content %}
+  <div class="w-full max-w-96 rounded-2xl border border-gray-200/80 bg-surface p-8 animate-rise motion-reduce:animate-none">
+    {% block card %}{% endblock %}
+  </div>
+{% endblock %}

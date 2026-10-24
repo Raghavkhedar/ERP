@@ -51,6 +51,6 @@
             class="mt-6 h-12 w-full rounded-lg bg-blue-600 font-medium text-white transition duration-150 hover:bg-blue-700 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30 disabled:opacity-70"
             x-text="sending ? 'Logging in…' : 'Log in'">Log in</button>
 
-    <p class="mt-6 text-sm text-gray-500">Forgot your password? Ask the office admin.</p>
+    <a href="{% url 'password_reset' %}" class="mt-6 inline-block text-sm text-gray-500 transition-colors hover:text-gray-900">Forgot your password?</a>
   </form>
 {% endblock %}

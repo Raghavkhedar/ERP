@@ -167,11 +167,51 @@ def unblock(user, pks):
         slot.booked_by = None
         slot.topic = ""
         slot.booked_at = None
+        slot.reminded_at = None
         slot.cancelled_at = None
         slot.block_reason = ""
         slot.save()
         opened += 1
     return opened
+
+
+REMINDER_LEAD = timedelta(minutes=10)
+
+
+def send_reminders(now=None):
+    """Tell both people about meetings starting within REMINDER_LEAD. Returns how many.
+
+    Run every minute (see deploy/). Each meeting is reminded once: reminded_at
+    is set in the same transaction as the notices, so a crash sends nothing and
+    the next run tries again.
+    """
+    now = now or timezone.now()
+    sent = 0
+    with transaction.atomic():
+        due = (
+            live_slots()
+            .select_for_update(of=("self",))
+            .filter(
+                booked_by__isnull=False,
+                reminded_at__isnull=True,
+                starts_at__gt=now,
+                starts_at__lte=now + REMINDER_LEAD,
+            )
+            .select_related("host", "booked_by")
+        )
+        for slot in due:
+            when = f"{local_time(slot.starts_at)}–{local_time(slot.ends_at)}"
+            for me, other in ((slot.host, slot.booked_by), (slot.booked_by, slot.host)):
+                post_notice(
+                    other,
+                    me,
+                    f"Reminder: you're meeting {other.display_name} at {when}. "
+                    f"Topic: {slot.topic}",
+                )
+            # update(), not save(): a reminder is not an edit worth a history row.
+            Slot.objects.filter(pk=slot.pk).update(reminded_at=now)
+            sent += 1
+    return sent
 
 
 def describe(slot):
@@ -206,6 +246,7 @@ def book(slot, user, topic):
     slot.booked_by = user
     slot.topic = topic
     slot.booked_at = timezone.now()
+    slot.reminded_at = None
     slot.save()
     post_notice(user, slot.host, f"booked your slot {describe(slot)}: {topic}")
     return slot
@@ -231,6 +272,7 @@ def cancel(slot, user):
         slot.booked_by = None
         slot.topic = ""
         slot.booked_at = None
+        slot.reminded_at = None
         slot.save()
         post_notice(user, slot.host, f"cancelled their booking for {when}")
         return slot

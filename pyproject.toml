@@ -17,6 +17,7 @@ DJANGO_SETTINGS_MODULE = "config.settings"
 python_files = ["test_*.py", "tests.py"]
 markers = [
     "office_hours_on_demand: let meetings pages open office hours (off by default in tests)",
+    "real_password_default: new users must change their password, as in real life",
 ]
 
 [dependency-groups]
