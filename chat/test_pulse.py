@@ -38,22 +38,23 @@ def test_newest_incoming_ignores_conversations_the_user_is_not_in(alice, bob, ca
     assert newest_incoming(bob) is None
 
 
-def test_notices_count(alice, bob):
-    notice = post_notice(alice, bob, "Booked your slot")
+def test_notices_do_not_ring_the_chat_button(alice, bob):
+    post_notice(alice, bob, "Booked your slot")
 
-    assert newest_incoming(bob) == notice.id
+    assert newest_incoming(bob) is None
 
 
 def test_pulse_returns_unread_total_and_newest(client, alice, bob):
     general = make_channel("general", alice, members=[alice, bob])
-    post(general, alice)
-    notice = post_notice(alice, bob, "Booked your slot")
+    message = post(general, alice)
+    post_notice(alice, bob, "Booked your slot")
     client.force_login(bob)
 
     response = client.get(PULSE_URL)
 
     assert response.status_code == 200
-    assert response.json() == {"unread": 2, "newest": notice.id}
+    # Both raise the badge; only the person's message rings the chat button.
+    assert response.json() == {"unread": 2, "newest": message.id}
 
 
 def test_pulse_with_nothing_new(client, bob):

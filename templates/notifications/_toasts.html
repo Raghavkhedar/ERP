@@ -1,0 +1,16 @@
+{% load static %}
+{# Popups for new notifications, on every page; the logic is in static/js/notifier.js. #}
+<script src="{% static 'js/bell.js' %}"></script>
+<script src="{% static 'js/notifier.js' %}"></script>
+<div id="notifier" data-pulse="{% url 'notifications:pulse' %}" data-user="{{ user.pk }}"
+     x-data
+     class="pointer-events-none fixed bottom-24 right-4 z-50 flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2 sm:right-6" aria-live="polite">
+  <template x-for="toast in $store.notify.toasts" :key="toast.key">
+    <a :href="toast.url" x-transition.opacity.duration.150ms
+       class="pointer-events-auto flex items-start gap-3 rounded-xl border border-gray-200/80 bg-surface p-3.5 text-sm text-gray-900 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/20">
+      <span class="mt-1.5 size-2 shrink-0 rounded-full bg-blue-600"></span>
+      <span class="min-w-0 flex-1" x-text="toast.text"></span>
+      <button type="button" @click.prevent.stop="$store.notify.dismiss(toast)" aria-label="Dismiss" class="shrink-0 text-gray-400 hover:text-gray-900">✕</button>
+    </a>
+  </template>
+</div>

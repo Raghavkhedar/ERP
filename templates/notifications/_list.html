@@ -1,0 +1,35 @@
+{# The bell's dropdown: recent notifications, newest first. #}
+<div id="notification-list">
+  <div class="flex items-center justify-between gap-4 border-b border-gray-100 px-4 py-3">
+    <h2 class="text-sm font-semibold text-gray-900">Notifications</h2>
+    {% if notifications %}
+      <form hx-post="{% url 'notifications:read_all' %}" hx-target="#notification-list" hx-swap="outerHTML" @submit="$store.notify.unread = 0">
+        {% csrf_token %}
+        <button type="submit" class="text-xs text-blue-600 hover:underline">Mark all read</button>
+      </form>
+    {% endif %}
+  </div>
+  {% if notifications %}
+    <ul class="max-h-96 divide-y divide-gray-100 overflow-y-auto">
+      {% for n in notifications %}
+        <li>
+          <a href="{% url 'notifications:open' n.pk %}" class="block px-4 py-3 text-sm transition-colors hover:bg-gray-50 focus-visible:bg-gray-50 focus-visible:outline-none">
+            <div class="flex items-start gap-2.5">
+              <span class="mt-1.5 size-1.5 shrink-0 rounded-full {% if n.read_at %}bg-transparent{% else %}bg-blue-600{% endif %}"></span>
+              <div class="min-w-0">
+                <p class="{% if n.read_at %}text-gray-500{% else %}text-gray-900{% endif %}">{{ n.text }}</p>
+                <p class="mt-0.5 text-xs text-gray-400"><time datetime="{{ n.created_at|date:'c' }}">{{ n.created_at|date:"D j M, H:i" }}</time></p>
+              </div>
+            </div>
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="px-4 py-8 text-center text-sm text-gray-500">Nothing yet. Updates about your meetings and tasks show up here.</p>
+  {% endif %}
+  <div x-show="$store.notify.canAsk" x-cloak class="border-t border-gray-100 px-4 py-3">
+    <button type="button" @click="$store.notify.askPermission()" class="text-xs text-blue-600 hover:underline">Turn on desktop alerts</button>
+    <p class="mt-0.5 text-xs text-gray-400">Get a notification even when this tab is in the background.</p>
+  </div>
+</div>
