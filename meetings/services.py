@@ -486,3 +486,31 @@ def cancel_conference(conference, host):
             f"cancelled {conference.title}, {describe(conference)}",
         )
     return conference
+
+
+@transaction.atomic
+def edit_conference(conference, host, title, start, end, agenda="", location=""):
+    """Change a conference. A new time asks everyone who hasn't declined again."""
+    conference = _live_conference(conference)
+    _require_host(conference, host)
+    title, location = _clean_conference(title, start, end, location)
+    moved = (start, end) != (conference.starts_at, conference.ends_at)
+    conference.title, conference.location = title, location
+    conference.agenda = agenda.strip()
+    conference.starts_at, conference.ends_at = start, end
+    if moved:
+        conference.reminded_at = None
+    conference.save()
+    people = conference.invitations.exclude(status=Invitation.Status.DECLINED)
+    if moved:
+        people.filter(status=Invitation.Status.ACCEPTED).update(
+            status=Invitation.Status.INVITED, responded_at=None
+        )
+    ask = " Please accept again." if moved else ""
+    for invitation in people.select_related("user"):
+        post_notice(
+            host,
+            invitation.user,
+            f"changed {conference.title}: {describe(conference)}.{ask}",
+        )
+    return conference

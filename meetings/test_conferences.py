@@ -14,6 +14,7 @@ from .services import (
     cancel_conference,
     conference_clashes,
     create_conference,
+    edit_conference,
     is_busy,
     remove_invitee,
     respond,
@@ -211,3 +212,30 @@ def test_cancelled_conference_is_not_reminded(conference, alice, bob):
     respond(conference, bob, True)
     cancel_conference(conference, alice)
     assert send_reminders(now=at(9, 50)) == 0
+
+
+def test_moving_a_conference_asks_accepted_people_again(conference, alice, bob, carol):
+    respond(conference, bob, True)
+    respond(conference, carol, False)
+
+    edit_conference(conference, alice, "Review", at(14), at(15))
+
+    conference.refresh_from_db()
+    assert conference.title == "Review" and conference.starts_at == at(14)
+    assert status(conference, bob) == Invitation.Status.INVITED
+    assert status(conference, carol) == Invitation.Status.DECLINED
+    assert any("Please accept again" in m.body for m in notices(bob))
+    assert not any("changed Review" in m.body for m in notices(carol))
+    assert not is_busy(bob, at(10), at(11))
+
+
+def test_renaming_keeps_answers(conference, alice, bob):
+    respond(conference, bob, True)
+    edit_conference(conference, alice, "Renamed", at(10), at(11), location="Room 9")
+    assert status(conference, bob) == Invitation.Status.ACCEPTED
+    assert not any("accept again" in m.body for m in notices(bob))
+
+
+def test_only_the_host_can_edit(conference, bob):
+    with pytest.raises(PermissionDenied):
+        edit_conference(conference, bob, "Mine now", at(10), at(11))

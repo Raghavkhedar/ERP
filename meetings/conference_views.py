@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -14,6 +15,7 @@ from .services import (
     cancel_conference,
     conference_clashes,
     create_conference,
+    edit_conference,
     live_conferences,
     remove_invitee,
     respond,
@@ -163,3 +165,42 @@ def conference_remove(request, pk, user_id):
     else:
         messages.success(request, f"Removed {person.display_name}.")
     return redirect("meetings:conference_detail", pk=pk)
+
+
+@login_required
+def conference_edit(request, pk):
+    conference = _get(request, pk)
+    if not conference.i_am_host:
+        raise PermissionDenied("Only the host can change this conference.")
+    form = ConferenceForm.for_conference(
+        conference, request.POST or None, host=request.user
+    )
+    clashes = []
+    if request.method == "POST" and form.is_valid():
+        start, end = form.times()
+        going = [
+            i.user
+            for i in conference.invitations.exclude(
+                status=Invitation.Status.DECLINED
+            ).select_related("user")
+        ]
+        clashes = conference_clashes([request.user, *going], start, end, conference)
+        if not clashes or "confirm" in request.POST:
+            try:
+                edit_conference(
+                    conference,
+                    request.user,
+                    form.cleaned_data["title"],
+                    start,
+                    end,
+                    agenda=form.cleaned_data["agenda"],
+                    location=form.cleaned_data["location"],
+                )
+            except SlotError as error:
+                form.add_error(None, str(error))
+                clashes = []
+            else:
+                messages.success(request, "Saved. Everyone invited has been told.")
+                return redirect("meetings:conference_detail", pk=pk)
+    context = {"form": form, "clashes": clashes, "conference": conference}
+    return render(request, "meetings/conference_new.html", context)

@@ -31,8 +31,11 @@ class ConferenceForm(forms.Form):
         queryset=None, widget=forms.CheckboxSelectMultiple, label="Who to invite"
     )
 
-    def __init__(self, *args, host, **kwargs):
+    def __init__(self, *args, host, editing=False, **kwargs):
         super().__init__(*args, **kwargs)
+        if editing:
+            del self.fields["invitees"]  # people are changed on the detail page
+            return
         self.fields["invitees"].queryset = (
             get_user_model()
             .objects.filter(is_active=True)
@@ -46,6 +49,20 @@ class ConferenceForm(forms.Form):
         if data.get("start") and data.get("end") and data["end"] <= data["start"]:
             self.add_error("end", "End must be after the start.")
         return data
+
+    @classmethod
+    def for_conference(cls, conference, data=None, *, host):
+        start = timezone.localtime(conference.starts_at)
+        end = timezone.localtime(conference.ends_at)
+        initial = {
+            "title": conference.title,
+            "day": start.date(),
+            "start": start.time().replace(second=0, microsecond=0),
+            "end": end.time().replace(second=0, microsecond=0),
+            "location": conference.location,
+            "agenda": conference.agenda,
+        }
+        return cls(data, initial=initial, host=host, editing=True)
 
     def times(self):
         """Aware start and end datetimes from the cleaned day and times."""

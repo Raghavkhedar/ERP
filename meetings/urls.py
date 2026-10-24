@@ -21,6 +21,11 @@ urlpatterns = [
         "conferences/<int:pk>/", conferences.conference_detail, name="conference_detail"
     ),
     path(
+        "conferences/<int:pk>/edit/",
+        conferences.conference_edit,
+        name="conference_edit",
+    ),
+    path(
         "conferences/<int:pk>/respond/",
         conferences.conference_respond,
         name="conference_respond",

@@ -167,3 +167,24 @@ def test_people_page_only_says_available_or_not(client, conference, alice, bob):
     open_slots(bob, DAY, time(12), time(12, 15), 15)
     response = client.get(reverse("meetings:people"))
     assert {p.first_name: p.available for p in response.context["people"]}["bob"]
+
+
+def test_host_edits_a_conference(client, conference, alice, bob):
+    url = reverse("meetings:conference_edit", args=[conference.pk])
+    client.force_login(alice)
+    assert client.get(url).context["form"].initial["title"] == "Quarterly review"
+
+    response = client.post(
+        url,
+        {"title": "Review", "day": DAY.isoformat(), "start": "14:00", "end": "15:00"},
+    )
+
+    assert response.status_code == 302
+    conference.refresh_from_db()
+    assert conference.title == "Review" and conference.starts_at == at(14)
+
+
+def test_invitees_cannot_edit(client, conference, bob):
+    client.force_login(bob)
+    url = reverse("meetings:conference_edit", args=[conference.pk])
+    assert client.get(url).status_code == 403
