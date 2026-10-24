@@ -25,6 +25,11 @@ class Slot(models.Model):
     booked_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
+    reminded_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When both people were reminded that the meeting is about to start.",
+    )
     block_reason = models.CharField(
         max_length=200,
         blank=True,
@@ -34,7 +39,7 @@ class Slot(models.Model):
         default=False, help_text="Opened automatically for the person's office hours."
     )
 
-    history = HistoricalRecords()
+    history = HistoricalRecords(excluded_fields=["reminded_at"])
 
     class Meta:
         ordering = ["starts_at", "id"]

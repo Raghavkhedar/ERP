@@ -225,7 +225,10 @@ becomes private, add a read-only deploy key on the server first.
 - **Meetings** (`meetings/`): office hours open as 15-minute slots that colleagues
   book. On **Block time** you tick slots in the Before-lunch and After-lunch
   fields and give a reason for each stretch of back-to-back slots (one reason per
-  stretch; one for a whole day). Only the owner sees the reason.
+  stretch; one for a whole day). Only the owner sees the reason. Ten minutes
+  before a booked meeting both people get a chat reminder, sent by
+  `manage.py send_meeting_reminders`, which cron runs every minute on the server
+  (`/etc/cron.d/erp-reminders`, installed by `deploy/setup-server.sh`).
 - **Chat** (`chat/`): direct messages and channels; automatic notices (task
   assigned, nudged, status changed) arrive here.
 
