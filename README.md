@@ -233,6 +233,13 @@ becomes private, add a read-only deploy key on the server first.
   admin site, must choose their own password before anything else
   (`ForcePasswordChangeMiddleware`, page at `/password/`). People already using the
   app are not affected. Anyone can change theirs later from the "Password" link.
+- **Email:** "Forgot your password?" on the login page emails a one-time link to the
+  account's email (`/forgot/`). Every chat notice (task assigned, nudged, status
+  changed, meeting booked, cancelled or about to start) is also emailed to active
+  people who have an email address. Set `EMAIL_HOST`, `EMAIL_HOST_USER`,
+  `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL` and `SITE_URL` in the server's `.env`
+  (see `.env.example`); without `EMAIL_HOST` emails are printed to the log
+  (`journalctl -u erp`) instead. A mail outage never blocks the action behind a notice.
 - **Chat** (`chat/`): direct messages and channels; automatic notices (task
   assigned, nudged, status changed) arrive here.
 

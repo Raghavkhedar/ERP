@@ -1,5 +1,9 @@
 from django import forms
-from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm
+from django.contrib.auth.forms import (
+    AuthenticationForm,
+    PasswordChangeForm,
+    SetPasswordForm,
+)
 
 
 class LoginForm(AuthenticationForm):
@@ -26,6 +30,14 @@ class ChangePasswordForm(PasswordChangeForm):
                 self.error_messages["same_password"], code="same_password"
             )
         return password
+
+    def save(self, commit=True):
+        self.user.must_change_password = False
+        return super().save(commit)
+
+
+class ResetPasswordForm(SetPasswordForm):
+    """Choosing a password from the emailed link: now it's their own."""
 
     def save(self, commit=True):
         self.user.must_change_password = False

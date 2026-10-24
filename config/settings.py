@@ -142,6 +142,26 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # check, never directly by Caddy.
 MEDIA_ROOT = Path(env("MEDIA_ROOT", default=str(BASE_DIR / "media")))
 
+# Email. Without EMAIL_HOST in .env, emails are printed to the log (journalctl
+# -u erp) instead of being sent, so nothing is lost silently and nothing breaks.
+EMAIL_HOST = env("EMAIL_HOST", default="")
+EMAIL_BACKEND = (
+    "django.core.mail.backends.smtp.EmailBackend"
+    if EMAIL_HOST
+    else "django.core.mail.backends.console.EmailBackend"
+)
+EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+EMAIL_TIMEOUT = 10  # a slow mail server must not hang a page
+DEFAULT_FROM_EMAIL = env(
+    "DEFAULT_FROM_EMAIL", default="Senken ERP <no-reply@senkenindia.in>"
+)
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
+# The address people type, used for links in emails sent outside a request.
+SITE_URL = env("SITE_URL", default="http://localhost:8000").rstrip("/")
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
