@@ -54,7 +54,7 @@ def _guess_area(url):
 
 def _require_reader(user):
     if not is_reader(user):
-        raise PermissionDenied("Only admins use lessons.")
+        raise PermissionDenied("Only admins and trainers use lessons.")
 
 
 def _detail(request, feedback, form, resolution=None):
@@ -114,7 +114,9 @@ def new_feedback(request):
             page,
             data["files"],
         )
-        messages.success(request, "Thank you, your feedback was sent to the admins.")
+        messages.success(
+            request, "Thank you, your feedback was sent to the admins and trainers."
+        )
         return _done(request, reverse("feedback:detail", args=[feedback.pk]))
     in_dialog = bool(request.headers.get("HX-Request"))
     template = "feedback/_form.html" if in_dialog else "feedback/form_page.html"

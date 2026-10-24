@@ -9,23 +9,27 @@ from notifications.services import notify
 
 from .models import Attachment, Comment, Feedback, Lesson, Outcome, Status
 
+READER_GROUPS = ("Office admin", "Trainer")
 
-def admins():
-    """Who reads and answers feedback: for now the Office admins."""
+
+def readers():
+    """Who reads and answers feedback and writes lessons: the Office admins
+    and the trainers. This and `is_reader` are the only places that decide it.
+    """
     return (
         get_user_model()
         .objects.filter(is_active=True)
-        .filter(Q(is_superuser=True) | Q(groups__name="Office admin"))
+        .filter(Q(is_superuser=True) | Q(groups__name__in=READER_GROUPS))
         .distinct()
     )
 
 
 def is_reader(user):
-    return user.is_office_admin
+    return user.is_office_admin or user.is_trainer
 
 
 def visible_feedback(user):
-    """Admins see all feedback; everyone else sees only what they sent."""
+    """Admins and trainers see all feedback; everyone else sees only what they sent."""
     items = Feedback.objects.select_related("submitter")
     return items if is_reader(user) else items.filter(submitter=user)
 
@@ -47,7 +51,7 @@ def _link(feedback, fragment=""):
 
 @transaction.atomic
 def submit(user, kind, area, message, page_url="", files=()):
-    """Record feedback and tell the admins."""
+    """Record feedback and tell the admins and trainers."""
     feedback = Feedback.objects.create(
         submitter=user,
         kind=kind,
@@ -57,15 +61,16 @@ def submit(user, kind, area, message, page_url="", files=()):
     )
     attach(files, feedback=feedback)
     text = f"{user.display_name} sent feedback: {Truncator(feedback.summary).chars(80)}"
-    for admin in admins().exclude(pk=user.pk):
-        notify(admin, text, _link(feedback))
+    for reader in readers().exclude(pk=user.pk):
+        notify(reader, text, _link(feedback))
     return feedback
 
 
 @transaction.atomic
 def add_comment(feedback, user, body, files=()):
-    """Add to the discussion. The submitter and the admins who took part are
-    told; an admin's first reply moves a new item to "being discussed".
+    """Add to the discussion. The submitter and the admins and trainers who
+    took part are told; a reader's first reply moves a new item to "being
+    discussed".
     """
     if not can_view(user, feedback):
         raise PermissionDenied("This isn't your feedback.")
@@ -77,9 +82,9 @@ def add_comment(feedback, user, body, files=()):
         feedback.save(update_fields=["status"])
 
     people = {feedback.submitter}
-    people.update(admins().filter(pk__in=feedback.comments.values("author")))
+    people.update(readers().filter(pk__in=feedback.comments.values("author")))
     if user.pk == feedback.submitter_id:
-        people.update(admins())
+        people.update(readers())
     people.discard(user)
     summary = Truncator(feedback.summary).chars(60)
     text = f"{user.display_name} commented on feedback: {summary}"
@@ -98,14 +103,16 @@ def set_resolution(feedback, user, status, outcome):
     the submitter is told when it is resolved.
     """
     if not is_reader(user):
-        raise PermissionDenied("Only admins change the status of feedback.")
+        raise PermissionDenied("Only admins and trainers change feedback status.")
+    if status not in Status.values or outcome not in ["", *Outcome.values]:
+        raise FeedbackError("That isn't a status or outcome.")
     if status == Status.RESOLVED and not outcome:
         raise FeedbackError("Choose what came of it before resolving.")
     was_resolved = feedback.status == Status.RESOLVED
     feedback.status = status
     feedback.outcome = outcome
     feedback.save(update_fields=["status", "outcome"])
-    if status == Status.RESOLVED and not was_resolved:
+    if status == Status.RESOLVED and not was_resolved and feedback.submitter != user:
         result = Outcome(outcome).label.lower()
         summary = Truncator(feedback.summary).chars(60)
         notify(
@@ -120,7 +127,7 @@ def set_resolution(feedback, user, status, outcome):
 def save_lesson(form, user):
     """Save a lesson form. Feedback it is written from becomes a lesson outcome."""
     if not is_reader(user):
-        raise PermissionDenied("Only admins write lessons.")
+        raise PermissionDenied("Only admins and trainers write lessons.")
     lesson = form.save(commit=False)
     if lesson.pk is None:
         lesson.created_by = user

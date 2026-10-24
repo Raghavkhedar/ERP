@@ -112,3 +112,20 @@ def test_ordinary_user_cannot_open_admin(client, employee):
     client.force_login(employee)
     response = client.get(reverse("admin:index"))
     assert response.status_code == 302
+
+
+def test_trainer_group_exists_without_permissions():
+    group = Group.objects.get(name="Trainer")
+    assert group.permissions.count() == 0
+
+
+def test_is_trainer_follows_the_group(employee):
+    assert not employee.is_trainer
+    employee.groups.add(Group.objects.get(name="Trainer"))
+    assert employee.is_trainer
+    assert not employee.is_office_admin
+
+
+def test_office_admin_cannot_hand_out_the_trainer_group(office_admin, employee):
+    # Groups are a privilege field: only a superuser can put someone in one.
+    assert "groups" not in user_form_fields(office_admin, employee)

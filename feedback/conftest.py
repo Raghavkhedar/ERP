@@ -35,3 +35,12 @@ def boss(django_user_model):
     return django_user_model.objects.create_user(
         username="boss", first_name="boss", password="pw", is_superuser=True
     )
+
+
+@pytest.fixture
+def trainer(django_user_model):
+    user = django_user_model.objects.create_user(
+        username="trainer", first_name="trainer", password="pw"
+    )
+    user.groups.add(Group.objects.get(name="Trainer"))
+    return user
