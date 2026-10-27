@@ -6,7 +6,11 @@ document.addEventListener("alpine:init", () => {
   const el = document.getElementById("alarms");
   if (!el) return;
   const csrf = () => document.cookie.match(/csrftoken=([^;]+)/)?.[1] ?? "";
+  const RENOTIFY_MS = 30000;
+  const supported = "Notification" in window;
   const baseTitle = document.title;
+  let lastNotified = 0;
+  let asked = false;
   let audio = null;
   let flash = null;
 
@@ -32,6 +36,48 @@ document.addEventListener("alpine:init", () => {
   );
 
   const store = () => Alpine.store("alarms");
+
+  // The system notification is what makes a sound when the browser is in the
+  // background, as WhatsApp Web's does: it needs the person's permission once.
+  async function askPermission() {
+    if (supported && Notification.permission === "default") {
+      await Notification.requestPermission();
+    }
+    store().permission = supported ? Notification.permission : "denied";
+  }
+
+  function notify(alarms) {
+    if (!supported || Notification.permission !== "granted") return;
+    if (!document.hidden && document.hasFocus()) return; // the popup is in front
+    if (Date.now() - lastNotified < RENOTIFY_MS) return;
+    lastNotified = Date.now();
+    const more = alarms.length > 1 ? ` (+${alarms.length - 1} more)` : "";
+    const note = new Notification("Task alarm", {
+      body: alarms[0].title + more,
+      tag: "task-alarm",
+      renotify: true,
+      requireInteraction: true,
+    });
+    note.onclick = () => {
+      window.focus();
+      window.location.href = alarms[0].url;
+    };
+  }
+
+  // Setting an alarm is the moment to ask, so the permission prompt has a click behind it.
+  document.addEventListener(
+    "submit",
+    (event) => {
+      const form = event.target;
+      if (!supported || Notification.permission !== "default" || asked) return;
+      if (!form.querySelector?.('[name="remind_at"]')?.value) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      asked = true; // once per page, so a dismissed prompt can't loop
+      askPermission().finally(() => form.requestSubmit(event.submitter));
+    },
+    { capture: true },
+  );
   const beepIfRinging = () => {
     if (store().ringing.length) beep();
   };
@@ -61,6 +107,13 @@ document.addEventListener("alpine:init", () => {
   Alpine.store("alarms", {
     ringing: [],
     locked: false,
+    permission: supported ? Notification.permission : "denied",
+
+    get canAsk() {
+      return this.permission === "default";
+    },
+
+    askPermission,
 
     init() {
       unlock();
@@ -81,12 +134,10 @@ document.addEventListener("alpine:init", () => {
       const wasQuiet = !this.ringing.length;
       this.ringing = data.alarms;
       this.titleFlash();
+      if (data.alarms.length) notify(data.alarms);
       if (wasQuiet && data.alarms.length) {
         unlock();
         beep();
-        if (document.hidden && "Notification" in window && Notification.permission === "granted") {
-          new Notification("Task alarm", { body: data.alarms[0].title, tag: "task-alarm" });
-        }
       }
     },
 
