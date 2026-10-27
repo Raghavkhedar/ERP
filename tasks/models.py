@@ -17,6 +17,12 @@ class Status(models.TextChoices):
     CLOSED = "closed", "Closed"
 
 
+class Repeat(models.TextChoices):
+    NEVER = "", "Once"
+    DAILY = "daily", "Every day"
+    WEEKLY = "weekly", "Every week"
+
+
 class Task(models.Model):
     """Work an admin gives someone, from the day it's received until it's closed."""
 
@@ -40,6 +46,16 @@ class Task(models.Model):
         null=True, blank=True, help_text="When the assignee last asked for a review."
     )
 
+    remind_at = models.DateTimeField(
+        "alarm",
+        null=True,
+        blank=True,
+        help_text="When the assignee's alarm next rings, until the task is done.",
+    )
+    remind_every = models.CharField(
+        "repeat", max_length=10, choices=Repeat.choices, blank=True
+    )
+
     history = HistoricalRecords()
 
     class Meta:
@@ -57,6 +73,10 @@ class Task(models.Model):
             models.CheckConstraint(
                 condition=Q(description__regex=r"\S"),
                 name="tasks_task_description_not_blank",
+            ),
+            models.CheckConstraint(
+                condition=Q(remind_every__in=Repeat.values),
+                name="tasks_task_remind_every_valid",
             ),
             models.CheckConstraint(
                 condition=Q(status__in=Status.values),

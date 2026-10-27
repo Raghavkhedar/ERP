@@ -26,7 +26,7 @@ def test_employees_see_only_their_own_tasks(client, task, boss, bob, next_week):
     response = client.get(LIST_URL)
 
     assert list(response.context["tasks"]) == [bobs]
-    assert b"Add task" not in response.content
+    assert "people" not in response.context  # no person filter
 
 
 def test_assigners_see_everyones_tasks(client, task, boss, bob, next_week):

@@ -16,12 +16,16 @@
   {% endfor %}
 
   <div class="mt-6 space-y-5">
-    {% with field=form.assigned_to %}{% include "tasks/_field.html" %}{% endwith %}
+    {% if form.assigned_to %}{% with field=form.assigned_to %}{% include "tasks/_field.html" %}{% endwith %}{% endif %}
     <div class="grid gap-5 sm:grid-cols-2">
       {% with field=form.priority %}{% include "tasks/_field.html" %}{% endwith %}
       {% with field=form.due_date %}{% include "tasks/_field.html" %}{% endwith %}
     </div>
     {% with field=form.description %}{% include "tasks/_field.html" %}{% endwith %}
+    <div class="grid gap-5 sm:grid-cols-2">
+      {% with field=form.remind_at %}{% include "tasks/_field.html" %}{% endwith %}
+      {% with field=form.remind_every %}{% include "tasks/_field.html" %}{% endwith %}
+    </div>
     {% include "tasks/_files_field.html" %}
   </div>
 

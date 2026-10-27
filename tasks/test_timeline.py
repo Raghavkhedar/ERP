@@ -120,7 +120,6 @@ def test_the_home_page_shows_the_timeline(client, boss, alice):
     response = client.get(reverse("home"))
 
     assert b"Audit report for Q3" in response.content
-    assert b"Add task" not in response.content
 
 
 def test_assigners_get_add_task_on_the_home_page(client, boss):

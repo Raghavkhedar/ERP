@@ -30,12 +30,12 @@
           <svg width="20" height="20" class="size-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z"/></svg>
         </a>
       {% endif %}
-      {% if can_assign %}{% include "tasks/_add_task_button.html" %}{% endif %}
+      {% include "tasks/_add_task_button.html" %}
     </div>
   </div>
 
   {% if timeline.is_empty %}
-    <p class="mt-3 border-y border-gray-100 py-6 text-sm text-gray-500">{% if person %}No tasks for {{ person.display_name }} in these two weeks.{% elif can_assign %}No open tasks. Use Add task to give someone work.{% else %}No tasks yet. Tasks assigned to you appear here.{% endif %}</p>
+    <p class="mt-3 border-y border-gray-100 py-6 text-sm text-gray-500">{% if person %}No tasks for {{ person.display_name }} in these two weeks.{% elif can_assign %}No open tasks. Use Add task to give someone work.{% else %}No tasks yet. Add one for yourself, or tasks assigned to you appear here.{% endif %}</p>
   {% else %}
     <div x-data x-init="const today = $el.querySelector('[data-today]'); if (today && $el.scrollWidth > $el.clientWidth) $el.scrollLeft = today.offsetLeft - $el.clientWidth / 2"
          class="relative mt-3 overflow-x-auto overscroll-x-contain border-y border-gray-100 [--label:9rem] sm:[--label:15rem]">

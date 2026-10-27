@@ -2,12 +2,10 @@
 
 {% block title %}Tasks{% endblock %}
 {% block actions %}
-  {% if can_assign %}
-    <div class="flex items-center gap-3">
-      {% include "tasks/_person_filter.html" %}
-      {% include "tasks/_add_task_button.html" %}
-    </div>
-  {% endif %}
+  <div class="flex items-center gap-3">
+    {% if can_assign %}{% include "tasks/_person_filter.html" %}{% endif %}
+    {% include "tasks/_add_task_button.html" %}
+  </div>
 {% endblock %}
 
 {% block page %}
@@ -15,7 +13,7 @@
     {% for task in tasks %}
       {% include "tasks/_task_row.html" %}
     {% empty %}
-      <li class="py-6 text-sm text-gray-500">{% if person %}{{ person.display_name }} has no open tasks.{% elif can_assign %}No open tasks. Use Add task to give someone work.{% else %}No tasks yet. Tasks assigned to you appear here.{% endif %}</li>
+      <li class="py-6 text-sm text-gray-500">{% if person %}{{ person.display_name }} has no open tasks.{% elif can_assign %}No open tasks. Use Add task to give someone work.{% else %}No tasks yet. Add one for yourself, or tasks assigned to you appear here.{% endif %}</li>
     {% endfor %}
   </ul>
 

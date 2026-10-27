@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from chat.services import post_notice
 
-from .models import Attachment, Status, Task, TaskUpdate
+from .models import Attachment, Repeat, Status, Task, TaskUpdate
 
 
 class TaskError(Exception):
@@ -31,10 +31,17 @@ def short_date(day):
     return f"{day:%a} {day.day} {day:%b}"
 
 
+def is_personal(task):
+    """A task someone gave themselves."""
+    return task.assigned_to_id == task.assigned_by_id
+
+
 @transaction.atomic
-def assign(by, to, priority, description, due_date, files=()):
-    if not can_assign(by):
-        raise PermissionDenied("Only admins assign tasks.")
+def assign(
+    by, to, priority, description, due_date, files=(), remind_at=None, remind_every=""
+):
+    if not can_assign(by) and to != by:
+        raise PermissionDenied("Only admins assign tasks to other people.")
     if not to.is_active:
         raise TaskError(f"{to.display_name} no longer works here.")
     description = description.strip()
@@ -42,6 +49,8 @@ def assign(by, to, priority, description, due_date, files=()):
         raise TaskError("Describe the report or job.")
     if due_date < timezone.localdate():
         raise TaskError("The completion date can't be in the past.")
+    if remind_at and remind_at <= timezone.now():
+        raise TaskError("Set the alarm for a time that hasn't passed.")
 
     task = Task.objects.create(
         assigned_to=to,
@@ -49,6 +58,8 @@ def assign(by, to, priority, description, due_date, files=()):
         priority=priority,
         description=description,
         due_date=due_date,
+        remind_at=remind_at,
+        remind_every=remind_every if remind_at else "",
     )
     attach(files, task=task)
     if to != by:
@@ -76,8 +87,12 @@ def add_task_files(task, user, files):
 
 
 def allowed_statuses(task, user):
-    """Only admins change a task's status; the assignee logs updates."""
-    return list(Status) if can_assign(user) else []
+    """Admins change a task's status, and so does whoever gave it to themselves;
+    other assignees log updates.
+    """
+    if can_assign(user) or (is_personal(task) and task.assigned_to_id == user.pk):
+        return list(Status)
+    return []
 
 
 @transaction.atomic
@@ -188,3 +203,76 @@ def add_update(task, user, body, files=()):
         task.status = Status.ONGOING
         task.save()
     return update
+
+
+SNOOZES = {"10m": timedelta(minutes=10), "1h": timedelta(hours=1)}
+REPEAT_STEP = {Repeat.DAILY: timedelta(days=1), Repeat.WEEKLY: timedelta(weeks=1)}
+
+
+def can_set_alarm(task, user):
+    """The assignee, or an admin setting one for them, until the task is finished."""
+    return not task.is_finished and (task.assigned_to_id == user.pk or can_assign(user))
+
+
+def due_alarms(user):
+    """Alarms ringing now: the user's unfinished tasks whose time has come."""
+    return Task.objects.filter(
+        assigned_to=user,
+        status__in=(Status.OPEN, Status.ONGOING),
+        remind_at__lte=timezone.now(),
+    ).order_by("remind_at")
+
+
+def _own_alarm(task, user):
+    task = Task.objects.select_for_update(of=("self",)).get(pk=task.pk)
+    if not can_set_alarm(task, user):
+        raise PermissionDenied("You can't set an alarm on this task.")
+    return task
+
+
+@transaction.atomic
+def set_alarm(task, user, remind_at, every=""):
+    """Ring at `remind_at`, and again every day or week if `every` says so;
+    no time clears the alarm.
+    """
+    task = _own_alarm(task, user)
+    if remind_at and remind_at <= timezone.now():
+        raise TaskError("Set the alarm for a time that hasn't passed.")
+    task.remind_at = remind_at
+    task.remind_every = every if remind_at else ""
+    task.save(update_fields=["remind_at", "remind_every"])
+    return task
+
+
+@transaction.atomic
+def snooze_alarm(task, user, length):
+    task = _own_alarm(task, user)
+    now = timezone.now()
+    if length == "tomorrow":
+        morning = timezone.localtime(now).replace(
+            hour=9, minute=0, second=0, microsecond=0
+        )
+        task.remind_at = morning + timedelta(days=1)
+    elif length in SNOOZES:
+        task.remind_at = now + SNOOZES[length]
+    else:
+        raise TaskError("Choose how long to snooze.")
+    task.save(update_fields=["remind_at"])
+    return task
+
+
+@transaction.atomic
+def dismiss_alarm(task, user):
+    """Stop this ring: a repeating alarm moves to its next time, a one-off ends."""
+    task = _own_alarm(task, user)
+    now = timezone.now()
+    if task.remind_at is None or task.remind_at > now:
+        return task  # already stopped or snoozed from another tab
+    step = REPEAT_STEP.get(task.remind_every)
+    if step:
+        while task.remind_at <= now:
+            task.remind_at += step
+    else:
+        task.remind_at = None
+    task.save(update_fields=["remind_at"])
+    return task

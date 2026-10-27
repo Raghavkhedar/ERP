@@ -80,10 +80,13 @@ def test_completion_date_cannot_be_past(boss, alice):
 # Page
 
 
-def test_employees_get_no_form(client, alice):
+def test_employees_get_the_form_without_a_person_picker(client, alice):
     client.force_login(alice)
 
-    assert client.get(NEW_URL).status_code == 403
+    response = client.get(NEW_URL)
+
+    assert response.status_code == 200
+    assert b'name="assigned_to"' not in response.content
 
 
 def test_the_dialog_gets_the_form_alone(client, boss):

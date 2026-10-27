@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.template.defaultfilters import filesizeformat
 from django.utils import timezone
 
-from .models import PRIORITIES, Status, Task
+from .models import PRIORITIES, Repeat, Status, Task
 
 
 class PersonChoiceField(forms.ModelChoiceField):
@@ -67,7 +67,23 @@ class FilesMixin(forms.Form):
         return files
 
 
-class TaskForm(FilesMixin, forms.ModelForm):
+class AlarmForm(forms.Form):
+    """When a task's alarm rings; shared by the task form and the detail page."""
+
+    remind_at = forms.DateTimeField(
+        label="Alarm",
+        required=False,
+        widget=forms.DateTimeInput(
+            attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"
+        ),
+        help_text="Rings in the ERP at this time until the task is done.",
+    )
+    remind_every = forms.ChoiceField(
+        label="Repeat", choices=Repeat.choices, required=False
+    )
+
+
+class TaskForm(FilesMixin, AlarmForm, forms.ModelForm):
     assigned_to = PersonChoiceField(
         queryset=get_user_model().objects.none(),
         label="Assign to",
@@ -83,7 +99,10 @@ class TaskForm(FilesMixin, forms.ModelForm):
 
     class Meta:
         model = Task
-        fields = ["assigned_to", "priority", "description", "due_date"]
+        fields = [
+            "assigned_to", "priority", "description", "due_date",
+            "remind_at", "remind_every",
+        ]  # fmt: skip
         widgets = {
             "description": forms.Textarea(
                 attrs={"rows": 4, "placeholder": "What is the report or job?"}
@@ -95,13 +114,16 @@ class TaskForm(FilesMixin, forms.ModelForm):
             "due_date": {"required": "Pick a completion date."},
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, personal=False, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["assigned_to"].queryset = (
-            get_user_model()
-            .objects.filter(is_active=True)
-            .order_by("first_name", "last_name", "username")
-        )
+        if personal:  # not an admin: the task can only be for yourself
+            del self.fields["assigned_to"]
+        else:
+            self.fields["assigned_to"].queryset = (
+                get_user_model()
+                .objects.filter(is_active=True)
+                .order_by("first_name", "last_name", "username")
+            )
         self.fields["due_date"].widget.attrs["min"] = timezone.localdate().isoformat()
 
     def clean_description(self):
