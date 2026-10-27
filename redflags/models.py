@@ -37,6 +37,16 @@ class RedFlag(models.Model):
         max_length=10, choices=Status.choices, default=Status.OPEN
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    # A supervisor the superadmin handed this flag to: they read this one flag
+    # and add notes to it, nothing more.
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="assigned_red_flags",
+    )
+    assigned_on = models.DateField(null=True, blank=True)
 
     history = HistoricalRecords()
 

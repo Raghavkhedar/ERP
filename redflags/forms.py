@@ -74,3 +74,10 @@ class NoteForm(forms.Form):
 
 class StatusForm(forms.Form):
     status = forms.ChoiceField(choices=Status.choices)
+
+
+class AssignForm(forms.Form):
+    of = forms.ChoiceField(
+        choices=[("against", "Raised against"), ("raiser", "Raised by")],
+        initial="against",
+    )
