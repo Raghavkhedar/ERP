@@ -41,6 +41,21 @@ class OfficeUserAdmin(UserAdmin):
         ),
     )
 
+    fieldsets = tuple(
+        (
+            name,
+            {**options, "fields": (*options["fields"], "supervisor")}
+            if name == "Personal info"
+            else options,
+        )
+        for name, options in UserAdmin.fieldsets
+    )
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "supervisor":
+            kwargs["queryset"] = User.objects.filter(is_active=True)
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
     def get_fieldsets(self, request, obj=None):
         fieldsets = super().get_fieldsets(request, obj)
         if request.user.is_superuser:
