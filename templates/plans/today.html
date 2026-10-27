@@ -20,6 +20,15 @@
 
 {% block content %}
   {{ rows|json_script:"plan-rows" }}
+  <div class="mb-3 text-right text-sm">
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <label class="cursor-pointer text-blue-600 hover:underline">
+        Import from Excel
+        <input type="file" name="sheet" accept=".xlsx" class="sr-only" onchange="this.form.submit()">
+      </label>
+    </form>
+  </div>
   <form method="post" class="rounded-2xl border border-gray-200/80 bg-surface p-5 animate-rise motion-reduce:animate-none sm:p-8"
         x-data="planForm('{{ goal }}', '{{ work }}')" @submit="sending = true">
     {% csrf_token %}
@@ -30,6 +39,7 @@
     </p>
 
     {% if error %}<p role="alert" class="mt-4 text-sm text-red-600">{{ error }}</p>{% endif %}
+    {% if imported %}<p role="status" class="mt-4 text-sm text-gray-700">Imported from your sheet. Check it over, then save.</p>{% endif %}
 
     <template x-for="section in sections" :key="section.kind">
       <div class="mt-8">

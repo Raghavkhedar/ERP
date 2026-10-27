@@ -9,6 +9,7 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
+from .excel import schedule_rows
 from .models import PlanItem
 from .services import PlanError, agenda, can_view, is_set, plan_for, progress, save_plan
 
@@ -44,7 +45,25 @@ def today(request):
     plan = plan_for(request.user, date)
     error = None
     rows = None
-    if request.method == "POST":
+    imported = False
+    if request.method == "POST" and "sheet" in request.FILES:
+        # Fill the form from the sheet; nothing is saved until they press Save.
+        try:
+            lines = schedule_rows(request.FILES["sheet"])
+        except PlanError as exc:
+            error = str(exc)
+        else:
+            imported = True
+            rows = [
+                (None, kind, text, False, start, end)
+                for kind, text, start, end in lines
+            ]
+            if not any(r[1] == PlanItem.Kind.GOAL for r in rows) and plan:
+                rows = [
+                    (i.pk, i.kind, i.text, i.done, i.starts_at, i.ends_at)
+                    for i in plan.items.filter(kind=PlanItem.Kind.GOAL)
+                ] + rows
+    elif request.method == "POST":
         rows = _rows(request.POST)
         try:
             save_plan(request.user, date, rows)
@@ -74,6 +93,7 @@ def today(request):
         "agenda": agenda(request.user, date),
         "locked": not is_set(plan),
         "error": error,
+        "imported": imported,
         "goal": PlanItem.Kind.GOAL,
         "work": PlanItem.Kind.WORK,
     }
