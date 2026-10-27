@@ -223,6 +223,23 @@ def due_alarms(user):
     ).order_by("remind_at")
 
 
+def next_alarm_in(user):
+    """Seconds until the user's next alarm rings, or None if none is waiting."""
+    upcoming = (
+        Task.objects.filter(
+            assigned_to=user,
+            status__in=(Status.OPEN, Status.ONGOING),
+            remind_at__gt=timezone.now(),
+        )
+        .order_by("remind_at")
+        .values_list("remind_at", flat=True)
+        .first()
+    )
+    if upcoming is None:
+        return None
+    return max((upcoming - timezone.now()).total_seconds(), 0)
+
+
 def _own_alarm(task, user):
     task = Task.objects.select_for_update(of=("self",)).get(pk=task.pk)
     if not can_set_alarm(task, user):
