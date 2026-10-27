@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Access · Senken ERP{% endblock %}
+{% block main_class %}mx-auto w-full max-w-3xl px-6 pb-16 pt-8 sm:px-8{% endblock %}
+
+{% block content %}
+  <h1 class="title text-3xl">Access</h1>
+  <p class="mt-2 text-sm text-gray-500">Choose which companies someone works in and which parts of each module they can open.</p>
+  <ul class="mt-6 divide-y divide-gray-100 border-y border-gray-100">
+    {% for p in people %}
+      <li>
+        <a href="{% url 'access_person' p.pk %}" class="flex items-center justify-between gap-4 py-4 transition-colors hover:bg-gray-50/70 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/20">
+          <span class="min-w-0">
+            <span class="block truncate font-medium">{{ p.display_name }}</span>
+            <span class="block text-sm text-gray-500">{{ p.username }}</span>
+          </span>
+          <span class="shrink-0 text-sm text-gray-500">{% for m in p.memberships.all %}{{ m.company.name }}{% if not forloop.last %} · {% endif %}{% empty %}No company{% endfor %}</span>
+        </a>
+      </li>
+    {% endfor %}
+  </ul>
+{% endblock %}

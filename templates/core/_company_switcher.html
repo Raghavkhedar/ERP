@@ -1,0 +1,12 @@
+{# Pick the company the finance and sales screens show. Only for people in more than one. #}
+{% if switcher_companies|length > 1 %}
+  <form method="post" action="{% url 'switch_company' %}">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <select name="company" onchange="this.form.submit()" aria-label="Company"
+            class="h-9 rounded-full border-0 bg-transparent px-2.5 text-sm text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/40">
+      <option value="all" {% if not current_company %}selected{% endif %}>All companies</option>
+      {% for c in switcher_companies %}<option value="{{ c.slug }}" {% if c == current_company %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
+    </select>
+  </form>
+{% endif %}

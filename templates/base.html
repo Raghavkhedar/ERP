@@ -28,6 +28,8 @@
     </nav>
     {% if user.is_authenticated %}
       <div class="flex items-center gap-4">
+        {% include "core/_company_switcher.html" %}
+        {% if user.is_office_admin %}<a href="{% url 'access_people' %}" class="transition-colors hover:text-gray-900">Access</a>{% endif %}
         {% include "feedback/_button.html" %}
         {% include "notifications/_bell.html" %}
       <form method="post" action="{% url 'logout' %}" class="flex items-center gap-4">
