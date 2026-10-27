@@ -33,7 +33,13 @@
         x-data="planForm('{{ goal }}', '{{ work }}')" @submit="sending = true">
     {% csrf_token %}
     <p class="text-sm text-gray-500">{{ date|date:"l, j F" }}</p>
-    <h1 class="title mt-1 text-3xl">{% if locked %}Plan your day{% else %}Today's plan{% endif %}</h1>
+    <div class="mt-1 flex items-center gap-3">
+      <h1 class="title text-3xl">{% if locked %}Plan your day{% else %}Today's plan{% endif %}</h1>
+      <button type="button" @click="help = !help" :aria-expanded="help" aria-controls="import-help" aria-label="How to import from Excel"
+              class="grid size-6 shrink-0 place-items-center rounded-full border border-gray-300 font-serif text-sm italic text-gray-500 transition-colors hover:border-blue-600 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/20"
+              :class="help && 'border-blue-600 text-blue-600'">i</button>
+    </div>
+    {% include "plans/_import_help.html" %}
     <p class="mt-2 text-sm text-gray-500">
       {% if locked %}Set at least one goal to get started. You can change the plan any time today.{% else %}Change it as the day goes. Tick things off when they're done.{% endif %}
     </p>
@@ -113,6 +119,7 @@
         work,
         clock,
         sending: false,
+        help: false,
         rows,
         sections: [
           { kind: goal, label: "Goals", noun: "goal", hint: "What do you want to have achieved by tonight?", placeholder: "e.g. Finish the vendor report" },

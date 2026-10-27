@@ -97,3 +97,10 @@ def test_import_fills_the_form_without_saving(client, alice):
     assert {r["text"] for r in response.context["rows"]} == {"Calls", "Goal for today"}
     assert response.context["imported"]
     assert not DailyPlan.objects.exists()
+
+
+@pytest.mark.django_db
+def test_page_explains_the_import(client, alice):
+    client.force_login(alice)
+    response = client.get(reverse("plans:today"))
+    assert "Bring your own sheet" in response.content.decode()

@@ -1,0 +1,93 @@
+{# How to import a plan from Excel: a few drawn sheets and what each becomes. Opened by the "i" beside the title. #}
+{% comment %}Each example is a tiny sheet on the left and the plan lines it makes on the right.{% endcomment %}
+<div id="import-help" x-show="help" x-cloak x-transition.opacity.duration.150ms class="mt-5 rounded-xl bg-gray-50 p-5 text-sm text-gray-700">
+  <h2 class="font-semibold text-gray-900">Bring your own sheet</h2>
+  <p class="mt-1 text-gray-500">Already plan your day in Excel? Import it instead of typing it all again.</p>
+
+  <ol class="mt-4 space-y-1.5">
+    <li class="flex gap-3"><span class="w-4 shrink-0 text-gray-400">1</span>Click <span class="font-medium text-blue-600">Import from Excel</span> above the plan and pick your <span class="font-medium">.xlsx</span> file.</li>
+    <li class="flex gap-3"><span class="w-4 shrink-0 text-gray-400">2</span>Your lines appear on this page. Nothing is saved yet.</li>
+    <li class="flex gap-3"><span class="w-4 shrink-0 text-gray-400">3</span>Fix anything you like, then press <span class="font-medium">Save plan</span>.</li>
+  </ol>
+
+  <h3 class="mt-6 font-semibold text-gray-900">Sheets that work</h3>
+  <p class="mt-1 text-gray-500">Use whichever layout you already have. A header row is optional.</p>
+
+  <div class="mt-4 space-y-5">
+    {# Start / End / Task #}
+    <div>
+      <p class="font-medium text-gray-900">Start, end and task in separate columns</p>
+      <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <table class="border-collapse overflow-hidden rounded-md bg-white text-xs ring-1 ring-gray-300">
+          <tr class="bg-green-50 font-medium text-green-900"><td class="border border-gray-200 px-2.5 py-1">Start</td><td class="border border-gray-200 px-2.5 py-1">End</td><td class="border border-gray-200 px-2.5 py-1">Task</td></tr>
+          <tr><td class="border border-gray-200 px-2.5 py-1 tabular-nums">09:30</td><td class="border border-gray-200 px-2.5 py-1 tabular-nums">11:00</td><td class="border border-gray-200 px-2.5 py-1">Call suppliers</td></tr>
+          <tr><td class="border border-gray-200 px-2.5 py-1 tabular-nums">11:00</td><td class="border border-gray-200 px-2.5 py-1 tabular-nums">12:30</td><td class="border border-gray-200 px-2.5 py-1">Vendor report</td></tr>
+        </table>
+        <span class="text-gray-400" aria-hidden="true">→</span>
+        <ul class="space-y-1 text-xs">
+          <li class="flex items-center gap-2"><span class="tabular-nums text-gray-500">09:30–11:00</span>Call suppliers</li>
+          <li class="flex items-center gap-2"><span class="tabular-nums text-gray-500">11:00–12:30</span>Vendor report</li>
+        </ul>
+      </div>
+    </div>
+
+    {# Range in one cell #}
+    <div>
+      <p class="font-medium text-gray-900">A time range in one cell</p>
+      <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <table class="border-collapse overflow-hidden rounded-md bg-white text-xs ring-1 ring-gray-300">
+          <tr class="bg-green-50 font-medium text-green-900"><td class="border border-gray-200 px-2.5 py-1">Time</td><td class="border border-gray-200 px-2.5 py-1">Activity</td></tr>
+          <tr><td class="border border-gray-200 px-2.5 py-1 tabular-nums">9:30 - 11:00</td><td class="border border-gray-200 px-2.5 py-1">Team standup</td></tr>
+          <tr><td class="border border-gray-200 px-2.5 py-1 tabular-nums">2pm to 3:30pm</td><td class="border border-gray-200 px-2.5 py-1">Review</td></tr>
+        </table>
+        <span class="text-gray-400" aria-hidden="true">→</span>
+        <ul class="space-y-1 text-xs">
+          <li class="flex items-center gap-2"><span class="tabular-nums text-gray-500">09:30–11:00</span>Team standup</li>
+          <li class="flex items-center gap-2"><span class="tabular-nums text-gray-500">14:00–15:30</span>Review</li>
+        </ul>
+      </div>
+    </div>
+
+    {# Start only #}
+    <div>
+      <p class="font-medium text-gray-900">Only a start time</p>
+      <p class="text-gray-500">Each line runs until the next one starts. The last one gets an hour.</p>
+      <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <table class="border-collapse overflow-hidden rounded-md bg-white text-xs ring-1 ring-gray-300">
+          <tr><td class="border border-gray-200 px-2.5 py-1 tabular-nums">10:00</td><td class="border border-gray-200 px-2.5 py-1">Inbox</td></tr>
+          <tr><td class="border border-gray-200 px-2.5 py-1 tabular-nums">10:30</td><td class="border border-gray-200 px-2.5 py-1">Invoices</td></tr>
+        </table>
+        <span class="text-gray-400" aria-hidden="true">→</span>
+        <ul class="space-y-1 text-xs">
+          <li class="flex items-center gap-2"><span class="tabular-nums text-gray-500">10:00–10:30</span>Inbox</li>
+          <li class="flex items-center gap-2"><span class="tabular-nums text-gray-500">10:30–11:30</span>Invoices</li>
+        </ul>
+      </div>
+    </div>
+
+    {# Goals #}
+    <div>
+      <p class="font-medium text-gray-900">Lines with no time become goals</p>
+      <p class="text-gray-500">Or add a <span class="font-medium">Type</span> column and write Goal next to the ones you want as goals.</p>
+      <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <table class="border-collapse overflow-hidden rounded-md bg-white text-xs ring-1 ring-gray-300">
+          <tr class="bg-green-50 font-medium text-green-900"><td class="border border-gray-200 px-2.5 py-1">Type</td><td class="border border-gray-200 px-2.5 py-1">Task</td></tr>
+          <tr><td class="border border-gray-200 px-2.5 py-1">Goal</td><td class="border border-gray-200 px-2.5 py-1">Close the books</td></tr>
+        </table>
+        <span class="text-gray-400" aria-hidden="true">→</span>
+        <ul class="space-y-1 text-xs">
+          <li class="flex items-center gap-2"><span class="size-1.5 rounded-full bg-blue-600"></span>Close the books <span class="text-gray-400">(goal)</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="mt-6 font-semibold text-gray-900">Good to know</h3>
+  <ul class="mt-2 list-disc space-y-1 pl-5 marker:text-gray-300">
+    <li>Only <span class="font-medium">.xlsx</span> files work, up to 1 MB. In Excel, use Save As if yours is .xls or .csv.</li>
+    <li>Only the first sheet in the file is read, up to 30 lines.</li>
+    <li>Importing replaces the lines on this page. If your sheet has no goals, the ones you already set stay.</li>
+    <li>A plan needs at least one goal, and timed items can't overlap. You'll be told on save if something does.</li>
+    <li>Numbers on their own, like a 1, 2, 3 column, are never read as times.</li>
+  </ul>
+</div>
