@@ -118,7 +118,7 @@ class Task(models.Model):
 class TaskUpdate(models.Model):
     """What someone did on a task, logged from the timeline's + button."""
 
-    task = models.ForeignKey(Task, on_delete=models.PROTECT, related_name="updates")
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="updates")
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
     )
@@ -163,14 +163,14 @@ class Attachment(models.Model):
 
     task = models.ForeignKey(
         Task,
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         related_name="attachments",
         null=True,
         blank=True,
     )
     update = models.ForeignKey(
         TaskUpdate,
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         related_name="attachments",
         null=True,
         blank=True,

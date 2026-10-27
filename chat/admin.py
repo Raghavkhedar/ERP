@@ -23,11 +23,12 @@ class MessageAdmin(admin.ModelAdmin):
     list_display = ["conversation", "author", "kind", "created_at", "body"]
     list_filter = ["conversation", "kind"]
 
+    # Read-only for staff; a superuser can change or remove anything.
     def has_add_permission(self, request):
-        return False
+        return request.user.is_superuser
 
     def has_change_permission(self, request, obj=None):
-        return False
+        return request.user.is_superuser
 
     def has_delete_permission(self, request, obj=None):
-        return False
+        return request.user.is_superuser

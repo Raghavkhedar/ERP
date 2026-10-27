@@ -68,7 +68,7 @@ class Note(models.Model):
     """A private note the superadmin keeps on a flag."""
 
     red_flag = models.ForeignKey(
-        RedFlag, on_delete=models.PROTECT, related_name="notes"
+        RedFlag, on_delete=models.CASCADE, related_name="notes"
     )
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
@@ -98,7 +98,7 @@ class Attachment(models.Model):
     """Evidence the raiser attached, such as a screenshot."""
 
     red_flag = models.ForeignKey(
-        RedFlag, on_delete=models.PROTECT, related_name="attachments"
+        RedFlag, on_delete=models.CASCADE, related_name="attachments"
     )
     file = models.FileField(upload_to=attachment_path, max_length=200)
     original_name = models.CharField(max_length=255)

@@ -57,7 +57,7 @@ class Conversation(models.Model):
 
 class Membership(models.Model):
     conversation = models.ForeignKey(
-        Conversation, on_delete=models.PROTECT, related_name="memberships"
+        Conversation, on_delete=models.CASCADE, related_name="memberships"
     )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -94,7 +94,7 @@ class MessageKind(models.TextChoices):
 
 class Message(models.Model):
     conversation = models.ForeignKey(
-        Conversation, on_delete=models.PROTECT, related_name="messages"
+        Conversation, on_delete=models.CASCADE, related_name="messages"
     )
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,

@@ -99,7 +99,7 @@ class Comment(models.Model):
     """One message in a feedback item's discussion."""
 
     feedback = models.ForeignKey(
-        Feedback, on_delete=models.PROTECT, related_name="comments"
+        Feedback, on_delete=models.CASCADE, related_name="comments"
     )
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
@@ -131,14 +131,14 @@ class Attachment(models.Model):
 
     feedback = models.ForeignKey(
         Feedback,
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         related_name="attachments",
         null=True,
         blank=True,
     )
     comment = models.ForeignKey(
         Comment,
-        on_delete=models.PROTECT,
+        on_delete=models.CASCADE,
         related_name="attachments",
         null=True,
         blank=True,
