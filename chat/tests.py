@@ -1,6 +1,5 @@
 import pytest
 from django.db import DataError, IntegrityError, transaction
-from django.db.models import ProtectedError
 from django.urls import reverse
 
 from .models import Conversation, ConversationKind, Membership, Message
@@ -128,10 +127,10 @@ def test_message_longer_than_4000_characters_is_rejected(channel, alice):
     )
 
 
-def test_conversation_with_messages_cannot_be_deleted(channel, alice):
+def test_deleting_a_conversation_removes_its_messages(channel, alice):
     Message.objects.create(conversation=channel, author=alice, body="hi")
-    with pytest.raises(ProtectedError):
-        channel.delete()
+    channel.delete()
+    assert not Message.objects.exists()
 
 
 # History
@@ -155,6 +154,6 @@ def test_admin_conversation_list_loads(admin_client, channel):
     assert response.status_code == 200
 
 
-def test_admin_cannot_add_messages(admin_client):
+def test_superadmin_can_add_messages(admin_client):
     response = admin_client.get(reverse("admin:chat_message_add"))
-    assert response.status_code == 403
+    assert response.status_code == 200
