@@ -1,0 +1,6 @@
+{# The red flag dialog, on every page; the navbar menu loads the form into it. #}
+<dialog id="redflag-dialog" aria-labelledby="redflag-dialog-title"
+        onclick="if (event.target === this) this.close()"
+        class="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-2xl bg-surface p-0 text-gray-900 shadow-xl backdrop:bg-gray-900/30 open:animate-rise motion-reduce:open:animate-none">
+  <div id="redflag-dialog-body"></div>
+</dialog>
