@@ -2,9 +2,11 @@
 {# Task alarms on every page: static/js/alarms.js polls tasks:alarms and rings what's due. #}
 <script src="{% static 'js/alarms.js' %}"></script>
 <div id="alarms" data-url="{% url 'tasks:alarms' %}" x-data
-     class="fixed inset-x-0 top-20 z-50 mx-auto flex w-96 max-w-[calc(100vw-2rem)] flex-col gap-3" role="alert">
+     class="pointer-events-none fixed inset-x-0 top-0 z-50 mx-auto flex w-[34rem] max-w-full flex-col gap-2" role="alert">
   <template x-for="alarm in $store.alarms.ringing" :key="alarm.id">
-    <div x-transition.opacity.duration.150ms class="rounded-2xl border border-gray-200/80 bg-surface p-5 text-sm shadow-lg">
+    <div x-transition:enter="transition duration-300 ease-out" x-transition:enter-start="-translate-y-full opacity-0" x-transition:enter-end="translate-y-0 opacity-100"
+         x-transition:leave="transition duration-150 ease-in" x-transition:leave-start="translate-y-0 opacity-100" x-transition:leave-end="-translate-y-full opacity-0"
+         class="pointer-events-auto rounded-b-2xl border border-t-0 border-gray-200/80 bg-surface p-5 text-sm shadow-lg">
       <p class="text-xs font-medium uppercase tracking-wide text-blue-600">Task alarm</p>
       <p x-show="$store.alarms.locked" class="mt-1 text-xs text-amber-700">Your browser is blocking the sound. Click anywhere on this page to turn it on.</p>
       <button type="button" x-show="$store.alarms.canAsk" @click="$store.alarms.askPermission()" class="mt-1 block text-xs text-blue-600 hover:underline">Turn on desktop alerts so alarms sound even when this tab is in the background</button>

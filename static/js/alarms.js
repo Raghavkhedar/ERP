@@ -13,6 +13,7 @@ document.addEventListener("alpine:init", () => {
   let asked = false;
   let audio = null;
   let flash = null;
+  let wake = null;
 
   // Browsers only let a page play sound after a click or key press on it, and
   // a reload forgets that, so keep trying to unlock on every gesture until the
@@ -133,6 +134,12 @@ document.addEventListener("alpine:init", () => {
       }
       const wasQuiet = !this.ringing.length;
       this.ringing = data.alarms;
+      // Wake right when the next alarm is due, so it rings on the minute
+      // instead of waiting for the next poll.
+      clearTimeout(wake);
+      if (data.next_in != null && data.next_in * 1000 < POLL_MS * 2) {
+        wake = setTimeout(() => this.check(), data.next_in * 1000 + 200);
+      }
       this.titleFlash();
       if (data.alarms.length) notify(data.alarms);
       if (wasQuiet && data.alarms.length) {

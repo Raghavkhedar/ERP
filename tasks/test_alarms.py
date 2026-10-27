@@ -159,6 +159,15 @@ def test_alarms_endpoint_lists_what_is_ringing(client, task, alice):
     assert data["alarms"][0]["action"] == reverse("tasks:alarm", args=[task.pk])
 
 
+def test_alarms_endpoint_says_when_the_next_one_rings(client, task, alice):
+    client.force_login(alice)
+    assert client.get(reverse("tasks:alarms")).json()["next_in"] is None
+    task.remind_at = timezone.now() + timedelta(seconds=30)
+    task.save()
+    next_in = client.get(reverse("tasks:alarms")).json()["next_in"]
+    assert 0 < next_in <= 30
+
+
 def test_snooze_through_the_endpoint(client, task, alice):
     ringing(task)
     client.force_login(alice)

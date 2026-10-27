@@ -25,6 +25,7 @@ from .services import (
     can_update,
     dismiss_alarm,
     due_alarms,
+    next_alarm_in,
     nudge,
     set_alarm,
     set_status,
@@ -251,7 +252,8 @@ def alarms(request):
                     "repeats": bool(task.remind_every),
                 }
                 for task in due_alarms(request.user)
-            ]
+            ],
+            "next_in": next_alarm_in(request.user),
         }
     )
 
