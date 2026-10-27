@@ -3,6 +3,7 @@ from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Q
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.text import Truncator
 
 from notifications.services import notify
@@ -29,13 +30,21 @@ def is_reader(user):
 
 
 def visible_feedback(user):
-    """Admins and trainers see all feedback; everyone else sees only what they sent."""
+    """Admins and trainers see all feedback; everyone else sees only what they
+    sent and what a superadmin assigned to them.
+    """
     items = Feedback.objects.select_related("submitter")
-    return items if is_reader(user) else items.filter(submitter=user)
+    if is_reader(user):
+        return items
+    return items.filter(Q(submitter=user) | Q(assigned_to=user))
 
 
 def can_view(user, feedback):
-    return is_reader(user) or feedback.submitter_id == user.pk
+    return (
+        is_reader(user)
+        or feedback.submitter_id == user.pk
+        or feedback.assigned_to_id == user.pk
+    )
 
 
 def attach(files, **owner):
@@ -82,6 +91,8 @@ def add_comment(feedback, user, body, files=()):
         feedback.save(update_fields=["status"])
 
     people = {feedback.submitter}
+    if feedback.assigned_to:
+        people.add(feedback.assigned_to)
     people.update(readers().filter(pk__in=feedback.comments.values("author")))
     if user.pk == feedback.submitter_id:
         people.update(readers())
@@ -120,6 +131,37 @@ def set_resolution(feedback, user, status, outcome):
             f"Your feedback was resolved ({result}): {summary}",
             _link(feedback),
         )
+    return feedback
+
+
+def supervisor_of_submitter(feedback):
+    supervisor = feedback.submitter.supervisor
+    return supervisor if supervisor and supervisor.is_active else None
+
+
+@transaction.atomic
+def assign_to_supervisor(feedback, user):
+    """Hand the thread to the submitter's supervisor, who can read and reply."""
+    if not (user.is_active and user.is_superuser):
+        raise PermissionDenied("Only superadmins assign feedback.")
+    supervisor = supervisor_of_submitter(feedback)
+    if supervisor is None:
+        raise FeedbackError(f"{feedback.submitter.display_name} has no supervisor set.")
+    feedback.assigned_to = supervisor
+    feedback.assigned_on = timezone.localdate()
+    feedback.save(update_fields=["assigned_to", "assigned_on"])
+    summary = Truncator(feedback.summary).chars(60)
+    notify(supervisor, f"Feedback was assigned to you: {summary}", _link(feedback))
+    return feedback
+
+
+@transaction.atomic
+def unassign(feedback, user):
+    if not (user.is_active and user.is_superuser):
+        raise PermissionDenied("Only superadmins assign feedback.")
+    feedback.assigned_to = None
+    feedback.assigned_on = None
+    feedback.save(update_fields=["assigned_to", "assigned_on"])
     return feedback
 
 

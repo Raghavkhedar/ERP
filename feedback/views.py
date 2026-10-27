@@ -2,7 +2,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
-from django.http import FileResponse, HttpResponse
+from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import Resolver404, resolve, reverse
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -13,11 +13,14 @@ from .models import Area, Attachment, Feedback, Lesson, Status
 from .services import (
     FeedbackError,
     add_comment,
+    assign_to_supervisor,
     is_reader,
     save_lesson,
     search_lessons,
     set_resolution,
     submit,
+    supervisor_of_submitter,
+    unassign,
     visible_feedback,
 )
 
@@ -73,6 +76,8 @@ def _detail(request, feedback, form, resolution=None):
         "files": feedback.attachments.all(),
         "form": form,
         "is_reader": is_reader(request.user),
+        "is_superadmin": request.user.is_superuser,
+        "supervisor": supervisor_of_submitter(feedback),
     }
     return render(request, "feedback/detail.html", context)
 
@@ -185,6 +190,32 @@ def change_resolution(request, pk):
             messages.success(request, "Saved.")
             return redirect("feedback:detail", pk=feedback.pk)
     return _detail(request, feedback, CommentForm(), resolution=form)
+
+
+@login_required
+@require_POST
+def assign(request, pk):
+    if not request.user.is_superuser:
+        raise Http404
+    feedback = get_object_or_404(visible_feedback(request.user), pk=pk)
+    try:
+        assign_to_supervisor(feedback, request.user)
+    except FeedbackError as error:
+        messages.error(request, str(error))
+    else:
+        messages.success(request, f"Assigned to {feedback.assigned_to.display_name}.")
+    return redirect("feedback:detail", pk=feedback.pk)
+
+
+@login_required
+@require_POST
+def remove_assignment(request, pk):
+    if not request.user.is_superuser:
+        raise Http404
+    feedback = get_object_or_404(visible_feedback(request.user), pk=pk)
+    unassign(feedback, request.user)
+    messages.success(request, "Assignment removed.")
+    return redirect("feedback:detail", pk=feedback.pk)
 
 
 @login_required
