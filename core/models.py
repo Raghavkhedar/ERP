@@ -40,6 +40,15 @@ class User(AbstractUser):
         "the person must choose their own before using the app.",
     )
 
+    supervisor = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="reports",
+        help_text="Who red flags and feedback about this person can be handed to.",
+    )
+
     objects = OfficeUserManager()
     history = HistoricalRecords(excluded_fields=["password", "last_login"])
 
@@ -56,6 +65,11 @@ class User(AbstractUser):
                     "An active account already has this email. "
                     "Deactivate that account first."
                 ),
+            ),
+            models.CheckConstraint(
+                condition=~Q(supervisor=models.F("pk")),
+                name="core_user_not_own_supervisor",
+                violation_error_message="Nobody can be their own supervisor.",
             ),
         ]
 
