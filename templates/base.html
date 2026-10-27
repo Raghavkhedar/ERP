@@ -52,7 +52,7 @@
   {% if user.is_authenticated %}
     {% block chat_launcher %}{% include "chat/_launcher.html" %}{% endblock %}
     {% include "feedback/_dialog.html" %}
-    {% if user.is_superuser %}{% include "redflags/_dialog.html" %}{% endif %}
+    {% include "redflags/_dialog.html" %}
     {% include "notifications/_toasts.html" %}
   {% endif %}
 </body>

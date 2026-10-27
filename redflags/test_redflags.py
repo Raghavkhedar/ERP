@@ -212,17 +212,18 @@ def test_admin_is_hidden_from_non_superusers(client, manager):
 
 
 @pytest.mark.parametrize("who", ["alice", "manager", "trainer"])
-def test_others_cannot_open_or_submit_the_form(client, request, bob, who):
-    client.force_login(request.getfixturevalue(who))
-    assert client.get(reverse("redflags:new")).status_code == 404
-    assert post_flag(client, bob).status_code == 404
-    assert client.get(reverse("redflags:sent")).status_code == 404
-    assert not RedFlag.objects.exists()
+def test_everyone_can_open_and_submit_the_form(client, request, bob, who):
+    user = request.getfixturevalue(who)
+    client.force_login(user)
+    assert client.get(reverse("redflags:new")).status_code == 200
+    assert post_flag(client, bob).status_code == 302
+    assert client.get(reverse("redflags:sent")).status_code == 200
+    assert RedFlag.objects.get().raised_by == user
 
 
 @pytest.mark.parametrize("who", ["alice", "manager", "trainer"])
-def test_others_see_no_red_flag_menu_or_dialog(client, request, who):
+def test_others_see_the_raise_link_but_not_the_inbox(client, request, who):
     client.force_login(request.getfixturevalue(who))
     page = client.get(reverse("home")).content
-    assert b"red flag" not in page.lower()
-    assert b"redflag" not in page.lower()
+    assert b"Raise a red flag" in page
+    assert f'href="{reverse("redflags:list")}"'.encode() not in page
