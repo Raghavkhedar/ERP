@@ -1,0 +1,20 @@
+{% if files %}
+  <ul class="mt-3 flex flex-wrap gap-2">
+    {% for file in files %}
+      <li>
+        {% if file.is_image %}
+          <a href="{% url 'redflags:attachment' file.pk %}" target="_blank" rel="noopener" title="{{ file.original_name }}"
+             class="block overflow-hidden rounded-lg border border-gray-200 transition hover:border-gray-400 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/20">
+            <img src="{% url 'redflags:attachment' file.pk %}" alt="{{ file.original_name }}" loading="lazy" class="h-24 w-32 object-cover">
+          </a>
+        {% else %}
+          <a href="{% url 'redflags:attachment' file.pk %}"
+             class="flex h-10 max-w-64 items-center gap-2 rounded-lg border border-gray-200 px-3 text-sm transition hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/20">
+            <span class="truncate">{{ file.original_name }}</span>
+            <span class="shrink-0 text-gray-400">{{ file.size|filesizeformat }}</span>
+          </a>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+{% endif %}

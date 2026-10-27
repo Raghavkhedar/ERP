@@ -1,0 +1,11 @@
+<div class="p-6">
+  <h2 class="title text-2xl">Sent</h2>
+  <p class="mt-2 text-sm text-gray-600">The red flag was saved. Only superadmins can see it.</p>
+  <div class="mt-7 flex justify-end">
+    {% if in_dialog %}
+      <button type="button" onclick="this.closest('dialog').close()" class="h-11 rounded-lg border border-gray-300 px-5 text-sm font-medium transition duration-150 hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/10">Close</button>
+    {% else %}
+      <a href="{% url 'home' %}" class="inline-flex h-11 items-center rounded-lg border border-gray-300 px-5 text-sm font-medium transition duration-150 hover:border-gray-400 hover:bg-gray-50">Done</a>
+    {% endif %}
+  </div>
+</div>

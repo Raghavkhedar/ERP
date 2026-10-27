@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "meetings",
     "tasks",
     "feedback",
+    "redflags",
     "plans",
     "notifications",
     "simple_history",
