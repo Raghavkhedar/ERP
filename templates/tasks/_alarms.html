@@ -1,0 +1,18 @@
+{% load static %}
+{# Task alarms on every page: static/js/alarms.js polls tasks:alarms and rings what's due. #}
+<script src="{% static 'js/alarms.js' %}"></script>
+<div id="alarms" data-url="{% url 'tasks:alarms' %}" x-data
+     class="fixed inset-x-0 top-20 z-50 mx-auto flex w-96 max-w-[calc(100vw-2rem)] flex-col gap-3" role="alert">
+  <template x-for="alarm in $store.alarms.ringing" :key="alarm.id">
+    <div x-transition.opacity.duration.150ms class="rounded-2xl border border-gray-200/80 bg-surface p-5 text-sm shadow-lg">
+      <p class="text-xs font-medium uppercase tracking-wide text-blue-600">Task alarm</p>
+      <a :href="alarm.url" class="mt-1.5 block text-base font-medium text-gray-900 hover:underline" x-text="alarm.title"></a>
+      <div class="mt-4 flex flex-wrap items-center gap-2">
+        <button type="button" @click="$store.alarms.act(alarm, {action: 'snooze', length: '10m'})" class="h-9 rounded-lg border border-gray-300 px-3 font-medium transition-colors hover:bg-gray-50">10 min</button>
+        <button type="button" @click="$store.alarms.act(alarm, {action: 'snooze', length: '1h'})" class="h-9 rounded-lg border border-gray-300 px-3 font-medium transition-colors hover:bg-gray-50">1 hour</button>
+        <button type="button" @click="$store.alarms.act(alarm, {action: 'snooze', length: 'tomorrow'})" class="h-9 rounded-lg border border-gray-300 px-3 font-medium transition-colors hover:bg-gray-50">Tomorrow</button>
+        <button type="button" @click="$store.alarms.act(alarm, {action: 'dismiss'})" class="ml-auto h-9 px-2 text-gray-500 hover:text-gray-900" x-text="alarm.repeats ? 'Dismiss' : 'Stop'"></button>
+      </div>
+    </div>
+  </template>
+</div>

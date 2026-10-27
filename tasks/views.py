@@ -3,15 +3,15 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
-from django.http import FileResponse, HttpResponse
+from django.http import FileResponse, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from . import timeline as task_timeline
-from .forms import StatusForm, TaskForm, UpdateForm
+from .forms import AlarmForm, StatusForm, TaskForm, UpdateForm
 from .models import Attachment, Status
 from .services import (
     TaskError,
@@ -21,9 +21,14 @@ from .services import (
     assign,
     can_assign,
     can_nudge,
+    can_set_alarm,
     can_update,
+    dismiss_alarm,
+    due_alarms,
     nudge,
+    set_alarm,
     set_status,
+    snooze_alarm,
     updatable_tasks,
     visible_tasks,
 )
@@ -93,33 +98,37 @@ def task_list(request):
 
 @login_required
 def new_task(request):
-    if not can_assign(request.user):
-        raise PermissionDenied("Only admins assign tasks.")
-    form = TaskForm(request.POST or None, request.FILES or None)
+    personal = not can_assign(request.user)
+    form = TaskForm(request.POST or None, request.FILES or None, personal=personal)
     if request.method == "POST" and form.is_valid():
         data = form.cleaned_data
         try:
             task = assign(
                 request.user,
-                data["assigned_to"],
+                request.user if personal else data["assigned_to"],
                 data["priority"],
                 data["description"],
                 data["due_date"],
                 data["files"],
+                data["remind_at"],
+                data["remind_every"],
             )
         except TaskError as error:
             form.add_error(None, str(error))
         else:
-            messages.success(
-                request, f"Task assigned to {task.assigned_to.display_name}."
-            )
+            if task.assigned_to == request.user:
+                messages.success(request, "Task added.")
+            else:
+                messages.success(
+                    request, f"Task assigned to {task.assigned_to.display_name}."
+                )
             return _done(request, _next(request, reverse("tasks:list")))
     context = {
         "form": form,
         "action": reverse("tasks:new"),
         "received": timezone.now(),
-        "heading": "Assign a task",
-        "submit": "Assign task",
+        "heading": "Add a task for yourself" if personal else "Assign a task",
+        "submit": "Add task" if personal else "Assign task",
         "next": _next(request, ""),
     }
     return _form_page(request, context)
@@ -159,6 +168,10 @@ def task_detail(request, pk):
         "can_assign": can_assign(request.user),
         "can_update": can_update(task, request.user),
         "can_nudge": can_nudge(task, request.user),
+        "can_set_alarm": can_set_alarm(task, request.user),
+        "alarm_form": AlarmForm(
+            initial={"remind_at": task.remind_at, "remind_every": task.remind_every}
+        ),
         "today": timezone.localdate(),
     }
     return render(request, "tasks/detail.html", context)
@@ -190,6 +203,57 @@ def nudge_task(request, pk):
     else:
         messages.success(request, "Reminder sent.")
     return redirect("tasks:detail", pk=task.pk)
+
+
+@login_required
+@require_POST
+def task_alarm(request, pk):
+    """Set, clear, snooze or stop a task's alarm; JSON for the popup, else back."""
+    task = get_object_or_404(visible_tasks(request.user), pk=pk)
+    action = request.POST.get("action", "set")
+    try:
+        if action == "snooze":
+            snooze_alarm(task, request.user, request.POST.get("length", ""))
+        elif action == "dismiss":
+            dismiss_alarm(task, request.user)
+        else:
+            form = AlarmForm(request.POST if action == "set" else None)
+            if action == "set" and not form.is_valid():
+                raise TaskError("Pick a valid date and time for the alarm.")
+            data = form.cleaned_data if action == "set" else {}
+            set_alarm(
+                task, request.user, data.get("remind_at"), data.get("remind_every", "")
+            )
+            messages.success(
+                request, "Alarm set." if data.get("remind_at") else "Alarm cleared."
+            )
+    except TaskError as error:
+        if request.headers.get("Accept") == "application/json":
+            return JsonResponse({"error": str(error)}, status=400)
+        messages.error(request, str(error))
+    if request.headers.get("Accept") == "application/json":
+        return JsonResponse({"ok": True})
+    return redirect("tasks:detail", pk=task.pk)
+
+
+@login_required
+@require_GET
+def alarms(request):
+    """The user's alarms that are ringing, polled by the popup on every page."""
+    return JsonResponse(
+        {
+            "alarms": [
+                {
+                    "id": task.pk,
+                    "title": task.title,
+                    "url": reverse("tasks:detail", args=[task.pk]),
+                    "action": reverse("tasks:alarm", args=[task.pk]),
+                    "repeats": bool(task.remind_every),
+                }
+                for task in due_alarms(request.user)
+            ]
+        }
+    )
 
 
 @login_required
