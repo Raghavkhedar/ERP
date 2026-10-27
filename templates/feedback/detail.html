@@ -41,6 +41,32 @@
     {% endif %}
   </dl>
 
+  {% if feedback.assigned_to or is_superadmin %}
+    <section class="mt-8">
+      <h2 class="text-sm font-medium text-gray-500">Supervisor</h2>
+      {% if feedback.assigned_to %}
+        <div class="mt-3 flex flex-wrap items-center gap-3">
+          <p class="text-sm">Assigned to <span class="font-medium">{{ feedback.assigned_to.display_name }}</span>{% if feedback.assigned_on %}, {{ feedback.assigned_on|date:"j M Y" }}{% endif %}</p>
+          {% if is_superadmin %}
+            <form method="post" action="{% url 'feedback:unassign' feedback.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="text-sm text-gray-500 underline-offset-2 hover:text-gray-900 hover:underline">Remove</button>
+            </form>
+          {% endif %}
+        </div>
+      {% endif %}
+      {% if is_superadmin %}
+        <form method="post" action="{% url 'feedback:assign' feedback.pk %}" class="mt-3">
+          {% csrf_token %}
+          <button type="submit" {% if not supervisor %}disabled{% endif %}
+                  class="h-11 rounded-lg border border-gray-300 px-5 text-sm font-medium transition duration-150 hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/10 disabled:cursor-not-allowed disabled:text-gray-400 disabled:hover:border-gray-300 disabled:hover:bg-transparent">
+            {% if supervisor %}Assign to {{ supervisor.display_name }}, supervisor of {{ feedback.submitter.display_name }}{% else %}{{ feedback.submitter.display_name }} has no supervisor{% endif %}
+          </button>
+        </form>
+      {% endif %}
+    </section>
+  {% endif %}
+
   {% if is_reader %}
     <section class="mt-8">
       <h2 class="text-sm font-medium text-gray-500">Resolution</h2>
