@@ -29,19 +29,19 @@ def flag(alice, bob):
     return submit(alice, bob, timezone.localdate(), "Shouted at a customer.")
 
 
-def test_anyone_can_raise_and_sees_only_a_confirmation(client, alice, bob):
-    client.force_login(alice)
+def test_superadmin_can_raise_and_sees_a_confirmation(client, boss, bob):
+    client.force_login(boss)
     response = post_flag(client, bob)
     assert response.status_code == 302
     assert response.url == reverse("redflags:sent")
     flag = RedFlag.objects.get()
-    assert (flag.raised_by, flag.raised_against) == (alice, bob)
+    assert (flag.raised_by, flag.raised_against) == (boss, bob)
     assert flag.raised_on == timezone.localdate()
     assert client.get(response.url).status_code == 200
 
 
-def test_htmx_submit_returns_the_sent_partial(client, alice, bob):
-    client.force_login(alice)
+def test_htmx_submit_returns_the_sent_partial(client, boss, bob):
+    client.force_login(boss)
     response = client.post(
         reverse("redflags:new"),
         {
@@ -55,11 +55,11 @@ def test_htmx_submit_returns_the_sent_partial(client, alice, bob):
     assert b"<html" not in response.content
 
 
-def test_raised_by_and_date_cannot_be_spoofed(client, alice, bob, manager):
-    client.force_login(alice)
+def test_raised_by_and_date_cannot_be_spoofed(client, boss, bob, manager):
+    client.force_login(boss)
     post_flag(client, bob, raised_by=manager.pk, raised_on="2000-01-01")
     flag = RedFlag.objects.get()
-    assert flag.raised_by == alice
+    assert flag.raised_by == boss
     assert flag.raised_on == timezone.localdate()
 
 
@@ -68,30 +68,30 @@ def test_names_are_kept_as_text(flag, bob):
     assert flag.raised_against_name == "bob"
 
 
-def test_cannot_flag_yourself(client, alice):
-    client.force_login(alice)
-    response = post_flag(client, alice)
+def test_cannot_flag_yourself(client, boss):
+    client.force_login(boss)
+    response = post_flag(client, boss)
     assert response.status_code == 200
     assert not RedFlag.objects.exists()
 
 
-def test_cannot_flag_a_leaver(client, alice, bob):
+def test_cannot_flag_a_leaver(client, boss, bob):
     bob.is_active = False
     bob.save()
-    client.force_login(alice)
+    client.force_login(boss)
     post_flag(client, bob)
     assert not RedFlag.objects.exists()
 
 
-def test_incident_cannot_be_in_the_future(client, alice, bob):
-    client.force_login(alice)
+def test_incident_cannot_be_in_the_future(client, boss, bob):
+    client.force_login(boss)
     tomorrow = timezone.localdate() + datetime.timedelta(days=1)
     post_flag(client, bob, incident_date=tomorrow.isoformat())
     assert not RedFlag.objects.exists()
 
 
-def test_blank_incident_is_refused(client, alice, bob):
-    client.force_login(alice)
+def test_blank_incident_is_refused(client, boss, bob):
+    client.force_login(boss)
     post_flag(client, bob, incident="   ")
     assert not RedFlag.objects.exists()
 
@@ -101,8 +101,8 @@ def test_database_refuses_a_flag_against_yourself(alice):
         submit(alice, alice, timezone.localdate(), "x")
 
 
-def test_attachments_are_saved(client, alice, bob):
-    client.force_login(alice)
+def test_attachments_are_saved(client, boss, bob):
+    client.force_login(boss)
     upload = SimpleUploadedFile("proof.pdf", b"%PDF-1.4", "application/pdf")
     post_flag(client, bob, files=upload)
     assert Attachment.objects.get().original_name == "proof.pdf"
@@ -197,14 +197,11 @@ def test_inactive_superadmin_is_not_notified(alice, bob, boss):
     assert not Notification.objects.exists()
 
 
-def test_menu_shows_inbox_only_to_superadmins(client, alice, boss):
-    client.force_login(alice)
+def test_menu_shows_red_flags_to_superadmins(client, boss):
+    client.force_login(boss)
     page = client.get(reverse("home")).content
     assert b"Raise a red flag" in page
-    inbox = f'href="{reverse("redflags:list")}"'.encode()
-    assert inbox not in page
-    client.force_login(boss)
-    assert inbox in client.get(reverse("home")).content
+    assert f'href="{reverse("redflags:list")}"'.encode() in page
 
 
 def test_admin_is_hidden_from_non_superusers(client, manager):
@@ -212,3 +209,20 @@ def test_admin_is_hidden_from_non_superusers(client, manager):
     manager.save()
     client.force_login(manager)
     assert client.get("/admin/redflags/redflag/").status_code in (403, 404)
+
+
+@pytest.mark.parametrize("who", ["alice", "manager", "trainer"])
+def test_others_cannot_open_or_submit_the_form(client, request, bob, who):
+    client.force_login(request.getfixturevalue(who))
+    assert client.get(reverse("redflags:new")).status_code == 404
+    assert post_flag(client, bob).status_code == 404
+    assert client.get(reverse("redflags:sent")).status_code == 404
+    assert not RedFlag.objects.exists()
+
+
+@pytest.mark.parametrize("who", ["alice", "manager", "trainer"])
+def test_others_see_no_red_flag_menu_or_dialog(client, request, who):
+    client.force_login(request.getfixturevalue(who))
+    page = client.get(reverse("home")).content
+    assert b"red flag" not in page.lower()
+    assert b"redflag" not in page.lower()

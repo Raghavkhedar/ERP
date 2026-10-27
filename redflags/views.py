@@ -38,6 +38,7 @@ def _detail(request, flag, note_form, status_form=None):
 
 @login_required
 def new_red_flag(request):
+    _require_reader(request.user)
     form = RedFlagForm(request.POST or None, request.FILES or None, user=request.user)
     if request.method == "POST" and form.is_valid():
         data = form.cleaned_data
@@ -58,6 +59,7 @@ def new_red_flag(request):
 
 @login_required
 def sent(request):
+    _require_reader(request.user)
     return render(request, "redflags/sent.html", {"in_dialog": False})
 
 

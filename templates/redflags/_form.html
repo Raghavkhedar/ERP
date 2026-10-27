@@ -7,7 +7,7 @@
       class="p-6 [&_select]:h-11 [&_select]:w-full [&_select]:rounded-lg [&_select]:border [&_select]:border-gray-300 [&_select]:bg-white [&_select]:px-3 [&_select]:outline-none [&_select:focus]:border-blue-600 [&_select:focus]:ring-4 [&_select:focus]:ring-blue-600/10 [&_input[type=date]]:h-11 [&_input[type=date]]:w-full [&_input[type=date]]:rounded-lg [&_input[type=date]]:border [&_input[type=date]]:border-gray-300 [&_input[type=date]]:bg-white [&_input[type=date]]:px-3 [&_input[type=date]]:outline-none [&_input[type=date]:focus]:border-blue-600 [&_input[type=date]:focus]:ring-4 [&_input[type=date]:focus]:ring-blue-600/10 [&_textarea]:w-full [&_textarea]:rounded-lg [&_textarea]:border [&_textarea]:border-gray-300 [&_textarea]:px-3 [&_textarea]:py-2.5 [&_textarea]:outline-none [&_textarea]:transition [&_textarea:focus]:border-blue-600 [&_textarea:focus]:ring-4 [&_textarea:focus]:ring-blue-600/10">
   {% csrf_token %}
   <h2 id="redflag-dialog-title" class="title text-2xl">Raise a red flag</h2>
-  <p class="mt-1 text-sm text-gray-500">This goes only to the superadmin. Nobody else is told, and you won't be able to see it again once sent.</p>
+  <p class="mt-1 text-sm text-gray-500">Only superadmins can see this. Nobody else is told.</p>
 
   <p data-request-error hidden role="alert" class="mt-4 text-sm text-red-600">That didn't go through. Try again, or reload the page.</p>
   {% for error in form.non_field_errors %}
