@@ -5,14 +5,18 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
-from .forms import NoteForm, RedFlagForm, StatusForm
+from .forms import AssignForm, NoteForm, RedFlagForm, StatusForm
 from .models import Attachment, Status
 from .services import (
     RedFlagError,
     add_note,
+    assign_to_supervisor,
     can_read,
+    has_access,
     set_status,
     submit,
+    supervisor_of,
+    unassign,
     visible_flags,
 )
 
@@ -21,6 +25,12 @@ FILTERS = {"open": "Open", "closed": "Closed", "all": "All"}
 
 def _require_reader(user):
     # A 404, not a 403: nobody else should learn that red flags are read here.
+    # Superadmins, and supervisors holding an assigned flag, get in.
+    if not has_access(user):
+        raise Http404
+
+
+def _require_superadmin(user):
     if not can_read(user):
         raise Http404
 
@@ -32,6 +42,11 @@ def _detail(request, flag, note_form, status_form=None):
         "files": flag.attachments.all(),
         "note_form": note_form,
         "status_form": status_form or StatusForm(initial={"status": flag.status}),
+        "is_superadmin": can_read(request.user),
+        "supervisors": {
+            "against": supervisor_of(flag, "against"),
+            "raiser": supervisor_of(flag, "raiser"),
+        },
     }
     return render(request, "redflags/detail.html", context)
 
@@ -101,7 +116,7 @@ def new_note(request, pk):
 @login_required
 @require_POST
 def change_status(request, pk):
-    _require_reader(request.user)
+    _require_superadmin(request.user)
     flag = get_object_or_404(visible_flags(request.user), pk=pk)
     form = StatusForm(request.POST)
     if form.is_valid():
@@ -111,6 +126,32 @@ def change_status(request, pk):
             messages.error(request, str(error))
         else:
             messages.success(request, "Saved.")
+    return redirect("redflags:detail", pk=flag.pk)
+
+
+@login_required
+@require_POST
+def assign(request, pk):
+    _require_superadmin(request.user)
+    flag = get_object_or_404(visible_flags(request.user), pk=pk)
+    form = AssignForm(request.POST)
+    if form.is_valid():
+        try:
+            assign_to_supervisor(flag, request.user, form.cleaned_data["of"])
+        except RedFlagError as error:
+            messages.error(request, str(error))
+        else:
+            messages.success(request, f"Assigned to {flag.assigned_to.display_name}.")
+    return redirect("redflags:detail", pk=flag.pk)
+
+
+@login_required
+@require_POST
+def remove_assignment(request, pk):
+    _require_superadmin(request.user)
+    flag = get_object_or_404(visible_flags(request.user), pk=pk)
+    unassign(flag, request.user)
+    messages.success(request, "Assignment removed.")
     return redirect("redflags:detail", pk=flag.pk)
 
 

@@ -30,6 +30,37 @@
   </dl>
 
   <section class="mt-8">
+    <h2 class="text-sm font-medium text-gray-500">Supervisor</h2>
+    {% if flag.assigned_to %}
+      <div class="mt-3 flex flex-wrap items-center gap-3">
+        <p class="text-sm">Assigned to <span class="font-medium">{{ flag.assigned_to.display_name }}</span>{% if flag.assigned_on %}, {{ flag.assigned_on|date:"j M Y" }}{% endif %}</p>
+        {% if is_superadmin %}
+          <form method="post" action="{% url 'redflags:unassign' flag.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="text-sm text-gray-500 underline-offset-2 hover:text-gray-900 hover:underline">Remove</button>
+          </form>
+        {% endif %}
+      </div>
+    {% elif is_superadmin %}
+      <p class="mt-2 text-sm text-gray-500">Hand this flag to a supervisor. They can read it and add notes, nothing else.</p>
+    {% endif %}
+    {% if is_superadmin %}
+      <form method="post" action="{% url 'redflags:assign' flag.pk %}" class="mt-3 flex flex-wrap items-end gap-3">
+        {% csrf_token %}
+        <button type="submit" name="of" value="against" {% if not supervisors.against %}disabled{% endif %}
+                class="h-11 rounded-lg border border-gray-300 px-5 text-sm font-medium transition duration-150 hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/10 disabled:cursor-not-allowed disabled:text-gray-400 disabled:hover:border-gray-300 disabled:hover:bg-transparent">
+          {% if supervisors.against %}{{ supervisors.against.display_name }}, supervisor of {{ flag.raised_against_name }}{% else %}{{ flag.raised_against_name }} has no supervisor{% endif %}
+        </button>
+        <button type="submit" name="of" value="raiser" {% if not supervisors.raiser %}disabled{% endif %}
+                class="h-11 rounded-lg border border-gray-300 px-5 text-sm font-medium transition duration-150 hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/10 disabled:cursor-not-allowed disabled:text-gray-400 disabled:hover:border-gray-300 disabled:hover:bg-transparent">
+          {% if supervisors.raiser %}{{ supervisors.raiser.display_name }}, supervisor of {{ flag.raised_by_name }}{% else %}{{ flag.raised_by_name }} has no supervisor{% endif %}
+        </button>
+      </form>
+    {% endif %}
+  </section>
+
+  {% if is_superadmin %}
+  <section class="mt-8">
     <h2 class="text-sm font-medium text-gray-500">Status</h2>
     <form method="post" action="{% url 'redflags:status' flag.pk %}"
           class="mt-3 flex flex-wrap items-end gap-3 [&_select]:h-11 [&_select]:rounded-lg [&_select]:border [&_select]:border-gray-300 [&_select]:bg-white [&_select]:px-3 [&_select]:outline-none [&_select:focus]:border-blue-600 [&_select:focus]:ring-4 [&_select:focus]:ring-blue-600/10">
@@ -38,6 +69,7 @@
       <button type="submit" class="h-11 rounded-lg border border-gray-300 px-5 text-sm font-medium transition duration-150 hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/10">Save</button>
     </form>
   </section>
+  {% endif %}
 
   <section class="mt-12">
     <h2 class="font-semibold">Private notes</h2>
