@@ -1,7 +1,7 @@
 from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
 
-from .models import Attachment, Task, TaskUpdate
+from .models import Attachment, DateChange, Task, TaskUpdate
 
 
 @admin.register(Task)
@@ -26,3 +26,10 @@ class TaskAttachmentAdmin(admin.ModelAdmin):
     list_display = ["original_name", "task", "update", "size"]
     search_fields = ["original_name"]
     raw_id_fields = ["task", "update"]
+
+
+@admin.register(DateChange)
+class DateChangeAdmin(admin.ModelAdmin):
+    list_display = ["task", "changed_by", "old_date", "new_date", "created_at"]
+    search_fields = ["reason", "changed_by__username", "changed_by__first_name"]
+    raw_id_fields = ["task", "changed_by"]

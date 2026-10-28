@@ -120,7 +120,12 @@ class TaskForm(FilesMixin, AlarmForm, forms.ModelForm):
             del self.fields["assigned_to"]
         else:
             self.fields["assigned_to"].queryset = people
-        self.fields["due_date"].widget.attrs["min"] = timezone.localdate().isoformat()
+        if self.instance.pk:  # an existing task's date moves with a reason
+            del self.fields["due_date"]
+        else:
+            self.fields["due_date"].widget.attrs["min"] = (
+                timezone.localdate().isoformat()
+            )
 
     def clean_description(self):
         description = self.cleaned_data["description"].strip()
@@ -140,6 +145,28 @@ class TaskForm(FilesMixin, AlarmForm, forms.ModelForm):
                 "The completion date can't be before the task was received."
             )
         return due_date
+
+
+class DateChangeForm(forms.Form):
+    due_date = forms.DateField(
+        label="New completion date",
+        widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+        error_messages={"required": "Pick the new completion date."},
+    )
+    reason = forms.CharField(
+        label="Reason",
+        max_length=1000,
+        widget=forms.Textarea(
+            attrs={"rows": 2, "placeholder": "Why is the date changing?"}
+        ),
+        error_messages={"required": "Give a reason for the change."},
+    )
+
+    def clean_reason(self):
+        reason = self.cleaned_data["reason"].strip()
+        if not reason:
+            raise forms.ValidationError("Give a reason for the change.")
+        return reason
 
 
 class StatusForm(forms.Form):

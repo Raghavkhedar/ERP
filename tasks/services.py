@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from chat.services import post_notice
 
-from .models import Attachment, Repeat, Status, Task, TaskUpdate
+from .models import Attachment, DateChange, Repeat, Status, Task, TaskUpdate
 
 
 class TaskError(Exception):
@@ -147,6 +147,48 @@ def set_status(task, user, status):
             body = f"marked your task {task.get_status_display()}: {task.title}"
         post_notice(user, task.assigned_to, body)
     return task
+
+
+def can_reschedule(task, user):
+    """Admins and the assignee's supervisor move the date until it's closed."""
+    return manages(user, task) and not task.is_closed
+
+
+@transaction.atomic
+def reschedule(task, user, due_date, reason):
+    """Move the completion date earlier or later, keeping who and why."""
+    task = (
+        Task.objects.select_for_update(of=("self",))
+        .select_related("assigned_to", "assigned_by")
+        .get(pk=task.pk)
+    )
+    if not can_reschedule(task, user):
+        raise PermissionDenied("Only admins and supervisors change the date.")
+    reason = reason.strip()
+    if not reason:
+        raise TaskError("Give a reason for the change.")
+    if due_date == task.due_date:
+        raise TaskError("That is already the completion date.")
+    if due_date < timezone.localdate(task.received_at):
+        raise TaskError("The completion date can't be before the task was received.")
+
+    change = DateChange.objects.create(
+        task=task,
+        changed_by=user,
+        old_date=task.due_date,
+        new_date=due_date,
+        reason=reason,
+    )
+    task.due_date = due_date
+    task.save()
+    if user.pk != task.assigned_to_id:
+        post_notice(
+            user,
+            task.assigned_to,
+            f"moved the completion date from {short_date(change.old_date)} "
+            f"to {short_date(due_date)} ({reason}): {task.title}",
+        )
+    return change
 
 
 def can_update(task, user):

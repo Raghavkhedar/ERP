@@ -11,7 +11,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from . import timeline as task_timeline
 from .export import tasks_workbook
-from .forms import AlarmForm, StatusForm, TaskForm, UpdateForm
+from .forms import AlarmForm, DateChangeForm, StatusForm, TaskForm, UpdateForm
 from .models import Attachment, Status
 from .services import (
     TaskError,
@@ -22,6 +22,7 @@ from .services import (
     assignable_people,
     can_assign,
     can_nudge,
+    can_reschedule,
     can_set_alarm,
     can_update,
     dismiss_alarm,
@@ -29,6 +30,7 @@ from .services import (
     manages,
     next_alarm_in,
     nudge,
+    reschedule,
     set_alarm,
     set_status,
     snooze_alarm,
@@ -188,6 +190,9 @@ def task_detail(request, pk):
         "can_manage": manages(request.user, task),
         "can_update": can_update(task, request.user),
         "can_nudge": can_nudge(task, request.user),
+        "can_reschedule": can_reschedule(task, request.user),
+        "date_form": DateChangeForm(initial={"due_date": task.due_date}),
+        "date_changes": task.date_changes.select_related("changed_by"),
         "can_set_alarm": can_set_alarm(task, request.user),
         "alarm_form": AlarmForm(
             initial={"remind_at": task.remind_at, "remind_every": task.remind_every}
@@ -209,6 +214,29 @@ def change_status(request, pk):
             messages.error(request, str(error))
         else:
             messages.success(request, f"Marked {task.get_status_display()}.")
+    return redirect("tasks:detail", pk=task.pk)
+
+
+@login_required
+@require_POST
+def change_date(request, pk):
+    task = get_object_or_404(visible_tasks(request.user), pk=pk)
+    form = DateChangeForm(request.POST)
+    if form.is_valid():
+        try:
+            reschedule(
+                task,
+                request.user,
+                form.cleaned_data["due_date"],
+                form.cleaned_data["reason"],
+            )
+        except TaskError as error:
+            messages.error(request, str(error))
+        else:
+            messages.success(request, "Completion date changed.")
+    else:
+        for errors in form.errors.values():
+            messages.error(request, errors[0])
     return redirect("tasks:detail", pk=task.pk)
 
 

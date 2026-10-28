@@ -148,6 +148,33 @@ class TaskUpdate(models.Model):
         return lines[0] if lines else ""
 
 
+class DateChange(models.Model):
+    """A move of a task's completion date, earlier or later, and why."""
+
+    task = models.ForeignKey(
+        Task, on_delete=models.CASCADE, related_name="date_changes"
+    )
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    old_date = models.DateField()
+    new_date = models.DateField()
+    reason = models.TextField(max_length=1000)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(reason__regex=r"\S"),
+                name="tasks_datechange_reason_not_blank",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.task}: {self.old_date} to {self.new_date}"
+
+
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 
 
