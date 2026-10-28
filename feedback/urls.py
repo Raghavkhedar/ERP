@@ -6,6 +6,7 @@ app_name = "feedback"
 
 urlpatterns = [
     path("", views.feedback_list, name="list"),
+    path("export/", views.export_feedback, name="export"),
     path("new/", views.new_feedback, name="new"),
     path("<int:pk>/", views.feedback_detail, name="detail"),
     path("<int:pk>/comment/", views.new_comment, name="comment"),

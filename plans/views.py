@@ -8,8 +8,10 @@ from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.http import require_GET
 
 from .excel import schedule_rows
+from .export import plans_workbook
 from .models import PlanItem
 from .services import PlanError, agenda, can_view, is_set, plan_for, progress, save_plan
 
@@ -122,3 +124,23 @@ def view(request, user_id, year, month, day):
         "total": total,
     }
     return render(request, "plans/view.html", context)
+
+
+def _day(value):
+    """A ?from= / ?to= date, or None when it's missing or not a date."""
+    try:
+        return make_date.fromisoformat(value or "")
+    except ValueError:
+        return None
+
+
+@login_required
+@require_GET
+def export_plans(request, user_id):
+    """A person's plans as a spreadsheet, all of them or ?from= and ?to=."""
+    owner = get_object_or_404(get_user_model(), pk=user_id)
+    if not can_view(request.user, owner):
+        raise PermissionDenied
+    return plans_workbook(
+        owner, _day(request.GET.get("from")), _day(request.GET.get("to"))
+    )

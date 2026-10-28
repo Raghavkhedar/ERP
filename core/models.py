@@ -121,3 +121,80 @@ class User(AbstractUser):
     def is_trainer(self):
         """Members of the Trainer group: they read feedback and write lessons."""
         return self.groups.filter(name="Trainer").exists()
+
+
+class Company(models.Model):
+    """A legal entity the office keeps separate books for."""
+
+    name = models.CharField(max_length=100, unique=True)
+    slug = models.SlugField(unique=True)
+
+    class Meta:
+        verbose_name_plural = "companies"
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class Membership(models.Model):
+    """A person's place in a company. Someone can belong to several."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="memberships")
+    company = models.ForeignKey(
+        Company, on_delete=models.CASCADE, related_name="memberships"
+    )
+    designation = models.CharField(max_length=100, blank=True)
+    joined_on = models.DateField(null=True, blank=True)
+    pays_salary = models.BooleanField(
+        default=False,
+        help_text="This company pays the person's salary. Only one per person.",
+    )
+
+    class Meta:
+        ordering = ["company__name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "company"], name="core_membership_one_per_company"
+            ),
+            models.UniqueConstraint(
+                fields=["user"],
+                condition=Q(pays_salary=True),
+                name="core_membership_one_paying_company",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} at {self.company}"
+
+
+class AccessGrant(models.Model):
+    """Lets a person into one section of a module for one company.
+
+    The sections and modules are listed in core.access; a section nobody has
+    been granted stays out of their navigation and answers 403.
+    """
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="access_grants"
+    )
+    company = models.ForeignKey(
+        Company, on_delete=models.CASCADE, related_name="access_grants"
+    )
+    module = models.CharField(max_length=30)
+    section = models.CharField(max_length=30)
+    granted_by = models.ForeignKey(
+        User, null=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "company", "module", "section"],
+                name="core_accessgrant_unique",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username}: {self.module}/{self.section} at {self.company}"

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, time
 from io import BytesIO
 
 from django.utils import timezone
@@ -25,3 +25,7 @@ def test_workbook_has_headers_and_rows():
     assert "demo.xlsx" in response["Content-Disposition"]
     rows = list(load_workbook(BytesIO(response.content))["A"].values)
     assert rows == [("x", "y"), (1, "'=bad")]
+
+
+def test_clock_times_stay_times():
+    assert cell(time(10, 30)) == time(10, 30)
