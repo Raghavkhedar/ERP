@@ -62,6 +62,7 @@ urlpatterns = [
     path("profile/", views.profile, name="profile"),
     path("company/", access_views.switch_company, name="switch_company"),
     path("access/", access_views.people, name="access_people"),
+    path("access/export/", access_views.export_access, name="access_export"),
     path("access/<int:pk>/", access_views.person, name="access_person"),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("chat/", include("chat.urls")),
