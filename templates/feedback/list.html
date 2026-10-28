@@ -3,10 +3,13 @@
 {% block title %}Feedback · Senken ERP{% endblock %}
 {% block heading %}{% if is_reader %}Feedback inbox{% else %}Your feedback{% endif %}{% endblock %}
 {% block actions %}
+  <div class="flex items-center gap-3">
+  <a href="{% url 'feedback:export' %}?show={{ chosen }}" class="text-sm text-gray-500 hover:text-gray-900">Export</a>
   <a href="{% url 'feedback:new' %}?page={{ request.get_full_path|urlencode }}"
      hx-get="{% url 'feedback:new' %}?page={{ request.get_full_path|urlencode }}" hx-target="#feedback-dialog-body"
      hx-on::after:swap="document.getElementById('feedback-dialog').showModal()"
      class="inline-flex h-10 items-center rounded-lg bg-blue-600 px-4 text-sm font-medium text-white transition duration-150 hover:bg-blue-700 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30">Give feedback</a>
+  </div>
 {% endblock %}
 
 {% block page %}
