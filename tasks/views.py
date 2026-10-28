@@ -1,5 +1,4 @@
 from django.contrib import messages
-from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
@@ -20,12 +19,14 @@ from .services import (
     add_update,
     allowed_statuses,
     assign,
+    assignable_people,
     can_assign,
     can_nudge,
     can_set_alarm,
     can_update,
     dismiss_alarm,
     due_alarms,
+    manages,
     next_alarm_in,
     nudge,
     set_alarm,
@@ -67,18 +68,15 @@ PERSON_KEY = "tasks_person"
 
 def _person_filter(request):
     """The one person an assigner chose to see (?person=), remembered in the
-    session so it sticks across weeks and reloads. None means everyone.
+    session so it sticks across weeks and reloads. None means everyone they can
+    see.
     """
     if not can_assign(request.user):
         return {}
     if "person" in request.GET:
         request.session[PERSON_KEY] = request.GET["person"]
     chosen = str(request.session.get(PERSON_KEY, ""))
-    people = (
-        get_user_model()
-        .objects.filter(is_active=True)
-        .order_by("first_name", "last_name", "username")
-    )
+    people = assignable_people(request.user)
     person = people.filter(pk=chosen).first() if chosen.isdigit() else None
     return {"people": people, "person": person}
 
@@ -112,7 +110,11 @@ def export_tasks(request):
 @login_required
 def new_task(request):
     personal = not can_assign(request.user)
-    form = TaskForm(request.POST or None, request.FILES or None, personal=personal)
+    form = TaskForm(
+        request.POST or None,
+        request.FILES or None,
+        people=None if personal else assignable_people(request.user),
+    )
     if request.method == "POST" and form.is_valid():
         data = form.cleaned_data
         try:
@@ -149,10 +151,15 @@ def new_task(request):
 
 @login_required
 def edit_task(request, pk):
-    if not can_assign(request.user):
-        raise PermissionDenied("Only admins change tasks.")
     task = get_object_or_404(visible_tasks(request.user), pk=pk)
-    form = TaskForm(request.POST or None, request.FILES or None, instance=task)
+    if not manages(request.user, task):
+        raise PermissionDenied("Only admins and supervisors change tasks.")
+    form = TaskForm(
+        request.POST or None,
+        request.FILES or None,
+        instance=task,
+        people=assignable_people(request.user),
+    )
     if request.method == "POST" and form.is_valid():
         form.save()
         add_task_files(task, request.user, form.cleaned_data["files"])
@@ -178,7 +185,7 @@ def task_detail(request, pk):
         "files": task.attachments.all(),
         "updates": updates,
         "statuses": allowed_statuses(task, request.user),
-        "can_assign": can_assign(request.user),
+        "can_manage": manages(request.user, task),
         "can_update": can_update(task, request.user),
         "can_nudge": can_nudge(task, request.user),
         "can_set_alarm": can_set_alarm(task, request.user),

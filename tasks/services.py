@@ -3,6 +3,7 @@ from datetime import timedelta
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from chat.services import post_notice
@@ -14,15 +15,39 @@ class TaskError(Exception):
     """A request that breaks a task rule; the message is shown to the user."""
 
 
+def is_supervisor(user):
+    return user.reports.filter(is_active=True).exists()
+
+
 def can_assign(user):
-    return user.is_office_admin
+    """Admins, and supervisors for the people they supervise."""
+    return user.is_office_admin or is_supervisor(user)
+
+
+def manages(user, task):
+    """Admins manage every task; a supervisor, their reports' tasks."""
+    return user.is_office_admin or task.assigned_to.supervisor_id == user.pk
+
+
+def assignable_people(user):
+    """Who `user` can give a task to: everyone for an admin, otherwise
+    themselves and the people they supervise.
+    """
+    people = get_user_model().objects.filter(is_active=True)
+    if not user.is_office_admin:
+        people = people.filter(Q(pk=user.pk) | Q(supervisor=user))
+    return people.order_by("first_name", "last_name", "username")
 
 
 def visible_tasks(user):
-    """Everyone's tasks for the people who assign them; your own otherwise."""
+    """Everyone's tasks for admins; a supervisor's reports' and their own;
+    your own otherwise.
+    """
     tasks = Task.objects.select_related("assigned_to", "assigned_by")
-    if can_assign(user):
+    if user.is_office_admin:
         return tasks
+    if is_supervisor(user):
+        return tasks.filter(Q(assigned_to=user) | Q(assigned_to__supervisor=user))
     return tasks.filter(assigned_to=user)
 
 
@@ -40,8 +65,10 @@ def is_personal(task):
 def assign(
     by, to, priority, description, due_date, files=(), remind_at=None, remind_every=""
 ):
-    if not can_assign(by) and to != by:
-        raise PermissionDenied("Only admins assign tasks to other people.")
+    if to != by and not (by.is_office_admin or to.supervisor_id == by.pk):
+        raise PermissionDenied(
+            "Only admins and supervisors assign tasks to other people."
+        )
     if not to.is_active:
         raise TaskError(f"{to.display_name} no longer works here.")
     description = description.strip()
@@ -81,16 +108,16 @@ def attach(files, **owner):
 @transaction.atomic
 def add_task_files(task, user, files):
     """Add files to a task after it was assigned."""
-    if not can_assign(user):
-        raise PermissionDenied("Only admins attach files to a task.")
+    if not manages(user, task):
+        raise PermissionDenied("Only admins and supervisors attach files to a task.")
     attach(files, task=task)
 
 
 def allowed_statuses(task, user):
-    """Admins change a task's status, and so does whoever gave it to themselves;
-    other assignees log updates.
+    """Admins and the assignee's supervisor change a task's status, and so does
+    whoever gave it to themselves; other assignees log updates.
     """
-    if can_assign(user) or (is_personal(task) and task.assigned_to_id == user.pk):
+    if manages(user, task) or (is_personal(task) and task.assigned_to_id == user.pk):
         return list(Status)
     return []
 
@@ -123,18 +150,18 @@ def set_status(task, user, status):
 
 
 def can_update(task, user):
-    """Admins until it's closed; the assignee until an admin marks it done."""
-    if can_assign(user):
+    """Admins and supervisors until it's closed; the assignee until it's marked done."""
+    if manages(user, task):
         return not task.is_closed
     return task.assigned_to_id == user.pk and not task.is_finished
 
 
 def updatable_tasks(user):
     """Tasks the user can log work on: see can_update."""
-    tasks = visible_tasks(user)
-    if can_assign(user):
-        return tasks.exclude(status=Status.CLOSED)
-    return tasks.exclude(status__in=(Status.DONE, Status.CLOSED))
+    tasks = visible_tasks(user).exclude(status=Status.CLOSED)
+    if user.is_office_admin:
+        return tasks
+    return tasks.exclude(Q(status=Status.DONE) & ~Q(assigned_to__supervisor=user))
 
 
 NUDGE_COOLDOWN = timedelta(hours=24)
@@ -166,13 +193,14 @@ def nudge(task, user):
         raise TaskError("You already reminded the admins today.")
 
     assigner = task.assigned_by
-    if assigner.is_active and can_assign(assigner):
+    if assigner.is_active and manages(assigner, task):
         admins = [assigner]
     else:
         admins = [
             admin
             for admin in get_user_model().objects.filter(is_active=True)
-            if admin.pk != user.pk and can_assign(admin)
+            if admin.pk != user.pk
+            and (admin.is_office_admin or admin.pk == task.assigned_to.supervisor_id)
         ]
     if not admins:
         raise TaskError("There is no admin to remind.")
@@ -189,9 +217,9 @@ def nudge(task, user):
 def add_update(task, user, body, files=()):
     """Log what was done today, with any files. Starts an Open task."""
     task = Task.objects.select_for_update(of=("self",)).get(pk=task.pk)
-    if task.assigned_to_id != user.pk and not can_assign(user):
+    if task.assigned_to_id != user.pk and not manages(user, task):
         raise PermissionDenied("This isn't your task.")
-    if task.is_closed or (task.is_finished and not can_assign(user)):
+    if task.is_closed or (task.is_finished and not manages(user, task)):
         raise TaskError("This task is closed.")
     body = body.strip()
     if not body:
@@ -210,8 +238,12 @@ REPEAT_STEP = {Repeat.DAILY: timedelta(days=1), Repeat.WEEKLY: timedelta(weeks=1
 
 
 def can_set_alarm(task, user):
-    """The assignee, or an admin setting one for them, until the task is finished."""
-    return not task.is_finished and (task.assigned_to_id == user.pk or can_assign(user))
+    """The assignee, or an admin or supervisor setting one for them, until the
+    task is finished.
+    """
+    return not task.is_finished and (
+        task.assigned_to_id == user.pk or manages(user, task)
+    )
 
 
 def due_alarms(user):
