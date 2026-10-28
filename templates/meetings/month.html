@@ -12,8 +12,8 @@
 {% endblock %}
 
 {% block page %}
-  <div class="overflow-hidden rounded-xl border border-gray-200">
-    <div class="grid grid-cols-7 border-b border-gray-200 text-center text-xs font-medium text-gray-500">
+  <div class="overflow-hidden rounded-xl border border-ink">
+    <div class="grid grid-cols-7 border-b border-ink text-center text-xs font-medium text-gray-500">
       {% for name in weekdays %}<div class="py-2">{{ name }}</div>{% endfor %}
     </div>
     <div class="grid grid-cols-7 [&>a:nth-child(7n)]:border-r-0">
@@ -28,7 +28,7 @@
             <span class="flex flex-wrap justify-center gap-1 sm:hidden">
               {% for slot in cell.meetings|slice:":4" %}<span class="size-1.5 rounded-full bg-blue-600"></span>{% endfor %}
               {% for conference in cell.conferences|slice:":3" %}<span class="size-1.5 rounded-full bg-violet-600"></span>{% endfor %}
-              {% if cell.free %}<span class="size-1.5 rounded-full border border-gray-400"></span>{% endif %}
+              {% if cell.free %}<span class="size-1.5 rounded-full border border-ink"></span>{% endif %}
             </span>
             <span class="hidden min-w-0 flex-col gap-0.5 sm:flex">
               {% for conference in cell.conferences|slice:":2" %}
@@ -53,7 +53,7 @@
               {% endif %}
               {% if cell.free %}
                 <span class="flex items-center gap-1.5 text-xs text-gray-500">
-                  <span class="size-1.5 shrink-0 rounded-full border border-gray-400"></span>
+                  <span class="size-1.5 shrink-0 rounded-full border border-ink"></span>
                   {{ cell.free }} free slot{{ cell.free|pluralize }}
                 </span>
               {% endif %}

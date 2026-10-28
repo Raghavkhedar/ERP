@@ -9,7 +9,7 @@
     {% csrf_token %}
     <div>
       <label for="{{ form.name.id_for_label }}" class="block text-sm font-semibold">Name</label>
-      <div class="mt-1 flex items-center rounded border border-gray-300 focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600">
+      <div class="mt-1 flex items-center rounded border border-ink focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600">
         <span class="pl-3 text-gray-400">#</span>
         <input type="text" name="name" id="{{ form.name.id_for_label }}"
                value="{{ form.name.value|default:'' }}" maxlength="80" required

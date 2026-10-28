@@ -24,7 +24,7 @@
 
 {% block content %}
   <div>
-    <div class="overflow-hidden rounded-2xl border border-gray-200/80 bg-surface xl:grid xl:grid-cols-[minmax(0,1fr)_21rem]">
+    <div class="overflow-hidden rounded-2xl border border-ink bg-surface xl:grid xl:grid-cols-[minmax(0,1fr)_21rem]">
       <section class="min-w-0 p-4 sm:p-6">
         {% include "tasks/_timeline.html" %}
         {% for message in messages %}
@@ -32,13 +32,13 @@
         {% endfor %}
       </section>
       {% if plan_day %}
-        <aside class="border-t border-gray-200/80 bg-canvas/50 p-4 sm:p-6 xl:border-l xl:border-t-0">
+        <aside class="border-t border-ink bg-canvas/50 p-4 sm:p-6 xl:border-l xl:border-t-0">
           {% include "plans/_day_panel.html" %}
         </aside>
       {% endif %}
     </div>
 
-    <section class="mt-6 rounded-2xl border border-gray-200/80 bg-surface p-4 sm:p-6 lg:max-w-2xl">
+    <section class="mt-6 rounded-2xl border border-ink bg-surface p-4 sm:p-6 lg:max-w-2xl">
       <div class="flex items-baseline justify-between gap-4">
         <h2 class="font-semibold">Coming up</h2>
         <a href="{% url 'meetings:schedule' %}" class="text-sm text-blue-600 hover:underline">Your schedule</a>
@@ -68,7 +68,7 @@
         <a href="{% url 'meetings:people' %}"
            class="inline-flex h-11 items-center rounded-lg bg-blue-600 px-5 text-sm font-medium text-white transition duration-150 hover:bg-blue-700 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30">Book a meeting</a>
         <a href="{% url 'meetings:block_time' %}"
-           class="inline-flex h-11 items-center rounded-lg border border-gray-300 px-5 text-sm font-medium transition duration-150 hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/10">Block time</a>
+           class="inline-flex h-11 items-center rounded-lg border border-ink px-5 text-sm font-medium transition duration-150 hover:border-ink hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/10">Block time</a>
       </div>
     </section>
   </div>

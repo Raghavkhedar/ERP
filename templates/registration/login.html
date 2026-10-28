@@ -1,19 +1,9 @@
-{% extends "base.html" %}
+{% extends "registration/_auth_base.html" %}
 
 {% block title %}Log in · Senken ERP{% endblock %}
 
-{% block body_class %}min-h-dvh bg-canvas text-gray-900 antialiased{% endblock %}
-{% block header %}
-  <div class="flex h-14 items-center gap-2.5 border-b border-gray-200/80 bg-surface px-6 text-sm font-semibold tracking-tight text-gray-800 sm:px-8">
-    {% include "_mark.html" %}
-    <span class="title text-xl">Senken ERP</span>
-  </div>
-{% endblock %}
-{% block main_class %}flex min-h-[calc(100dvh-3.5rem)] items-center justify-center px-6 pb-16{% endblock %}
-
-{% block content %}
-  <form method="post" x-data="{ show: false, sending: false }" @submit="sending = true"
-        class="w-full max-w-96 rounded-2xl border border-gray-200/80 bg-surface p-8 animate-rise motion-reduce:animate-none">
+{% block card %}
+  <form method="post" x-data="{ show: false, sending: false }" @submit="sending = true">
     {% csrf_token %}
     <input type="hidden" name="next" value="{{ next }}">
 
@@ -31,7 +21,7 @@
         <input type="text" name="username" id="id_username" required{% if not form.errors %} autofocus{% endif %} placeholder=" "
                value="{{ form.username.value|default:'' }}"
                autocomplete="username" autocapitalize="characters" spellcheck="false"
-               class="peer block h-14 w-full rounded-lg border border-gray-300 bg-white px-3.5 pt-5 uppercase outline-none transition duration-150 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10">
+               class="peer block h-14 w-full rounded-lg border border-ink bg-white px-3.5 pt-5 uppercase outline-none transition duration-150 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10">
         <label for="id_username"
                class="pointer-events-none absolute left-3.5 top-2 text-xs text-gray-500 transition-all duration-150 ease-out peer-placeholder-shown:top-4 peer-placeholder-shown:text-base peer-focus:top-2 peer-focus:text-xs peer-focus:text-blue-600">Employee ID</label>
       </div>
@@ -39,7 +29,7 @@
       <div class="relative">
         <input :type="show ? 'text' : 'password'" type="password" name="password" id="id_password" required{% if form.errors %} autofocus{% endif %} placeholder=" "
                autocomplete="current-password"
-               class="peer block h-14 w-full rounded-lg border border-gray-300 bg-white pl-3.5 pr-16 pt-5 outline-none transition duration-150 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10">
+               class="peer block h-14 w-full rounded-lg border border-ink bg-white pl-3.5 pr-16 pt-5 outline-none transition duration-150 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10">
         <label for="id_password"
                class="pointer-events-none absolute left-3.5 top-2 text-xs text-gray-500 transition-all duration-150 ease-out peer-placeholder-shown:top-4 peer-placeholder-shown:text-base peer-focus:top-2 peer-focus:text-xs peer-focus:text-blue-600">Password</label>
         <button type="button" @click="show = !show" x-text="show ? 'Hide' : 'Show'"

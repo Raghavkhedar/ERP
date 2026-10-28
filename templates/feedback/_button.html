@@ -7,7 +7,7 @@
     <span class="hidden sm:inline">Feedback</span>
   </button>
   <div x-show="open" x-cloak x-transition.opacity.duration.120ms role="menu"
-       class="absolute right-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-xl border border-gray-200/80 bg-surface py-1 text-left text-sm text-gray-700">
+       class="absolute right-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-xl border border-ink bg-surface py-1 text-left text-sm text-gray-700">
     <a href="{% url 'feedback:new' %}?page={{ request.get_full_path|urlencode }}" role="menuitem"
        hx-get="{% url 'feedback:new' %}?page={{ request.get_full_path|urlencode }}" hx-target="#feedback-dialog-body"
        hx-on::after:swap="document.getElementById('feedback-dialog').showModal()"

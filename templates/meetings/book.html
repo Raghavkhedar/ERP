@@ -16,7 +16,7 @@
     {% for error in form.non_field_errors %}
       <p role="alert" class="mt-4 text-sm text-red-600">{{ error }}</p>
     {% endfor %}
-    <div class="mt-6 [&_input]:h-11 [&_input]:w-full [&_input]:rounded-lg [&_input]:border [&_input]:border-gray-300 [&_input]:bg-white [&_input]:px-3 [&_input]:outline-none [&_input]:transition [&_input:focus]:border-blue-600 [&_input:focus]:ring-4 [&_input:focus]:ring-blue-600/10 [&_select]:h-11 [&_select]:w-full [&_select]:rounded-lg [&_select]:border [&_select]:border-gray-300 [&_select]:bg-white [&_select]:px-3 [&_select]:outline-none [&_select:focus]:border-blue-600 [&_select:focus]:ring-4 [&_select:focus]:ring-blue-600/10">
+    <div class="mt-6 [&_input]:h-11 [&_input]:w-full [&_input]:rounded-lg [&_input]:border [&_input]:border-ink [&_input]:bg-white [&_input]:px-3 [&_input]:outline-none [&_input]:transition [&_input:focus]:border-blue-600 [&_input:focus]:ring-4 [&_input:focus]:ring-blue-600/10 [&_select]:h-11 [&_select]:w-full [&_select]:rounded-lg [&_select]:border [&_select]:border-ink [&_select]:bg-white [&_select]:px-3 [&_select]:outline-none [&_select:focus]:border-blue-600 [&_select:focus]:ring-4 [&_select:focus]:ring-blue-600/10">
       <label for="{{ form.topic.id_for_label }}" class="mb-1.5 block text-sm font-medium">{{ form.topic.help_text }}</label>
       {{ form.topic }}
       {% for error in form.topic.errors %}

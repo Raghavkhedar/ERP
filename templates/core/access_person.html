@@ -9,7 +9,7 @@
   <p class="text-sm text-gray-500">{{ subject.username }}</p>
   {% for message in messages %}<p role="status" class="mt-4 text-sm text-green-700">{{ message }}</p>{% endfor %}
 
-  <form method="post" class="mt-8 rounded-2xl border border-gray-200/80 bg-surface p-5 sm:p-8">
+  <form method="post" class="mt-8 rounded-2xl border border-ink bg-surface p-5 sm:p-8">
     {% csrf_token %}
     <input type="hidden" name="action" value="companies">
     <h2 class="font-semibold">Companies</h2>
@@ -18,11 +18,11 @@
       {% for row in rows %}
         <li class="flex flex-wrap items-center gap-x-6 gap-y-2 py-3">
           <label class="flex w-32 items-center gap-2.5">
-            <input type="checkbox" name="company" value="{{ row.company.slug }}" {% if row.membership %}checked{% endif %} class="size-4 rounded border-gray-300 accent-blue-600">
+            <input type="checkbox" name="company" value="{{ row.company.slug }}" {% if row.membership %}checked{% endif %} class="size-4 rounded border-ink accent-blue-600">
             {{ row.company.name }}
           </label>
           <input type="text" name="designation_{{ row.company.slug }}" value="{{ row.membership.designation }}" placeholder="Designation" maxlength="100"
-                 class="h-10 min-w-0 flex-1 rounded-lg border border-gray-200 px-3 text-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/20">
+                 class="h-10 min-w-0 flex-1 rounded-lg border border-ink px-3 text-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/20">
           <label class="flex items-center gap-2 text-sm text-gray-600">
             <input type="radio" name="paid_by" value="{{ row.company.slug }}" {% if row.membership.pays_salary %}checked{% endif %} class="accent-blue-600">
             Pays salary
@@ -33,7 +33,7 @@
     <button type="submit" class="mt-5 inline-flex h-10 items-center rounded-lg bg-blue-600 px-4 text-sm font-medium text-white transition duration-150 hover:bg-blue-700 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30">Save companies</button>
   </form>
 
-  <form method="post" class="mt-6 rounded-2xl border border-gray-200/80 bg-surface p-5 sm:p-8">
+  <form method="post" class="mt-6 rounded-2xl border border-ink bg-surface p-5 sm:p-8">
     {% csrf_token %}
     <input type="hidden" name="action" value="access">
     <h2 class="font-semibold">Module access</h2>
@@ -54,7 +54,7 @@
                 <tr>
                   <td class="py-2.5">{{ section.label }}</td>
                   {% for cell in section.cells %}
-                    <td class="text-center"><input type="checkbox" name="grant" value="{{ cell.value }}" aria-label="{{ section.label }} at {{ cell.company.name }}" {% if cell.on %}checked{% endif %} {% if not module.editable %}disabled{% endif %} class="size-4 rounded border-gray-300 accent-blue-600"></td>
+                    <td class="text-center"><input type="checkbox" name="grant" value="{{ cell.value }}" aria-label="{{ section.label }} at {{ cell.company.name }}" {% if cell.on %}checked{% endif %} {% if not module.editable %}disabled{% endif %} class="size-4 rounded border-ink accent-blue-600"></td>
                   {% endfor %}
                 </tr>
               {% endfor %}
