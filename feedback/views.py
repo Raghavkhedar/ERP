@@ -6,8 +6,9 @@ from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import Resolver404, resolve, reverse
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
+from .export import feedback_workbook
 from .forms import CommentForm, FeedbackForm, LessonForm, ResolutionForm
 from .models import Area, Attachment, Feedback, Lesson, Status
 from .services import (
@@ -82,8 +83,8 @@ def _detail(request, feedback, form, resolution=None):
     return render(request, "feedback/detail.html", context)
 
 
-@login_required
-def feedback_list(request):
+def _shown(request):
+    """The feedback the list is showing: (?show=) applied to what you may see."""
     chosen = request.GET.get("show", "open")
     items = visible_feedback(request.user)
     if chosen == "open":
@@ -92,6 +93,19 @@ def feedback_list(request):
         items = items.filter(status=Status.RESOLVED)
     else:
         chosen = "all"
+    return chosen, items
+
+
+@login_required
+@require_GET
+def export_feedback(request):
+    _, items = _shown(request)
+    return feedback_workbook(items, with_lessons=is_reader(request.user))
+
+
+@login_required
+def feedback_list(request):
+    chosen, items = _shown(request)
     context = {
         "items": items,
         "filters": FILTERS,
