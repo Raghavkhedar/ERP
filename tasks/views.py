@@ -11,6 +11,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_GET, require_POST
 
 from . import timeline as task_timeline
+from .export import tasks_workbook
 from .forms import AlarmForm, StatusForm, TaskForm, UpdateForm
 from .models import Attachment, Status
 from .services import (
@@ -95,6 +96,17 @@ def task_list(request):
         **filtering,
     }
     return render(request, "tasks/list.html", context)
+
+
+@login_required
+@require_GET
+def export_tasks(request):
+    """The task list as a spreadsheet: the same tasks, open and closed."""
+    tasks = visible_tasks(request.user)
+    person = _person_filter(request).get("person")
+    if person:
+        tasks = tasks.filter(assigned_to=person)
+    return tasks_workbook(tasks)
 
 
 @login_required

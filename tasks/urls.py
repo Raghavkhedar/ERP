@@ -7,6 +7,7 @@ app_name = "tasks"
 urlpatterns = [
     path("", views.task_list, name="list"),
     path("timeline/", views.timeline, name="timeline"),
+    path("export/", views.export_tasks, name="export"),
     path("new/", views.new_task, name="new"),
     path("<int:pk>/", views.task_detail, name="detail"),
     path("<int:pk>/edit/", views.edit_task, name="edit"),
