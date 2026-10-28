@@ -40,6 +40,7 @@
               :class="help && 'border-blue-600 text-blue-600'">i</button>
     </div>
     {% include "plans/_import_help.html" %}
+    <p class="mt-2 text-sm text-gray-500"><a href="{% url 'plans:export' request.user.pk %}" class="hover:text-gray-900">Export all your plans</a></p>
     <p class="mt-2 text-sm text-gray-500">
       {% if locked %}Set at least one goal to get started. You can change the plan any time today.{% else %}Change it as the day goes. Tick things off when they're done.{% endif %}
     </p>
