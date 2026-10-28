@@ -11,10 +11,11 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from plans.services import plan_for
 
+from .export import schedule_workbook
 from .forms import BookingForm
 from .models import Invitation, Slot
 from .services import (
@@ -119,6 +120,23 @@ def _my_conferences(user, first_day, last_day):
         conference.i_am_host = conference.host_id == user.pk
         conference.pending = answers.get(conference.pk) == Invitation.Status.INVITED
     return conferences
+
+
+def _day(value):
+    """A ?from= / ?to= date, or None when it's missing or not a date."""
+    try:
+        return date.fromisoformat(value or "")
+    except ValueError:
+        return None
+
+
+@login_required
+@require_GET
+def export_schedule(request):
+    """Your meetings, blocked time and conferences, all of them or ?from= / ?to=."""
+    return schedule_workbook(
+        request.user, _day(request.GET.get("from")), _day(request.GET.get("to"))
+    )
 
 
 @login_required

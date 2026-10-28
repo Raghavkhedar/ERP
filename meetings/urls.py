@@ -9,6 +9,7 @@ urlpatterns = [
     path("", views.schedule, name="schedule"),
     path("<int:year>/<int:month>/", views.schedule, name="month"),
     path("<int:year>/<int:month>/<int:day>/", views.day_view, name="day"),
+    path("export/", views.export_schedule, name="export"),
     path("block/", views.block_time, name="block_time"),
     path("block/<int:year>/<int:month>/<int:day>/", views.block_time, name="block_day"),
     path("people/", views.people, name="people"),
