@@ -124,11 +124,11 @@
   --color-emerald-900: #0D492D;
   --color-emerald-950: #052A19;
 
-  /* Square-ish corners, and shadows that are hard offsets of the ink. */
-  --radius-md: 0.25rem;
-  --radius-lg: 0.375rem;
-  --radius-xl: 0.5rem;
-  --radius-2xl: 0.5rem;
+  /* Softly rounded corners, and shadows that are hard offsets of the ink. */
+  --radius-md: 0.375rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.875rem;
+  --radius-2xl: 1.25rem;
   --shadow-md: 3px 3px 0 var(--color-ink);
   --shadow-lg: 4px 4px 0 var(--color-ink);
   --shadow-xl: 6px 6px 0 var(--color-ink);
