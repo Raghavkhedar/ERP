@@ -114,16 +114,12 @@ class TaskForm(FilesMixin, AlarmForm, forms.ModelForm):
             "due_date": {"required": "Pick a completion date."},
         }
 
-    def __init__(self, *args, personal=False, **kwargs):
+    def __init__(self, *args, people=None, **kwargs):
         super().__init__(*args, **kwargs)
-        if personal:  # not an admin: the task can only be for yourself
+        if people is None:  # not an assigner: the task can only be for yourself
             del self.fields["assigned_to"]
         else:
-            self.fields["assigned_to"].queryset = (
-                get_user_model()
-                .objects.filter(is_active=True)
-                .order_by("first_name", "last_name", "username")
-            )
+            self.fields["assigned_to"].queryset = people
         self.fields["due_date"].widget.attrs["min"] = timezone.localdate().isoformat()
 
     def clean_description(self):
