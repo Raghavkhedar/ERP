@@ -4,7 +4,7 @@
 {% block main_class %}mx-auto w-full max-w-3xl px-6 pb-28 pt-8 sm:px-8{% endblock %}
 
 {% block content %}
-  <div class="rounded-2xl border border-gray-200/80 bg-surface p-5 sm:p-8">
+  <div class="rounded-2xl border border-ink bg-surface p-5 sm:p-8">
     {% if user|reads_feedback %}
       {% with name=request.resolver_match.url_name %}
         <nav class="-mt-1 mb-6 flex gap-5 text-sm" aria-label="Feedback sections">

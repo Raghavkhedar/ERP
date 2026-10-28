@@ -13,7 +13,7 @@
 {% endblock %}
 
 {% block page %}
-  <div class="inline-flex rounded-lg border border-gray-200 p-1">
+  <div class="inline-flex rounded-lg border border-ink p-1">
     {% for key, label in filters.items %}
       <a href="?show={{ key }}" {% if key == chosen %}aria-current="true"{% endif %}
          class="flex h-9 items-center rounded-md px-4 text-sm transition-colors {% if key == chosen %}bg-gray-900 font-medium text-white{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %} focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/20">{{ label }}</a>

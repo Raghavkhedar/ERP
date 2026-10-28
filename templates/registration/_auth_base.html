@@ -1,16 +1,35 @@
 {% extends "base.html" %}
 
-{% block body_class %}min-h-dvh bg-canvas text-gray-900 antialiased{% endblock %}
 {% block header %}
-  <div class="flex h-14 items-center gap-2.5 border-b border-gray-200/80 bg-surface px-6 text-sm font-semibold tracking-tight text-gray-800 sm:px-8">
+  <div class="flex h-14 items-center gap-2.5 border-b border-ink bg-surface px-6 text-sm tracking-tight text-gray-800 sm:px-8">
     {% include "_mark.html" %}
     <span class="title text-xl">Senken ERP</span>
   </div>
 {% endblock %}
-{% block main_class %}flex min-h-[calc(100dvh-3.5rem)] items-center justify-center px-6 pb-16{% endblock %}
+{% block band %}
+  {# Decoration only: the words are the app's areas, repeated so the loop has no gap. #}
+  <div class="overflow-hidden border-b border-ink bg-ink py-2 text-sm font-semibold text-pop" aria-hidden="true">
+    <div class="marquee">
+      {% for _ in "12" %}
+        <span class="flex shrink-0 items-center gap-6 pr-6">
+          <span>Tasks</span><i class="size-2 rotate-45 bg-blue-400"></i>
+          <span>Schedule</span><i class="size-2 rotate-45 bg-blue-400"></i>
+          <span>Chat</span><i class="size-2 rotate-45 bg-blue-400"></i>
+          <span>Red flags</span><i class="size-2 rotate-45 bg-blue-400"></i>
+          <span>Plans</span><i class="size-2 rotate-45 bg-blue-400"></i>
+          <span>Creating trust</span><i class="size-2 rotate-45 bg-blue-400"></i>
+        </span>
+      {% endfor %}
+    </div>
+  </div>
+{% endblock %}
+{% block main_class %}flex min-h-[calc(100dvh-5.5rem)] items-center justify-center px-6 pb-16{% endblock %}
 
 {% block content %}
-  <div class="w-full max-w-96 rounded-2xl border border-gray-200/80 bg-surface p-8 animate-rise motion-reduce:animate-none">
-    {% block card %}{% endblock %}
+  <div class="relative w-full max-w-96">
+    <span class="sticker absolute -right-3 -top-4 z-10 rounded border-2 border-ink bg-pop px-3 py-1 text-sm font-bold text-ink shadow-md" aria-hidden="true">Creating trust</span>
+    <div class="rounded-2xl border border-ink bg-surface p-8 shadow-xl animate-rise motion-reduce:animate-none">
+      {% block card %}{% endblock %}
+    </div>
   </div>
 {% endblock %}

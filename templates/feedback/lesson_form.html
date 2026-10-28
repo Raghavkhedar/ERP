@@ -8,7 +8,7 @@
 {% block page %}
   <h2 class="title text-2xl">{{ heading }}</h2>
   <form method="post"
-        class="mt-6 max-w-xl space-y-5 [&_input[type=text]]:h-11 [&_input[type=text]]:w-full [&_input[type=text]]:rounded-lg [&_input[type=text]]:border [&_input[type=text]]:border-gray-300 [&_input[type=text]]:px-3 [&_input[type=text]]:outline-none [&_input[type=text]:focus]:border-blue-600 [&_input[type=text]:focus]:ring-4 [&_input[type=text]:focus]:ring-blue-600/10 [&_select]:h-11 [&_select]:w-full [&_select]:rounded-lg [&_select]:border [&_select]:border-gray-300 [&_select]:bg-white [&_select]:px-3 [&_select]:outline-none [&_select:focus]:border-blue-600 [&_select:focus]:ring-4 [&_select:focus]:ring-blue-600/10 [&_textarea]:w-full [&_textarea]:rounded-lg [&_textarea]:border [&_textarea]:border-gray-300 [&_textarea]:px-3 [&_textarea]:py-2.5 [&_textarea]:outline-none [&_textarea]:transition [&_textarea:focus]:border-blue-600 [&_textarea:focus]:ring-4 [&_textarea:focus]:ring-blue-600/10">
+        class="mt-6 max-w-xl space-y-5 [&_input[type=text]]:h-11 [&_input[type=text]]:w-full [&_input[type=text]]:rounded-lg [&_input[type=text]]:border [&_input[type=text]]:border-ink [&_input[type=text]]:px-3 [&_input[type=text]]:outline-none [&_input[type=text]:focus]:border-blue-600 [&_input[type=text]:focus]:ring-4 [&_input[type=text]:focus]:ring-blue-600/10 [&_select]:h-11 [&_select]:w-full [&_select]:rounded-lg [&_select]:border [&_select]:border-ink [&_select]:bg-white [&_select]:px-3 [&_select]:outline-none [&_select:focus]:border-blue-600 [&_select:focus]:ring-4 [&_select:focus]:ring-blue-600/10 [&_textarea]:w-full [&_textarea]:rounded-lg [&_textarea]:border [&_textarea]:border-ink [&_textarea]:px-3 [&_textarea]:py-2.5 [&_textarea]:outline-none [&_textarea]:transition [&_textarea:focus]:border-blue-600 [&_textarea:focus]:ring-4 [&_textarea:focus]:ring-blue-600/10">
     {% csrf_token %}
     {% for error in form.non_field_errors %}<p role="alert" class="text-sm text-red-600">{{ error }}</p>{% endfor %}
     {% with field=form.title %}{% include "tasks/_field.html" %}{% endwith %}
@@ -20,7 +20,7 @@
     {% if form.feedback.field.queryset %}
       <fieldset>
         <legend class="mb-1.5 text-sm font-medium">{{ form.feedback.label }}</legend>
-        <div class="space-y-2 rounded-lg border border-gray-200 p-3 text-sm">
+        <div class="space-y-2 rounded-lg border border-ink p-3 text-sm">
           {% for checkbox in form.feedback %}
             <label class="flex items-start gap-2.5">{{ checkbox.tag }}<span>{{ checkbox.choice_label }}</span></label>
           {% endfor %}

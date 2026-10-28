@@ -4,7 +4,7 @@
 
 {% block header %}
   {% if locked %}
-    <div class="flex h-14 items-center justify-between gap-2.5 border-b border-gray-200/80 bg-surface px-6 text-sm font-semibold tracking-tight text-gray-800 sm:px-8">
+    <div class="flex h-14 items-center justify-between gap-2.5 border-b border-ink bg-surface px-6 text-sm font-semibold tracking-tight text-gray-800 sm:px-8">
       <span class="flex items-center gap-2.5">{% include "_mark.html" %}<span class="title text-xl">Senken ERP</span></span>
       <form method="post" action="{% url 'logout' %}">
         {% csrf_token %}
@@ -29,14 +29,14 @@
       </label>
     </form>
   </div>
-  <form method="post" class="rounded-2xl border border-gray-200/80 bg-surface p-5 animate-rise motion-reduce:animate-none sm:p-8"
+  <form method="post" class="rounded-2xl border border-ink bg-surface p-5 animate-rise motion-reduce:animate-none sm:p-8"
         x-data="planForm('{{ goal }}', '{{ work }}')" @submit="sending = true">
     {% csrf_token %}
     <p class="text-sm text-gray-500">{{ date|date:"l, j F" }}</p>
     <div class="mt-1 flex items-center gap-3">
       <h1 class="title text-3xl">{% if locked %}Plan your day{% else %}Today's plan{% endif %}</h1>
       <button type="button" @click="help = !help" :aria-expanded="help" aria-controls="import-help" aria-label="How to import from Excel"
-              class="grid size-6 shrink-0 place-items-center rounded-full border border-gray-300 font-serif text-sm italic text-gray-500 transition-colors hover:border-blue-600 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/20"
+              class="grid size-6 shrink-0 place-items-center rounded-full border border-ink font-serif text-sm italic text-gray-500 transition-colors hover:border-blue-600 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/20"
               :class="help && 'border-blue-600 text-blue-600'">i</button>
     </div>
     {% include "plans/_import_help.html" %}
@@ -59,18 +59,18 @@
               <input type="hidden" :name="'id_' + row.key" :value="row.id ?? ''">
               <input type="hidden" :name="'kind_' + row.key" :value="row.kind">
               <input type="checkbox" :name="'done_' + row.key" x-model="row.done" aria-label="Done"
-                     class="size-5 shrink-0 rounded border-gray-300 accent-blue-600">
+                     class="size-5 shrink-0 rounded border-ink accent-blue-600">
               <input type="text" :name="'text_' + row.key" x-model="row.text" maxlength="200" :placeholder="section.placeholder"
                      :class="row.done && 'text-gray-400 line-through'"
                      @keydown.enter.prevent="add(section.kind)"
-                     class="h-11 min-w-0 flex-1 basis-48 rounded-lg border border-gray-300 bg-white px-3.5 outline-none transition duration-150 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10">
+                     class="h-11 min-w-0 flex-1 basis-48 rounded-lg border border-ink bg-white px-3.5 outline-none transition duration-150 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10">
               <template x-if="row.kind === work">
                 <span class="flex shrink-0 items-center gap-1.5 max-sm:order-last max-sm:pl-8">
                   <input type="text" inputmode="numeric" maxlength="5" placeholder="09:30" :name="'start_' + row.key" x-model="row.start" @blur="row.start = clock(row.start)" aria-label="Starts"
-                         class="h-11 w-[4.5rem] rounded-lg border border-gray-300 bg-white px-2 text-center tabular-nums outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10">
+                         class="h-11 w-[4.5rem] rounded-lg border border-ink bg-white px-2 text-center tabular-nums outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10">
                   <span class="text-gray-400">–</span>
                   <input type="text" inputmode="numeric" maxlength="5" placeholder="11:00" :name="'end_' + row.key" x-model="row.end" @blur="row.end = clock(row.end)" aria-label="Ends"
-                         class="h-11 w-[4.5rem] rounded-lg border border-gray-300 bg-white px-2 text-center tabular-nums outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10">
+                         class="h-11 w-[4.5rem] rounded-lg border border-ink bg-white px-2 text-center tabular-nums outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10">
                 </span>
               </template>
               <button type="button" @click="remove(row)" aria-label="Remove" class="text-gray-400 transition-colors hover:text-gray-900">✕</button>

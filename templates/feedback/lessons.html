@@ -8,13 +8,13 @@
 
 {% block page %}
   <p class="-mt-4 mb-6 text-sm text-gray-500">What went wrong before and what to teach early, written from the feedback we discussed.</p>
-  <form method="get" class="flex flex-wrap gap-3 [&_input]:h-11 [&_input]:rounded-lg [&_input]:border [&_input]:border-gray-300 [&_input]:px-3 [&_input]:outline-none [&_input:focus]:border-blue-600 [&_input:focus]:ring-4 [&_input:focus]:ring-blue-600/10 [&_select]:h-11 [&_select]:rounded-lg [&_select]:border [&_select]:border-gray-300 [&_select]:bg-white [&_select]:px-3 [&_select]:outline-none">
+  <form method="get" class="flex flex-wrap gap-3 [&_input]:h-11 [&_input]:rounded-lg [&_input]:border [&_input]:border-ink [&_input]:px-3 [&_input]:outline-none [&_input:focus]:border-blue-600 [&_input:focus]:ring-4 [&_input:focus]:ring-blue-600/10 [&_select]:h-11 [&_select]:rounded-lg [&_select]:border [&_select]:border-ink [&_select]:bg-white [&_select]:px-3 [&_select]:outline-none">
     <input type="search" name="q" value="{{ query }}" placeholder="Search lessons" aria-label="Search lessons" class="min-w-0 flex-1">
     <select name="area" aria-label="Module" onchange="this.form.submit()">
       <option value="">All modules</option>
       {% for value, label in areas %}<option value="{{ value }}" {% if value == area %}selected{% endif %}>{{ label }}</option>{% endfor %}
     </select>
-    <button type="submit" class="h-11 rounded-lg border border-gray-300 px-5 text-sm font-medium transition hover:border-gray-400 hover:bg-gray-50">Search</button>
+    <button type="submit" class="h-11 rounded-lg border border-ink px-5 text-sm font-medium transition hover:border-ink hover:bg-gray-50">Search</button>
   </form>
 
   {% if lessons %}

@@ -8,7 +8,7 @@
     <h1 class="title mt-6 text-3xl">Profile</h1>
 
     <form method="post" x-data="{ email: '{{ profile_form.email.value|default:''|escapejs }}', original: '{{ user.email|escapejs }}', sending: false }" @submit="sending = true"
-          class="mt-6 rounded-2xl border border-gray-200/80 bg-surface p-5 sm:p-8">
+          class="mt-6 rounded-2xl border border-ink bg-surface p-5 sm:p-8">
       {% csrf_token %}
       <input type="hidden" name="action" value="profile">
       <h2 class="flex items-center justify-between gap-3 font-semibold">Your details{% if saved.profile %}<span role="status" class="inline-flex items-center gap-1.5 text-sm font-normal text-green-700 animate-rise motion-reduce:animate-none"><svg viewBox="0 0 20 20" class="size-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10.5l4 4 8-9"/></svg>{{ saved.profile }}</span>{% endif %}</h2>
@@ -16,7 +16,7 @@
       <div class="mt-5 space-y-3">
         <div class="relative">
           <input type="text" id="employee_id" value="{{ user.username }}" disabled
-                 class="block h-14 w-full cursor-not-allowed rounded-lg border border-gray-200 bg-gray-100 px-3.5 pt-5 text-gray-600">
+                 class="block h-14 w-full cursor-not-allowed rounded-lg border border-ink bg-gray-100 px-3.5 pt-5 text-gray-600">
           <label for="employee_id" class="pointer-events-none absolute left-3.5 top-2 text-xs text-gray-500">Employee ID</label>
         </div>
         {% for field in profile_form %}
@@ -28,7 +28,7 @@
                      {% if field.name == "first_name" %}required{% endif %}
                      {% if field.name == "email" %}x-model="email" autocomplete="email"{% endif %}
                      {% if field.name == "current_password" %}autocomplete="current-password"{% endif %}
-                     class="peer block h-14 w-full rounded-lg border bg-white px-3.5 pt-5 outline-none transition duration-150 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10 {% if field.errors %}border-red-600{% else %}border-gray-300{% endif %}">
+                     class="peer block h-14 w-full rounded-lg border bg-white px-3.5 pt-5 outline-none transition duration-150 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10 {% if field.errors %}border-red-600{% else %}border-ink{% endif %}">
               <label for="{{ field.id_for_label }}"
                      class="pointer-events-none absolute left-3.5 top-2 text-xs text-gray-500 transition-all duration-150 ease-out peer-placeholder-shown:top-4 peer-placeholder-shown:text-base peer-focus:top-2 peer-focus:text-xs peer-focus:text-blue-600">{% if field.name == "current_password" %}Current password (needed to change email){% else %}{{ field.label }}{% endif %}</label>
             </div>
@@ -41,7 +41,7 @@
     </form>
 
     <form method="post" x-data="{ show: false, sending: false }" @submit="sending = true"
-          class="mt-6 rounded-2xl border border-gray-200/80 bg-surface p-5 sm:p-8">
+          class="mt-6 rounded-2xl border border-ink bg-surface p-5 sm:p-8">
       {% csrf_token %}
       <input type="hidden" name="action" value="password">
       <h2 class="flex items-center justify-between gap-3 font-semibold">Password{% if saved.password %}<span role="status" class="inline-flex items-center gap-1.5 text-sm font-normal text-green-700 animate-rise motion-reduce:animate-none"><svg viewBox="0 0 20 20" class="size-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10.5l4 4 8-9"/></svg>{{ saved.password }}</span>{% endif %}</h2>
@@ -52,7 +52,7 @@
             <div class="relative">
               <input :type="show ? 'text' : 'password'" type="password" name="{{ field.html_name }}" id="pw_{{ field.id_for_label }}" required placeholder=" "
                      autocomplete="{% if forloop.first %}current-password{% else %}new-password{% endif %}"
-                     class="peer block h-14 w-full rounded-lg border bg-white px-3.5 pt-5 outline-none transition duration-150 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10 {% if field.errors %}border-red-600{% else %}border-gray-300{% endif %}">
+                     class="peer block h-14 w-full rounded-lg border bg-white px-3.5 pt-5 outline-none transition duration-150 focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10 {% if field.errors %}border-red-600{% else %}border-ink{% endif %}">
               <label for="pw_{{ field.id_for_label }}"
                      class="pointer-events-none absolute left-3.5 top-2 text-xs text-gray-500 transition-all duration-150 ease-out peer-placeholder-shown:top-4 peer-placeholder-shown:text-base peer-focus:top-2 peer-focus:text-xs peer-focus:text-blue-600">{{ field.label }}</label>
             </div>

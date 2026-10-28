@@ -17,7 +17,7 @@
 
 <div class="relative mb-3 mt-5 pl-11" style="height: {{ panel.height }}px">
   {% for hour, top in panel.hours %}
-    <div class="absolute left-10 right-0 border-t border-gray-200/70" style="top: {{ top }}px">
+    <div class="absolute left-10 right-0 border-t border-ink" style="top: {{ top }}px">
       <span class="absolute -left-10 -top-2 w-8 text-right text-xs tabular-nums text-gray-400">{{ hour|time:"H:i" }}</span>
     </div>
   {% endfor %}
@@ -28,7 +28,7 @@
   {% endif %}
   {% for block in panel.blocks %}
     <div style="top: {{ block.top }}px; height: {{ block.height }}px"
-         class="absolute left-11 right-0 overflow-hidden rounded-md border-l-[3px] px-2 py-1 text-xs leading-tight {% if block.meeting %}border-gray-400 bg-gray-200/60 text-gray-700{% else %}border-blue-600 bg-blue-100/70 text-gray-900{% endif %} {% if block.done %}opacity-60 line-through{% endif %}">
+         class="absolute left-11 right-0 overflow-hidden rounded-md border-l-[3px] px-2 py-1 text-xs leading-tight {% if block.meeting %}border-ink bg-gray-200/60 text-gray-700{% else %}border-blue-600 bg-blue-100/70 text-gray-900{% endif %} {% if block.done %}opacity-60 line-through{% endif %}">
       <div class="truncate font-medium">{{ block.title }}</div>
       <div class="tabular-nums text-gray-500">{{ block.start|time:"H:i" }}–{{ block.end|time:"H:i" }}</div>
     </div>
