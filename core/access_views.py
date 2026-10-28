@@ -50,6 +50,8 @@ def person(request, pk):
         raise Http404
 
     if request.method == "POST":
+        if subject.pk == actor.pk and not actor.is_superuser:
+            raise PermissionDenied  # nobody widens their own access
         with transaction.atomic():
             if request.POST.get("action") == "companies":
                 _save_memberships(request, subject)
@@ -103,7 +105,10 @@ def _save_memberships(request, subject):
     chosen = set(request.POST.getlist("company"))
     companies = list(Company.objects.filter(slug__in=chosen))
     subject.memberships.exclude(company__in=companies).delete()
-    subject.access_grants.exclude(company__in=companies).delete()
+    # Grants the actor may not give, they may not take away either.
+    for grant in subject.access_grants.exclude(company__in=companies):
+        if can_grant(request.user, grant.module):
+            grant.delete()
     for company in companies:
         Membership.objects.update_or_create(
             user=subject,

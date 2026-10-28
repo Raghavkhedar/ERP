@@ -190,6 +190,32 @@ def test_dropping_a_company_drops_its_grants(client, admin, make, senken, avris)
     ]
 
 
+def test_admin_dropping_a_company_keeps_finance_grants(
+    client, boss, admin, make, senken, avris
+):
+    target = make("e1")
+    client.force_login(boss)
+    url = reverse("access_person", args=[target.pk])
+    client.post(url, {"action": "companies", "company": ["senken", "avris"]})
+    client.post(
+        url, {"action": "access", "grant": ["finance:ledger:avris", "hr:leave:avris"]}
+    )
+    client.force_login(admin)
+    client.post(url, {"action": "companies", "company": ["senken"]})
+    held = set(target.access_grants.values_list("module", flat=True))
+    assert held == {"finance"}
+
+
+def test_admin_cannot_edit_their_own_access(client, admin, senken):
+    client.force_login(admin)
+    url = reverse("access_person", args=[admin.pk])
+    assert (
+        client.post(url, {"action": "companies", "company": ["senken"]}).status_code
+        == 403
+    )
+    assert not admin.memberships.exists()
+
+
 def test_switching_company_only_to_ones_you_belong_to(client, make, senken, avris):
     user = make("e1")
     Membership.objects.create(user=user, company=senken)
