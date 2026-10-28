@@ -5,9 +5,10 @@ from django.db import transaction
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from core.access import ALL, MODULES, SESSION_KEY, can_grant, user_companies
+from core.access_export import access_workbook
 from core.models import AccessGrant, Company, Membership, User
 
 
@@ -30,15 +31,25 @@ def switch_company(request):
     return redirect(back)
 
 
+def _people():
+    return User.objects.filter(is_active=True, is_superuser=False).order_by(
+        "first_name", "username"
+    )
+
+
 @login_required
 def people(request):
     _office_admin(request.user)
-    users = (
-        User.objects.filter(is_active=True, is_superuser=False)
-        .prefetch_related("memberships__company")
-        .order_by("first_name", "username")
-    )
+    users = _people().prefetch_related("memberships__company")
     return render(request, "core/access_people.html", {"people": users})
+
+
+@login_required
+@require_GET
+def export_access(request):
+    """The Access page as a spreadsheet: the same people, their companies and grants."""
+    _office_admin(request.user)
+    return access_workbook(_people())
 
 
 @login_required

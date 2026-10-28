@@ -267,3 +267,48 @@ def test_seed_migration_puts_everyone_in_senken_and_s381_in_avris_too():
     assert ("S1", "avris", True) not in pairs and ("S1", "avris", False) not in pairs
     executor = MigrationExecutor(connection)
     executor.migrate(executor.loader.graph.leaf_nodes())
+
+
+def test_office_admin_exports_people_companies_and_grants(client, admin, make, senken):
+    from io import BytesIO
+
+    from openpyxl import load_workbook
+
+    worker = make("e1")
+    worker.supervisor = admin
+    worker.save()
+    Membership.objects.create(
+        user=worker, company=senken, designation="=Accountant", pays_salary=True
+    )
+    AccessGrant.objects.create(
+        user=worker,
+        company=senken,
+        module="hr",
+        section="employees",
+        granted_by=admin,
+    )
+    client.force_login(admin)
+    response = client.get(reverse("access_export"))
+    book = load_workbook(BytesIO(response.content))
+    people = {r[0]: r for r in book["People"].values}
+    assert people["E1"][2] == "admin"
+    assert people["ADMIN"][3] == "Office admin"
+    [company] = [r for r in book["Companies"].values if r[0] == "E1"]
+    assert company[2:4] == ("Senken", "'=Accountant")
+    assert company[5] == "Yes"
+    [access] = [r for r in book["Access"].values if r[0] == "E1"]
+    assert access[2:6] == ("Senken", "HR", "Employees", "admin")
+
+
+def test_export_leaves_out_superadmins_and_is_for_office_admins_only(
+    client, admin, boss, make
+):
+    from io import BytesIO
+
+    from openpyxl import load_workbook
+
+    client.force_login(admin)
+    book = load_workbook(BytesIO(client.get(reverse("access_export")).content))
+    assert "BOSS" not in [r[0] for r in book["People"].values]
+    client.force_login(make("plain"))
+    assert client.get(reverse("access_export")).status_code == 403
