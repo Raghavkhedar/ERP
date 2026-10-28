@@ -3,8 +3,9 @@ from django.contrib.auth.decorators import login_required
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
+from .export import red_flags_workbook
 from .forms import AssignForm, NoteForm, RedFlagForm, StatusForm
 from .models import Attachment, Status
 from .services import (
@@ -76,8 +77,8 @@ def sent(request):
     return render(request, "redflags/sent.html", {"in_dialog": False})
 
 
-@login_required
-def red_flag_list(request):
+def _shown(request):
+    """The flags the list is showing: (?show=) applied to what you may read."""
     _require_reader(request.user)
     chosen = request.GET.get("show", "open")
     items = visible_flags(request.user)
@@ -87,6 +88,19 @@ def red_flag_list(request):
         items = items.filter(status=Status.CLOSED)
     else:
         chosen = "all"
+    return chosen, items
+
+
+@login_required
+@require_GET
+def export_red_flags(request):
+    _, items = _shown(request)
+    return red_flags_workbook(items)
+
+
+@login_required
+def red_flag_list(request):
+    chosen, items = _shown(request)
     return render(
         request,
         "redflags/list.html",
