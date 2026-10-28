@@ -5,9 +5,12 @@
 {% block panel_title %}{{ title }}{% endblock %}
 
 {% block panel_actions %}
-  {% if can_add_people %}
-    <a href="{% url 'chat:add_people' conversation.pk %}" class="shrink-0 text-sm text-blue-600 hover:underline">Add people</a>
-  {% endif %}
+  <div class="flex shrink-0 items-center gap-4 text-sm">
+    {% if is_member %}<a href="{% url 'chat:export_conversation' conversation.pk %}" class="text-gray-500 hover:text-gray-900">Export</a>{% endif %}
+    {% if can_add_people %}
+      <a href="{% url 'chat:add_people' conversation.pk %}" class="text-blue-600 hover:underline">Add people</a>
+    {% endif %}
+  </div>
 {% endblock %}
 
 {% block panel %}
