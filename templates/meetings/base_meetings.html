@@ -12,6 +12,7 @@
           <a href="{% url 'meetings:people' %}" class="transition-colors hover:text-gray-900 {% if page == 'people' or page == 'person_slots' or page == 'book' %}font-medium text-gray-900{% endif %}">Book a meeting</a>
           <a href="{% url 'meetings:conferences' %}" class="transition-colors hover:text-gray-900 {% if page == 'conferences' or page == 'conference_new' or page == 'conference_detail' %}font-medium text-gray-900{% endif %}">Conferences</a>
           <a href="{% url 'meetings:block_time' %}" class="transition-colors hover:text-gray-900 {% if page == 'block_time' or page == 'block_day' %}font-medium text-gray-900{% endif %}">Block time</a>
+          <a href="{% url 'meetings:export' %}" class="transition-colors hover:text-gray-900">Export</a>
         {% endwith %}
       </nav>
     </div>
