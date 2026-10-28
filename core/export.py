@@ -1,6 +1,6 @@
 """Excel downloads: one workbook per export, one sheet per related table."""
 
-from datetime import date, datetime
+from datetime import date, datetime, time
 from io import BytesIO
 
 from django.http import HttpResponse
@@ -25,6 +25,8 @@ def cell(value):
         if timezone.is_aware(value):
             value = timezone.localtime(value).replace(tzinfo=None)
         return value.replace(microsecond=0)
+    if isinstance(value, time):
+        return value.replace(microsecond=0, tzinfo=None)
     if isinstance(value, (date, bool, int, float)):
         return value
     text = str(value)
