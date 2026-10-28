@@ -4,8 +4,9 @@ from django.http import HttpResponseBadRequest, HttpResponseForbidden, JsonRespo
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
+from .export import chats_workbook
 from .forms import ChannelForm, MessageForm
-from .models import ConversationKind
+from .models import Conversation, ConversationKind
 from .services import (
     add_member,
     can_add_people,
@@ -49,6 +50,29 @@ def _latest_messages(conversation):
 @login_required
 def conversation_list(request):
     return render(request, "chat/conversation_list.html", _sidebar(request.user))
+
+
+@login_required
+@require_GET
+def export_chats(request):
+    """Every conversation you are in, with all its messages."""
+    mine = Conversation.objects.filter(memberships__user=request.user)
+    return chats_workbook(mine.select_related("created_by"), request.user, "chats")
+
+
+@login_required
+@require_GET
+def export_conversation(request, pk):
+    """One conversation with all its messages, not only the latest page. Like
+    reading it, only members may export it.
+    """
+    conversation = get_object_or_404(visible_conversations(request.user), pk=pk)
+    if not is_member(conversation, request.user):
+        return HttpResponseForbidden("Join this conversation to export its messages.")
+    one = Conversation.objects.filter(pk=conversation.pk).select_related("created_by")
+    title = conversation_title(conversation, request.user)
+    slug = "".join(ch if ch.isalnum() else "-" for ch in title).strip("-").lower()
+    return chats_workbook(one, request.user, f"chat-{slug or conversation.pk}")
 
 
 @login_required
