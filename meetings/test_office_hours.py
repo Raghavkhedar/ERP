@@ -6,11 +6,11 @@ from django.utils import timezone
 
 from .models import Slot
 from .services import (
-    book,
     office_days_open,
     open_office_hours,
     open_upcoming_office_hours,
 )
+from .testing import book
 
 pytestmark = pytest.mark.django_db
 

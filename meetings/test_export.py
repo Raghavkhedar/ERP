@@ -6,8 +6,8 @@ from django.urls import reverse
 from django.utils import timezone
 from openpyxl import load_workbook
 
-from .services import block, book, create_conference, respond
-from .testing import open_slots
+from .services import block, create_conference, respond
+from .testing import book, open_slots
 
 pytestmark = pytest.mark.django_db
 
@@ -28,9 +28,9 @@ def test_export_has_booked_meetings_blocked_time_and_no_open_slots(client, alice
     book(taken, bob, "=Budget talk")
     block(alice, [held.pk, held_too.pk], "Dentist")
     client.force_login(alice)
-    rows = sheets(client.get(reverse("meetings:export")))["Meetings"][1:]
+    rows = sheets(client.get(reverse("meetings:export")))["Time slots"][1:]
     assert [(r[2], r[3], r[4], r[5]) for r in rows] == [
-        ("Meeting", "alice", "bob", "'=Budget talk"),
+        ("Time", "alice", "bob", "'=Budget talk"),
         ("Blocked time", "alice", None, "Dentist"),
     ]
     assert rows[1][1] - rows[1][0] == timedelta(hours=2)  # the two slots are one row
@@ -40,9 +40,9 @@ def test_guest_sees_their_booking_but_a_stranger_sees_none(client, alice, bob, c
     [slot] = open_slots(alice, DAY, time(9), time(10), 60)
     book(slot, bob, "Review")
     client.force_login(bob)
-    assert len(sheets(client.get(reverse("meetings:export")))["Meetings"]) == 2
+    assert len(sheets(client.get(reverse("meetings:export")))["Time slots"]) == 2
     client.force_login(carol)
-    assert len(sheets(client.get(reverse("meetings:export")))["Meetings"]) == 1
+    assert len(sheets(client.get(reverse("meetings:export")))["Time slots"]) == 1
 
 
 def test_conferences_list_attendees_and_my_answer(client, alice, bob, carol):
@@ -66,6 +66,6 @@ def test_date_range_and_junk_dates(client, alice, bob):
     client.force_login(alice)
     url = reverse("meetings:export")
     after = DAY + timedelta(days=1)
-    assert len(sheets(client.get(f"{url}?from={after}"))["Meetings"]) == 1
-    assert len(sheets(client.get(f"{url}?from={DAY}&to={DAY}"))["Meetings"]) == 2
-    assert len(sheets(client.get(f"{url}?from=nonsense"))["Meetings"]) == 2
+    assert len(sheets(client.get(f"{url}?from={after}"))["Time slots"]) == 1
+    assert len(sheets(client.get(f"{url}?from={DAY}&to={DAY}"))["Time slots"]) == 2
+    assert len(sheets(client.get(f"{url}?from=nonsense"))["Time slots"]) == 2

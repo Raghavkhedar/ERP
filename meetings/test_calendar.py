@@ -146,8 +146,8 @@ def test_day_lists_the_days_meetings_in_order(client, alice, bob, carol, tomorro
 
     assert response.context["slots"] == [earlier, later]
     html = response.content.decode()
-    assert "Booked your slot" in html
-    assert "You booked their slot" in html
+    assert "Took your slot" in html
+    assert "Their slot, booked by you" in html
     assert reverse("meetings:cancel", args=[earlier.pk]) in html
 
 

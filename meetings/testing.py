@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from django.utils import timezone
 
 from .models import Slot
+from .services import accept_request, request_slot
 
 
 def open_slots(host, day, start_time, end_time, minutes):
@@ -17,3 +18,10 @@ def open_slots(host, day, start_time, end_time, minutes):
         )
         start += length
     return slots
+
+
+def book(slot, user, topic):
+    """Book a slot for the user the only way possible: they ask, the host accepts."""
+    accept_request(request_slot(slot, user, topic), slot.host)
+    slot.refresh_from_db()
+    return slot

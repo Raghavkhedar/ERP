@@ -7,8 +7,8 @@ from django.utils import timezone
 from chat.models import Message
 
 from .models import Slot
-from .services import block, book, cancel, send_reminders
-from .testing import open_slots
+from .services import block, cancel, send_reminders
+from .testing import book, open_slots
 
 pytestmark = pytest.mark.django_db
 
@@ -33,8 +33,8 @@ def test_both_people_are_reminded_ten_minutes_before(meeting, alice, bob):
     assert send_reminders(now=at(9, 50)) == 1
 
     to_alice, to_bob = reminders().order_by("id")
-    assert to_alice.author == bob and "meeting bob at 10:00–10:30" in to_alice.body
-    assert to_bob.author == alice and "meeting alice at 10:00–10:30" in to_bob.body
+    assert to_alice.author == bob and "time with bob at 10:00–10:30" in to_alice.body
+    assert to_bob.author == alice and "time with alice at 10:00–10:30" in to_bob.body
     assert "Leave request" in to_bob.body
     meeting.refresh_from_db()
     assert meeting.reminded_at == at(9, 50)

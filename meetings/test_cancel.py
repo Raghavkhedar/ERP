@@ -9,8 +9,8 @@ from chat.models import Message
 from chat.services import unread_counts
 
 from .models import Slot
-from .services import SlotError, book, cancel, describe
-from .testing import open_slots
+from .services import SlotError, cancel, describe
+from .testing import book, open_slots
 
 pytestmark = pytest.mark.django_db
 
@@ -132,14 +132,14 @@ def test_booker_cancels_from_the_day(client, booked, bob):
     response = client.post(cancel_url(booked), follow=True)
 
     assert response.redirect_chain == [(day_url(booked), 302)]
-    assert "Booking cancelled" in response.content.decode()
+    assert "Cancelled" in response.content.decode()
     assert not Slot.objects.get(pk=booked.pk).is_booked
 
 
 def test_host_cancels_from_the_day(client, booked, alice):
     client.force_login(alice)
     response = client.post(cancel_url(booked), follow=True)
-    assert "Meeting cancelled" in response.content.decode()
+    assert "Cancelled and the slot removed" in response.content.decode()
     assert Slot.objects.get(pk=booked.pk).is_cancelled
 
 

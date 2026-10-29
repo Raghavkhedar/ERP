@@ -66,7 +66,7 @@ def test_home_leaves_out_free_cancelled_and_past_slots(client, asha, vikram):
     response = client.get(reverse("home"))
 
     assert response.context["meetings"] == []
-    assert "No meetings booked." in response.content.decode()
+    assert "Nothing booked." in response.content.decode()
 
 
 def test_home_needs_login(client):

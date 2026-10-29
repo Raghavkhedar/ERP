@@ -2,11 +2,11 @@ from django.db.models import Q
 
 from core.export import stamp, workbook_response
 
-from .models import Conference, Slot
+from .models import Conference, Slot, SlotRequest
 
 
 def schedule_workbook(user, start=None, end=None):
-    """Your meetings, blocked time and conferences, with who answered what.
+    """Your booked time, blocked time, requests and conferences, with who answered what.
 
     Open office-hour slots nobody booked aren't part of anyone's schedule, so
     they are left out. A blocked slot is one the host cancelled with a reason;
@@ -60,13 +60,33 @@ def schedule_workbook(user, start=None, end=None):
                 (
                     s.starts_at,
                     s.ends_at,
-                    "Meeting",
+                    "Time",
                     s.host.display_name,
                     s.booked_by.display_name,
                     s.topic,
                     s.booked_at,
                 )
             )
+    asks = SlotRequest.objects.filter(Q(slot__host=user) | Q(requester=user))
+    if start:
+        asks = asks.filter(slot__starts_at__date__gte=start)
+    if end:
+        asks = asks.filter(slot__starts_at__date__lte=end)
+    request_rows = [
+        (
+            r.requester.display_name,
+            r.slot.host.display_name,
+            r.slot.starts_at,
+            r.slot.ends_at,
+            r.topic,
+            r.get_status_display(),
+            r.created_at,
+            r.responded_at,
+        )
+        for r in asks.select_related("requester", "slot__host").order_by(
+            "slot__starts_at", "id"
+        )
+    ]
     conference_rows, attendee_rows = [], []
     for c in conferences.order_by("starts_at", "id"):
         mine = next((i for i in c.invitations.all() if i.user_id == user.pk), None)
@@ -97,9 +117,22 @@ def schedule_workbook(user, start=None, end=None):
     return workbook_response(
         stamp("schedule"),
         {
-            "Meetings": (
+            "Time slots": (
                 ("From", "To", "Type", "Host", "Guest", "Topic or reason", "Booked"),
                 meetings,
+            ),
+            "Requests": (
+                (
+                    "Asked by",
+                    "Asked of",
+                    "From",
+                    "To",
+                    "Topic",
+                    "Status",
+                    "Asked",
+                    "Answered",
+                ),
+                request_rows,
             ),
             "Conferences": (
                 (
