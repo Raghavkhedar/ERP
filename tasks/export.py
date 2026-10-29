@@ -1,6 +1,6 @@
 from core.export import stamp, workbook_response
 
-from .models import TaskUpdate
+from .models import DateChange, TaskUpdate
 
 
 def _files(owner):
@@ -8,7 +8,7 @@ def _files(owner):
 
 
 def tasks_workbook(tasks):
-    """Every task in `tasks` with its updates, as a two-sheet download."""
+    """Every task in `tasks` with its updates and date changes, as a download."""
     tasks = tasks.prefetch_related("attachments").order_by("due_date", "priority", "pk")
     task_rows = [
         (
@@ -37,6 +37,22 @@ def tasks_workbook(tasks):
         (u.task_id, u.author.display_name, u.created_at, u.body, _files(u))
         for u in updates
     ]
+    changes = (
+        DateChange.objects.filter(task__in=tasks)
+        .select_related("changed_by")
+        .order_by("task_id", "created_at")
+    )
+    change_rows = [
+        (
+            c.task_id,
+            c.changed_by.display_name,
+            c.created_at,
+            c.old_date,
+            c.new_date,
+            c.reason,
+        )
+        for c in changes
+    ]
     return workbook_response(
         stamp("tasks"),
         {
@@ -60,6 +76,10 @@ def tasks_workbook(tasks):
             "Updates": (
                 ("Task #", "Author", "Posted", "Update", "Files"),
                 update_rows,
+            ),
+            "Date changes": (
+                ("Task #", "Changed by", "Changed", "Old due", "New due", "Reason"),
+                change_rows,
             ),
         },
     )
