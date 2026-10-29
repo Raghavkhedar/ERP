@@ -121,7 +121,7 @@ def agenda(user, date):
     )
     for slot in slots:
         other = slot.booked_by if slot.host_id == user.id else slot.host
-        title = f"Meeting with {other.display_name}"
+        title = f"Time with {other.display_name}"
         entries.append((slot.starts_at, slot.ends_at, title))
     conferences = (
         live_conferences()

@@ -60,7 +60,7 @@ def test_creating_needs_someone_to_invite(client, alice):
 
 def test_a_clash_asks_before_creating(client, alice, bob, carol):
     [slot] = open_slots(bob, DAY, time(10), time(10, 30), 30)
-    from .services import book
+    from .testing import book
 
     book(slot, carol, "Chat")
     client.force_login(alice)

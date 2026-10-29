@@ -153,3 +153,48 @@ class Invitation(models.Model):
 
     def __str__(self):
         return f"{self.user} {self.status} {self.conference_id}"
+
+
+class SlotRequest(models.Model):
+    """Someone asking for a free slot. Nothing is booked until the host accepts."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Waiting"
+        ACCEPTED = "accepted", "Accepted"
+        DECLINED = "declined", "Declined"
+        WITHDRAWN = "withdrawn", "Withdrawn"
+
+    slot = models.ForeignKey(Slot, on_delete=models.CASCADE, related_name="requests")
+    requester = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="slot_requests",
+    )
+    topic = models.CharField(max_length=200)
+    status = models.CharField(
+        max_length=10, choices=Status.choices, default=Status.PENDING
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    responded_at = models.DateTimeField(null=True, blank=True)
+
+    history = HistoricalRecords()
+
+    class Meta:
+        ordering = ["created_at", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["slot", "requester"],
+                condition=Q(status="pending"),
+                name="meetings_request_one_pending",
+            ),
+            models.CheckConstraint(
+                condition=Q(topic__regex=r"\S"), name="meetings_request_has_topic"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.requester} {self.status} {self.slot_id}"
+
+    @property
+    def is_pending(self):
+        return self.status == self.Status.PENDING

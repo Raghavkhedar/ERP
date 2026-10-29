@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from chat.services import post_notice
 
-from .models import Conference, Invitation, Slot
+from .models import Conference, Invitation, Slot, SlotRequest
 
 BLOCK_REASON_MAX = 200
 
@@ -165,6 +165,7 @@ def block(user, pks, reason):
         slot.cancelled_at = timezone.now()
         slot.block_reason = reason
         slot.save()
+        _close_requests(slot, user, f"can't give you {describe(slot)} any more")
     return len(slots)
 
 
@@ -223,7 +224,7 @@ def send_reminders(now=None):
                 post_notice(
                     other,
                     me,
-                    f"Reminder: you're meeting {other.display_name} at {when}. "
+                    f"Reminder: you have time with {other.display_name} at {when}. "
                     f"Topic: {slot.topic}",
                 )
             # update(), not save(): a reminder is not an edit worth a history row.
@@ -285,35 +286,132 @@ def describe(slot):
     return f"{day}, {local_time(slot.starts_at)}–{local_time(slot.ends_at)}"
 
 
-@transaction.atomic
-def book(slot, user, topic):
-    """Book a free slot for the user. First come, first served."""
-    topic = topic.strip()
-    if not topic:
-        raise SlotError("Say what the meeting is about.")
-    if slot.host_id == user.pk:
-        raise SlotError("You can't book your own slot.")
-
-    _lock(slot.host, user)
-    slot = Slot.objects.select_for_update().get(pk=slot.pk)
+def _check_requestable(slot, requester):
+    """Raise SlotError unless the slot can be taken by the requester right now."""
     if slot.is_cancelled:
         raise SlotError("This slot has been removed.")
     if slot.is_booked:
-        raise SlotError("Sorry, someone just booked this slot.")
+        raise SlotError("Sorry, someone just took this slot.")
     if slot.starts_at <= timezone.now():
         raise SlotError("This slot has already started.")
-    if is_busy(user, slot.starts_at, slot.ends_at):
-        raise SlotError("You already have a meeting booked at this time.")
+    if is_busy(requester, slot.starts_at, slot.ends_at):
+        raise SlotError("You already have something booked at this time.")
     if is_busy(slot.host, slot.starts_at, slot.ends_at):
         raise SlotError(f"{slot.host.display_name} is no longer free at this time.")
 
-    slot.booked_by = user
-    slot.topic = topic
+
+def _close_requests(slot, author, text, except_pk=None):
+    """Decline the slot's waiting requests, telling each person why."""
+    waiting = slot.requests.filter(status=SlotRequest.Status.PENDING)
+    if except_pk:
+        waiting = waiting.exclude(pk=except_pk)
+    for request in waiting.select_related("requester"):
+        request.status = SlotRequest.Status.DECLINED
+        request.responded_at = timezone.now()
+        request.save()
+        post_notice(author, request.requester, text)
+
+
+@transaction.atomic
+def request_slot(slot, user, topic):
+    """Ask the host for a free slot. Nothing is booked until they accept."""
+    topic = topic.strip()
+    if not topic:
+        raise SlotError("Say what you want to discuss.")
+    if slot.host_id == user.pk:
+        raise SlotError("You can't ask for your own slot.")
+
+    _lock(slot.host, user)
+    slot = Slot.objects.select_for_update().select_related("host").get(pk=slot.pk)
+    _check_requestable(slot, user)
+    if slot.requests.filter(requester=user, status=SlotRequest.Status.PENDING).exists():
+        raise SlotError("You've already asked for this time.")
+
+    request = SlotRequest.objects.create(slot=slot, requester=user, topic=topic)
+    post_notice(user, slot.host, f"asked for your time {describe(slot)}: {topic}")
+    return request
+
+
+@transaction.atomic
+def accept_request(request, user):
+    """The host agrees: this is the only way a slot gets booked."""
+    request = SlotRequest.objects.select_related("slot__host", "requester").get(
+        pk=request.pk
+    )
+    host, requester = request.slot.host, request.requester
+    if user.pk != host.pk:
+        raise PermissionDenied("Only the host can accept a request.")
+
+    _lock(host, requester)
+    request = SlotRequest.objects.select_for_update(of=("self",)).get(pk=request.pk)
+    slot = (
+        Slot.objects.select_for_update().select_related("host").get(pk=request.slot_id)
+    )
+    if not request.is_pending:
+        raise SlotError("This request has already been answered.")
+    _check_requestable(slot, requester)
+
+    slot.booked_by = requester
+    slot.topic = request.topic
     slot.booked_at = timezone.now()
     slot.reminded_at = None
     slot.save()
-    post_notice(user, slot.host, f"booked your slot {describe(slot)}: {topic}")
+    request.status = SlotRequest.Status.ACCEPTED
+    request.responded_at = timezone.now()
+    request.save()
+    post_notice(
+        host, requester, f"accepted your request for {describe(slot)}: {request.topic}"
+    )
+    _close_requests(
+        slot,
+        host,
+        f"couldn't give you {describe(slot)}, it went to someone else",
+        except_pk=request.pk,
+    )
     return slot
+
+
+@transaction.atomic
+def decline_request(request, user):
+    request = SlotRequest.objects.select_related("slot__host", "requester").get(
+        pk=request.pk
+    )
+    if user.pk != request.slot.host_id:
+        raise PermissionDenied("Only the host can decline a request.")
+    request = SlotRequest.objects.select_for_update(of=("self",)).get(pk=request.pk)
+    if not request.is_pending:
+        raise SlotError("This request has already been answered.")
+    request.status = SlotRequest.Status.DECLINED
+    request.responded_at = timezone.now()
+    request.save()
+    post_notice(
+        user,
+        request.requester,
+        f"declined your request for {describe(request.slot)}: {request.topic}",
+    )
+    return request
+
+
+@transaction.atomic
+def withdraw_request(request, user):
+    request = (
+        SlotRequest.objects.select_for_update(of=("self",))
+        .select_related("slot__host")
+        .get(pk=request.pk)
+    )
+    if user.pk != request.requester_id:
+        raise PermissionDenied("Only the person who asked can withdraw.")
+    if not request.is_pending:
+        raise SlotError("This request has already been answered.")
+    request.status = SlotRequest.Status.WITHDRAWN
+    request.responded_at = timezone.now()
+    request.save()
+    post_notice(
+        user,
+        request.slot.host,
+        f"withdrew their request for {describe(request.slot)}: {request.topic}",
+    )
+    return request
 
 
 @transaction.atomic
@@ -329,7 +427,7 @@ def cancel(slot, user):
     if slot.is_cancelled:
         raise SlotError("This slot has already been removed.")
     if slot.ends_at <= timezone.now():
-        raise SlotError("This meeting is already over.")
+        raise SlotError("This time is already over.")
 
     when = f"{describe(slot)} ({slot.topic})" if slot.is_booked else describe(slot)
     if user.pk == slot.booked_by_id:
@@ -338,12 +436,16 @@ def cancel(slot, user):
         slot.booked_at = None
         slot.reminded_at = None
         slot.save()
+        slot.requests.filter(requester=user, status=SlotRequest.Status.ACCEPTED).update(
+            status=SlotRequest.Status.WITHDRAWN
+        )
         post_notice(user, slot.host, f"cancelled their booking for {when}")
         return slot
 
     guest = slot.booked_by
     slot.cancelled_at = timezone.now()
     slot.save()
+    _close_requests(slot, user, f"can't give you {describe(slot)} any more")
     if guest:
         post_notice(user, guest, f"cancelled your booking for {when}")
     return slot

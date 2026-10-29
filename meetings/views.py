@@ -16,19 +16,24 @@ from django.views.decorators.http import require_GET, require_POST
 from plans.services import plan_for
 
 from .export import schedule_workbook
-from .forms import BookingForm
-from .models import Invitation, Slot
+from .forms import RequestForm
+from .models import Invitation, Slot, SlotRequest
 from .services import (
     OFFICE_HOURS,
     SlotError,
+    accept_request,
     attending,
     block,
-    book,
     cancel,
+    decline_request,
     live_conferences,
     live_slots,
     open_upcoming_office_hours,
     unblock,
+    withdraw_request,
+)
+from .services import (
+    request_slot as make_request,
 )
 
 
@@ -491,24 +496,88 @@ def person_slots(request, user_id):
         for slot in slots
         if not any(start < slot.ends_at and end > slot.starts_at for start, end in busy)
     ]
-    context = {"person": person, "slots": _with_days(slots)}
-    return render(request, "meetings/person_slots.html", context)
+    asked = {
+        r.slot_id: r
+        for r in SlotRequest.objects.filter(
+            requester=request.user,
+            status=SlotRequest.Status.PENDING,
+            slot__in=slots,
+        )
+    }
+    slots = _with_days(slots)
+    for slot in slots:
+        slot.my_request = asked.get(slot.pk)
+    return render(
+        request, "meetings/person_slots.html", {"person": person, "slots": slots}
+    )
 
 
 @login_required
-def book_slot(request, pk):
+def request_slot(request, pk):
     slot = get_object_or_404(
         live_slots().select_related("host"), pk=pk, booked_by__isnull=True
     )
-    form = BookingForm(request.POST or None)
+    form = RequestForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         try:
-            book(slot, request.user, form.cleaned_data["topic"])
+            make_request(slot, request.user, form.cleaned_data["topic"])
         except SlotError as error:
             form.add_error(None, str(error))
         else:
-            return redirect(_day_url(timezone.localdate(slot.starts_at)))
-    return render(request, "meetings/book.html", {"slot": slot, "form": form})
+            messages.success(
+                request,
+                f"Asked {slot.host.display_name}. "
+                "The time is only booked if they accept.",
+            )
+            return redirect("meetings:requests")
+    return render(request, "meetings/request.html", {"slot": slot, "form": form})
+
+
+@login_required
+def requests(request):
+    """Requests for the user's time (to answer) and the ones they have made."""
+    now = timezone.now()
+    live = SlotRequest.objects.filter(
+        slot__cancelled_at__isnull=True, slot__ends_at__gt=now
+    ).select_related("slot__host", "requester")
+    incoming = live.filter(
+        slot__host=request.user, status=SlotRequest.Status.PENDING
+    ).order_by("slot__starts_at", "created_at")
+    outgoing = live.filter(requester=request.user).order_by("slot__starts_at")
+    return render(
+        request,
+        "meetings/requests.html",
+        {"incoming": incoming, "outgoing": outgoing},
+    )
+
+
+def _answer(request, pk, action, done):
+    answered = get_object_or_404(SlotRequest, pk=pk)
+    try:
+        action(answered, request.user)
+    except SlotError as error:
+        messages.error(request, str(error))
+    else:
+        messages.success(request, done)
+    return redirect("meetings:requests")
+
+
+@login_required
+@require_POST
+def accept(request, pk):
+    return _answer(request, pk, accept_request, "Accepted. The time is now booked.")
+
+
+@login_required
+@require_POST
+def decline(request, pk):
+    return _answer(request, pk, decline_request, "Declined.")
+
+
+@login_required
+@require_POST
+def withdraw(request, pk):
+    return _answer(request, pk, withdraw_request, "Request withdrawn.")
 
 
 @login_required
@@ -523,9 +592,9 @@ def cancel_slot(request, pk):
         messages.error(request, str(error))
     else:
         if not was_host:
-            messages.success(request, "Booking cancelled. The slot is free again.")
+            messages.success(request, "Cancelled. The slot is free again.")
         elif was_booked:
-            messages.success(request, "Meeting cancelled and the slot removed.")
+            messages.success(request, "Cancelled and the slot removed.")
         else:
             messages.success(request, "Slot removed.")
     return redirect(_day_url(timezone.localdate(slot.starts_at)))

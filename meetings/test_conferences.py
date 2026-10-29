@@ -10,7 +10,6 @@ from .models import Invitation
 from .services import (
     SlotError,
     add_invitees,
-    book,
     cancel_conference,
     conference_clashes,
     create_conference,
@@ -20,7 +19,7 @@ from .services import (
     respond,
     send_reminders,
 )
-from .testing import open_slots
+from .testing import book, open_slots
 
 pytestmark = pytest.mark.django_db
 

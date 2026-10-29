@@ -5,8 +5,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .models import Slot
-from .services import SlotError, block, book, cancel, open_office_hours, unblock
-from .testing import open_slots
+from .services import SlotError, block, cancel, open_office_hours, unblock
+from .testing import book, open_slots
 
 pytestmark = pytest.mark.django_db
 
