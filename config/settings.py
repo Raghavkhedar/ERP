@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     "redflags",
     "plans",
     "notifications",
+    "people",
     "simple_history",
 ]
 

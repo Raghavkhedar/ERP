@@ -1,0 +1,29 @@
+{% load access_tags %}
+{# The left sidebar: every module, highlighted while you're in it. Shown from lg up; the header burger opens it as a drawer below that. #}
+<aside class="fixed inset-y-0 left-0 z-50 flex w-60 -translate-x-full flex-col border-r border-ink bg-surface transition-transform duration-100 ease-linear motion-reduce:transition-none lg:sticky lg:top-0 lg:h-dvh lg:translate-x-0"
+       :class="{ 'translate-x-0': nav }" aria-label="Modules">
+  <a href="{% url 'home' %}" class="flex h-14 shrink-0 items-center gap-2.5 border-b border-ink px-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pop">
+    {% include "_mark.html" %}
+    <span class="title text-xl">Senken ERP</span>
+  </a>
+  <nav class="flex-1 space-y-6 overflow-y-auto p-3 text-sm">
+    {% with section=request.resolver_match.app_name %}
+      <div class="space-y-1">
+        {% url 'home' as u %}{% include "_sidebar_link.html" with url=u label="Home" name="home" %}
+        {% url 'tasks:list' as u %}{% include "_sidebar_link.html" with url=u label="Tasks" name="tasks" %}
+        {% url 'meetings:schedule' as u %}{% include "_sidebar_link.html" with url=u label="Schedule" name="meetings" %}
+        {% url 'chat:conversation_list' as u %}{% include "_sidebar_link.html" with url=u label="Chat" name="chat" %}
+        {% url 'plans:today' as u %}{% include "_sidebar_link.html" with url=u label="Daily plan" name="plans" %}
+      </div>
+      {% if user|can_open:"recruitment" %}
+        <div>
+          <p class="px-3 pb-1 text-xs text-gray-500">Modules</p>
+          <div class="space-y-1">
+            {% url 'people:list' as u %}{% include "_sidebar_link.html" with url=u label="Empanelment" name="people" %}
+          </div>
+        </div>
+      {% endif %}
+    {% endwith %}
+  </nav>
+</aside>
+<div class="fixed inset-0 z-40 bg-ink/40 lg:hidden" x-show="nav" x-cloak @click="nav = false"></div>

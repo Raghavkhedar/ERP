@@ -1,0 +1,6 @@
+{# A sidebar link, lit up while you're in its section (Home: only on its own page). #}
+{% if section == name or request.path == url %}
+  <a href="{{ url }}" aria-current="page" class="block rounded-lg border border-ink bg-pop px-3 py-2 font-medium shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pop">{{ label }}</a>
+{% else %}
+  <a href="{{ url }}" class="block rounded-lg border border-transparent px-3 py-2 text-gray-700 transition-colors duration-100 hover:border-ink hover:bg-canvas focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pop">{{ label }}</a>
+{% endif %}

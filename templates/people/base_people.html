@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block main_class %}mx-auto w-full max-w-5xl px-4 pb-28 pt-8 sm:px-8{% endblock %}
+
+{% block content %}
+  <div class="rounded-2xl border border-ink bg-surface p-5 shadow-xl sm:p-8">
+    <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
+      <h1 class="title text-3xl">{% block heading %}Candidates{% endblock %}</h1>
+      <div class="flex items-center gap-4 text-sm">{% block actions %}{% endblock %}</div>
+    </div>
+    {% for message in messages %}
+      <p role="status" class="mt-6 text-sm {% if message.tags == 'error' %}text-red-600{% else %}text-green-700{% endif %}">{{ message }}</p>
+    {% endfor %}
+    <div class="mt-8">{% block page %}{% endblock %}</div>
+  </div>
+{% endblock %}
