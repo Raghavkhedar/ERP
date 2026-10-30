@@ -1,6 +1,6 @@
 {# A sidebar link with its icon, lit up while you're in its section (Home: only on its own page). The label hides when the sidebar is a rail; the title shows it on hover. #}
-<a href="{{ url }}" title="{{ label }}" {% if section == name or request.path == url %}aria-current="page"{% endif %}
-   class="group flex items-center gap-3 rounded-lg border px-3 py-2 transition-[background-color,transform] duration-100 ease-linear focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pop {% if section == name or request.path == url %}border-ink bg-pop font-medium shadow-md{% else %}border-transparent text-gray-700 hover:border-ink hover:bg-canvas{% endif %}">
+<a href="{{ url }}" title="{{ label }}" {% if section == name or section == also or request.path == url %}aria-current="page"{% endif %}
+   class="group flex items-center gap-3 rounded-lg border px-3 py-2 transition-[background-color,transform] duration-100 ease-linear focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pop {% if section == name or section == also or request.path == url %}border-ink bg-pop font-medium shadow-md{% else %}border-transparent text-gray-700 hover:border-ink hover:bg-canvas{% endif %}">
   <svg class="size-5 shrink-0 transition-transform duration-100 ease-linear group-hover:-rotate-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     {% if icon == "home" %}<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>
     {% elif icon == "tasks" %}<path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>

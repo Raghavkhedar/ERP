@@ -82,3 +82,8 @@ def test_close_keeps_the_row(client, boss, senken):
     client.post(reverse("hiring:close", args=[req.pk]))
     req.refresh_from_db()
     assert req.status == "closed"
+
+
+def test_sidebar_lights_empanelment_on_preparing(client, boss):
+    page = client.get(reverse("hiring:list")).content.decode()
+    assert 'title="Empanelment" aria-current="page"' in page

@@ -18,7 +18,7 @@
       {% if user|can_open:"recruitment" %}
         <div class="space-y-1 border-t border-gray-100 pt-3">
           <p class="nav-label whitespace-nowrap px-3 pb-1 text-xs text-gray-500">Modules</p>
-          {% url 'people:list' as u %}{% include "_sidebar_link.html" with url=u label="Empanelment" name="people" icon="people" %}
+          {% url 'people:list' as u %}{% include "_sidebar_link.html" with url=u label="Empanelment" name="people" also="hiring" icon="people" %}
         </div>
       {% endif %}
     {% endwith %}
