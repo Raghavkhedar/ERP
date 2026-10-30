@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     "plans",
     "notifications",
     "people",
+    "hiring",
     "simple_history",
 ]
 

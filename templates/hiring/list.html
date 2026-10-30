@@ -1,0 +1,39 @@
+{% extends "people/base_people.html" %}
+
+{% block title %}Preparing · Senken ERP{% endblock %}
+{% block heading %}Requisitions{% endblock %}
+{% block actions %}
+  <a href="{% url 'hiring:export' %}?status={{ status }}" class="text-gray-500 hover:text-gray-900">Export</a>
+  {% if user.is_superuser %}<a href="{% url 'hiring:new' %}" class="inline-flex h-10 items-center rounded-lg bg-blue-600 px-4 font-medium">Release requisition</a>{% endif %}
+{% endblock %}
+
+{% block page %}
+  <form method="get" class="fields">
+    <select name="status" aria-label="Status" onchange="this.form.submit()">
+      <option value="">Any status</option>
+      {% for key, label in statuses %}<option value="{{ key }}" {% if key == status %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </form>
+
+  {% if requisitions %}
+    <ul class="mt-4 divide-y divide-gray-100 border-y border-gray-100">
+      {% for r in requisitions %}
+        <li class="flex items-center gap-4 py-3">
+          <div class="min-w-0 flex-1">
+            <p class="truncate font-medium">{{ r.headcount }} × {{ r.profile }} <span class="text-gray-500">· {{ r.get_department_display }}</span></p>
+            <p class="truncate text-sm text-gray-500">{% if r.site %}{{ r.site }}{% endif %}{% if r.needed_by %}{% if r.site %} · {% endif %}needed by {{ r.needed_by|date:"j M Y" }}{% endif %}</p>
+          </div>
+          <span class="shrink-0 rounded-full border border-ink px-2.5 py-0.5 text-xs">{{ r.get_status_display }}</span>
+          {% if user.is_superuser %}
+            <a href="{% url 'hiring:edit' r.pk %}" class="shrink-0 text-sm text-gray-500 hover:text-gray-900">Edit</a>
+            {% if r.status == "open" %}
+              <form method="post" action="{% url 'hiring:close' r.pk %}" class="shrink-0">{% csrf_token %}<button type="submit" class="text-sm text-gray-500 hover:text-gray-900">Close</button></form>
+            {% endif %}
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="mt-6 border-y border-gray-100 py-6 text-sm text-gray-500">No requisitions{% if status %} match{% endif %}.</p>
+  {% endif %}
+{% endblock %}
