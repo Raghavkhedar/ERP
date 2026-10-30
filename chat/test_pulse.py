@@ -75,9 +75,9 @@ def test_chat_button_on_pages_but_not_in_chat(client, bob):
     home = client.get(reverse("home")).content.decode()
     chat = client.get(reverse("chat:conversation_list")).content.decode()
 
-    assert 'title="Chat"' in home
+    assert "fixed bottom-6 right-6" in home
     assert PULSE_URL in home
-    assert 'title="Chat"' not in chat
+    assert "fixed bottom-6 right-6" not in chat
     assert PULSE_URL in chat  # the bell still rings inside chat
 
 

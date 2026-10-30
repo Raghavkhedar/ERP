@@ -8,6 +8,7 @@
   <link rel="icon" type="image/png" href="{% static 'img/favicon.png' %}">
   <link rel="preload" href="{% static 'vendor/fonts/Geist-Variable.woff2' %}" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <script>try { if (localStorage.getItem("nav-rail")) document.documentElement.classList.add("nav-rail") } catch {}</script>
   <script src="{% static 'vendor/htmx.min.js' %}" defer></script>
   <script src="{% static 'vendor/alpine.min.js' %}" defer></script>
 </head>
@@ -18,7 +19,13 @@
   {% block header %}
   <header class="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-ink bg-surface/90 px-4 backdrop-blur text-sm text-gray-500 sm:px-8">
     {% if user.is_authenticated %}
-      <button type="button" @click="nav = !nav" aria-label="Menu" class="rounded border border-ink px-2.5 py-1 text-gray-900 lg:hidden">Menu</button>
+      <button type="button" aria-label="Open the menu" class="rounded-md border border-ink p-1.5 text-gray-900 hover:bg-pop lg:hidden" @click="nav = !nav">
+        <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <a href="{% url 'home' %}" class="ml-3 mr-auto flex items-center gap-2.5 lg:hidden">
+        {% include "_mark.html" %}
+        <span class="title text-xl text-gray-900">Senken ERP</span>
+      </a>
     {% else %}
       <a href="{% url 'home' %}" class="flex items-center gap-2.5 font-semibold tracking-tight text-gray-800">
         {% include "_mark.html" %}

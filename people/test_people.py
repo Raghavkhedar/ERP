@@ -115,3 +115,8 @@ def test_sidebar_lists_empanelment_only_for_those_with_access(
         django_user_model.objects.create_user(username="S7", password="pw")
     )
     assert "Empanelment" not in client.get(reverse("home")).content.decode()
+
+
+def test_sidebar_can_collapse_to_a_rail(client, caller):
+    page = client.get(reverse("home")).content.decode()
+    assert "nav-rail" in page and 'aria-label="Collapse or expand the sidebar"' in page
