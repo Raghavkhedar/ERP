@@ -1,0 +1,38 @@
+{% extends "people/base_people.html" %}
+
+{% block title %}Sourcing · Senken ERP{% endblock %}
+{% block heading %}Sourced numbers{% endblock %}
+{% block actions %}
+  <a href="{% url 'hiring:sourcing_export' %}?requisition={{ requisition }}&dup={% if dups %}1{% endif %}" class="text-gray-500 hover:text-gray-900">Export</a>
+  <a href="{% url 'hiring:source_import' %}" class="text-gray-500 hover:text-gray-900">Import Excel</a>
+  <a href="{% url 'hiring:source_new' %}" class="inline-flex h-10 items-center rounded-lg bg-blue-600 px-4 font-medium">Add number</a>
+{% endblock %}
+
+{% block page %}
+  <form method="get" class="fields flex flex-wrap items-center gap-3">
+    <select name="requisition" aria-label="Requisition" onchange="this.form.submit()">
+      <option value="">Any requisition</option>
+      {% for r in requisitions %}<option value="{{ r.pk }}" {% if r.pk|stringformat:"s" == requisition %}selected{% endif %}>{{ r }}{% if r.site %} · {{ r.site }}{% endif %}</option>{% endfor %}
+    </select>
+    <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="dup" value="1" {% if dups %}checked{% endif %} onchange="this.form.submit()"> Duplicates only</label>
+  </form>
+
+  {% if rows %}
+    <p class="mt-4 text-sm text-gray-500">{{ total }} number{{ total|pluralize }}{% if total > 200 %}, showing the first 200{% endif %}</p>
+    <ul class="mt-2 divide-y divide-gray-100 border-y border-gray-100">
+      {% for s in rows %}
+        <li>
+          <a href="{% url 'people:detail' s.person_id %}" class="flex items-center gap-4 py-3 hover:bg-canvas/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pop">
+            <div class="min-w-0 flex-1">
+              <p class="truncate font-medium">{{ s.person.name }}</p>
+              <p class="truncate text-sm text-gray-500">{{ s.person.phone }} · {{ s.requisition }}{% if s.source %} · {{ s.source }}{% endif %} · {{ s.created_at|date:"j M" }}</p>
+            </div>
+            <span class="shrink-0 rounded-full border border-ink px-2.5 py-0.5 text-xs {% if s.is_duplicate %}bg-pop{% endif %}">{% if s.is_duplicate %}Duplicate{% else %}New{% endif %}</span>
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="mt-6 border-y border-gray-100 py-6 text-sm text-gray-500">No numbers{% if requisition or dups %} match{% endif %}.</p>
+  {% endif %}
+{% endblock %}
