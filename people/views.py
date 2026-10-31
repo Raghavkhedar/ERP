@@ -3,7 +3,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
 from core.access import companies_with_access, require_section
-from hiring.services import timeline
+from hiring.forms import ScheduleCallForm
+from hiring.services import stage, timeline
 
 from .export import people_workbook
 from .forms import PersonForm
@@ -74,6 +75,8 @@ def person_detail(request, pk):
                 ("Priority", person.get_priority_display()),
             ],
             "same_number": person.same_number().filter(archived_at=None),
+            "stage": stage(person),
+            "schedule_form": ScheduleCallForm(),
             "events": timeline(person, with_hr=_has_hr(request)),
         },
     )

@@ -5,10 +5,11 @@ from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from core.access import require_section
+from people.services import visible_people
 from tasks.services import can_assign
 
 from .export import followups_workbook
-from .forms import CallForm, ReassignForm, RescheduleForm
+from .forms import CallForm, ReassignForm, RescheduleForm, ScheduleCallForm
 from .models import CallLog
 from .services import (
     FollowUpError,
@@ -16,6 +17,7 @@ from .services import (
     log_call,
     reassign,
     reschedule,
+    schedule_call,
     visible_followups,
 )
 
@@ -137,3 +139,20 @@ def cancel_followup(request, pk):
     else:
         messages.success(request, "Follow-up cancelled.")
     return redirect("hiring:screening")
+
+
+@section
+@require_POST
+def schedule_for_person(request, pk):
+    person = get_object_or_404(visible_people(request.companies), pk=pk)
+    form = ScheduleCallForm(request.POST)
+    if form.is_valid():
+        try:
+            schedule_call(person, form.cleaned_data["due"], request.user)
+        except FollowUpError as exc:
+            messages.error(request, str(exc))
+        else:
+            messages.success(request, "Call booked.")
+    else:
+        messages.error(request, "Pick a date and time for the call.")
+    return redirect("people:detail", pk=person.pk)

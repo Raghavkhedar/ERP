@@ -39,6 +39,11 @@ urlpatterns = [
         screening_views.cancel_followup,
         name="followup_cancel",
     ),
+    path(
+        "screening/person/<int:pk>/call/",
+        screening_views.schedule_for_person,
+        name="schedule_call",
+    ),
     path("selecting/", selecting_views.selecting, name="selecting"),
     path(
         "selecting/export/", selecting_views.export_interviews, name="selecting_export"

@@ -494,3 +494,50 @@ def timeline(person, with_hr=False):
             )
 
     return sorted(events, key=lambda e: e[0], reverse=True)
+
+
+def stage(person):
+    """Where a candidate is now, worked out from what exists, never stored."""
+    offers = list(person.offers.all())
+    if any(o.joined_on for o in offers):
+        return "Working"
+    if any(o.state == Offer.State.ACCEPTED for o in offers):
+        return "On-Boarding"
+    pending = set(
+        person.followups.filter(status=FollowUp.Status.PENDING).values_list(
+            "purpose", flat=True
+        )
+    )
+    if any(o.state == Offer.State.OFFERED for o in offers) or "offer" in pending:
+        return "Hiring"
+    if "interview" in pending:
+        return "Selecting"
+    if offers:
+        return "Offer declined"
+    last = person.interviews.first()
+    if last:
+        return "Not selected" if last.result == "rejected" else "Selecting"
+    if person.calls.exists() or pending:
+        return "Screening"
+    return "Sourcing"
+
+
+def schedule_call(person, due, user):
+    """Book a call for a card that has none pending (a new number books its own)."""
+    with transaction.atomic():
+        existing = person.followups.filter(
+            status=FollowUp.Status.PENDING, purpose=FollowUp.Purpose.CALL
+        ).first()
+        if existing:
+            raise FollowUpError(
+                f"A call is already booked for {_at(existing.due)}. "
+                "Move that one instead."
+            )
+        last = person.sourced.first()
+        return FollowUp.objects.create(
+            person=person,
+            requisition=last.requisition if last else None,
+            purpose=FollowUp.Purpose.CALL,
+            due=due,
+            owner=user,
+        )

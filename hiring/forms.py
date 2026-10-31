@@ -92,6 +92,14 @@ class RescheduleForm(forms.Form):
     reason = forms.ChoiceField(choices=FollowUp.Reason.choices)
 
 
+class ScheduleCallForm(forms.Form):
+    due = _when("Call on")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["due"].initial = tomorrow_morning()
+
+
 class ReassignForm(forms.Form):
     owner = forms.ModelChoiceField(get_user_model().objects.none(), label="Give to")
 
