@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from people.models import phone_key
+from people.widgets import PhoneWidget
 
 from .models import CallLog, FollowUp, HRAssessment, Interview, Requisition
 
@@ -24,7 +25,7 @@ class RequisitionForm(forms.ModelForm):
 class SourceForm(forms.Form):
     requisition = forms.ModelChoiceField(Requisition.objects.none())
     name = forms.CharField(max_length=200)
-    phone = forms.CharField(max_length=30)
+    phone = forms.CharField(max_length=30, widget=PhoneWidget)
     email = forms.EmailField(required=False)
     source = forms.CharField(
         max_length=120,

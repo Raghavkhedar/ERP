@@ -16,8 +16,8 @@
       </div>
       <div class="grid gap-5 sm:grid-cols-2">
         {% include "tasks/_field.html" with field=form.name %}
-        {% include "tasks/_field.html" with field=form.phone %}
         {% include "tasks/_field.html" with field=form.email %}
+        <div class="sm:col-span-2 sm:max-w-md">{% include "tasks/_field.html" with field=form.phone %}</div>
         <div class="sm:col-span-2">{% include "tasks/_field.html" with field=form.address %}</div>
       </div>
     </section>
