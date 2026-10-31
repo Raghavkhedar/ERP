@@ -377,3 +377,120 @@ def funnel(companies):
         )
         .order_by("status", "needed_by", "-created_at")
     )
+
+
+def _at(when):
+    return f"{timezone.localtime(when):%d %b %H:%M}"
+
+
+def timeline(person, with_hr=False):
+    """Everything that has happened around a card, newest first, as
+    (when, who, text). Built from the records and their history, not stored."""
+    events = [(person.created_at, None, "Card created")]
+
+    # Person edits: the "~" history rows, naming the fields that changed.
+    for rec in person.history.filter(history_type="~"):
+        prev = rec.prev_record
+        if not prev:
+            continue
+        fields = [
+            c.field.replace("_", " ")
+            for c in rec.diff_against(prev).changes
+            if c.field != "version"
+        ]
+        if fields:
+            events.append(
+                (rec.history_date, rec.history_user, "Edited " + ", ".join(fields))
+            )
+
+    for s in person.sourced.select_related("requisition", "sourced_by"):
+        text = f"Number received for {s.requisition.profile}"
+        if s.source:
+            text += f" via {s.source}"
+        if s.is_duplicate:
+            text += " (already on this card)"
+        events.append((s.created_at, s.sourced_by, text))
+
+    for f in person.followups.all():
+        label = f.get_purpose_display().lower()
+        events.append(
+            (
+                f.created_at,
+                None,
+                f"{label.capitalize()} booked for {_at(f.due)}",
+            )
+        )
+        for rec in f.history.filter(history_type="~"):
+            prev = rec.prev_record
+            if not prev:
+                continue
+            if rec.due != prev.due:
+                text = (
+                    f"{label.capitalize()} moved from {_at(prev.due)} to {_at(rec.due)}"
+                )
+                if rec.reschedule_reason:
+                    text += f" ({rec.get_reschedule_reason_display().lower()})"
+                events.append((rec.history_date, rec.history_user, text))
+            if rec.owner_id != prev.owner_id:
+                events.append(
+                    (
+                        rec.history_date,
+                        rec.history_user,
+                        f"{label.capitalize()} given to {f.owner}",
+                    )
+                )
+            if rec.status != prev.status and rec.status in ("cancelled", "not_done"):
+                events.append(
+                    (
+                        rec.history_date,
+                        rec.history_user,
+                        f"{label.capitalize()} {rec.get_status_display().lower()}",
+                    )
+                )
+
+    for c in person.calls.select_related("caller"):
+        text = f"Call: {c.get_outcome_display().lower()}"
+        events.append(
+            (c.called_at, c.caller, f"{text}. {c.notes}" if c.notes else text)
+        )
+
+    for i in person.interviews.select_related("interviewer"):
+        text = f"Interview: {i.get_result_display().lower()}"
+        events.append(
+            (i.scheduled_at, i.interviewer, f"{text}. {i.notes}" if i.notes else text)
+        )
+        if with_hr and hasattr(i, "hr"):
+            h = i.hr
+            events.append(
+                (
+                    h.created_at,
+                    h.assessor,
+                    f"HR assessment: {h.get_decision_display().lower()}, "
+                    f"{h.get_level_display().lower()}",
+                )
+            )
+
+    for o in person.offers.select_related("made_by"):
+        events.append((o.created_at, o.made_by, "Offer made"))
+        for r in o.rounds.select_related("by"):
+            text = f"Offer round: {r.amount}"
+            if r.counter is not None:
+                text += f", candidate asked {r.counter}"
+            events.append((r.created_at, r.by, text))
+        if o.decided_at:
+            text = (
+                "Offer accepted, joining " + f"{o.joining_date:%d %b %Y}"
+                if o.state == "accepted"
+                else "Offer declined"
+            )
+            events.append((o.decided_at, None, text))
+        if o.joined_on:
+            events.append(
+                (
+                    timezone.make_aware(datetime.combine(o.joined_on, time(9))),
+                    None,
+                    "Joined",
+                )
+            )
+
+    return sorted(events, key=lambda e: e[0], reverse=True)

@@ -8,6 +8,8 @@
 {% endblock %}
 
 {% block page %}
+<div class="lg:grid lg:grid-cols-[1fr_20rem] lg:gap-10">
+<div>
   <dl class="grid gap-x-8 gap-y-4 sm:grid-cols-2">
     {% for label, value in rows %}
       <div><dt class="text-sm text-gray-500">{{ label }}</dt><dd class="mt-0.5">{{ value|default:"—" }}</dd></div>
@@ -22,6 +24,21 @@
       </ul>
     </div>
   {% endif %}
+
+</div>
+<aside class="mt-10 lg:mt-0">
+  <h2 class="title text-xl">Timeline</h2>
+  <ol class="mt-4 border-l-2 border-ink pl-5">
+    {% for when, who, text in events %}
+      <li class="relative pb-4">
+        <span class="absolute -left-[27px] top-1.5 size-3 rounded-full border border-ink bg-pop"></span>
+        <p>{{ text }}</p>
+        <p class="text-sm text-gray-500">{{ when|date:"d M Y, H:i" }}{% if who %} · {{ who }}{% endif %}</p>
+      </li>
+    {% endfor %}
+  </ol>
+</aside>
+</div>
 
   <form method="post" action="{% url 'people:archive' person.pk %}" class="mt-10" onsubmit="return confirm('Archive this card? It leaves the lists but is kept.')">
     {% csrf_token %}
