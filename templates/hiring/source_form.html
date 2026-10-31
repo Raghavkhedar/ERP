@@ -1,0 +1,18 @@
+{% extends "people/base_people.html" %}
+
+{% block title %}{{ title }} · Senken ERP{% endblock %}
+{% block heading %}{{ title }}{% endblock %}
+
+{% block page %}
+  {% if help %}<p class="mb-5 text-sm text-gray-500">{{ help }}</p>{% endif %}
+  <form method="post" {% if multipart %}enctype="multipart/form-data"{% endif %} class="fields max-w-xl space-y-5 [&_input]:w-full [&_select]:w-full">
+    {% csrf_token %}
+    {% for error in form.non_field_errors %}<p class="text-sm text-red-600">{{ error }}</p>{% endfor %}
+    {% for field in form.visible_fields %}{% include "tasks/_field.html" %}{% endfor %}
+    <datalist id="sources">{% for s in sources %}<option value="{{ s }}">{% endfor %}</datalist>
+    <div class="flex items-center gap-4">
+      <button type="submit" class="h-11 rounded-lg bg-blue-600 px-5 font-medium">{% if multipart %}Import{% else %}Save{% endif %}</button>
+      <a href="{% url 'hiring:sourcing' %}" class="text-sm text-gray-500 hover:text-gray-900">Cancel</a>
+    </div>
+  </form>
+{% endblock %}

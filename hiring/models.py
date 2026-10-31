@@ -48,3 +48,30 @@ class Requisition(models.Model):
 
     def __str__(self):
         return f"{self.headcount} × {self.profile}"
+
+
+class SourcedNumber(models.Model):
+    """One row per number received, for one requisition. A number that matches an
+    existing card creates no second card: the row points at that card and is
+    marked a duplicate. Never blocked, never merged."""
+
+    requisition = models.ForeignKey(
+        Requisition, on_delete=models.PROTECT, related_name="sourced"
+    )
+    person = models.ForeignKey(
+        "people.Person", on_delete=models.PROTECT, related_name="sourced"
+    )
+    source = models.CharField(max_length=120, blank=True)
+    is_duplicate = models.BooleanField(default=False)
+    sourced_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    history = HistoricalRecords()
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return f"{self.person} for {self.requisition}"
