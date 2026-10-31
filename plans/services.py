@@ -150,8 +150,50 @@ def can_view(viewer, owner):
     return Task.objects.filter(assigned_by=viewer, assigned_to=owner).exists()
 
 
-PANEL_HOUR_HEIGHT = 40  # pixels per hour in the home page's day panel
+PANEL_HOUR_HEIGHT = 56  # pixels per hour in the home page's day panel
 PANEL_START, PANEL_END = 10, 18  # the hours the panel shows
+
+
+def _merge(blocks):
+    """Blocks that touch, with the same kind and title, become one, the way a
+    calendar draws a meeting that runs across several slots."""
+    merged = []
+    for b in sorted(blocks, key=lambda b: (b["meeting"], b["title"], b["start"])):
+        last = merged[-1] if merged else None
+        if (
+            last
+            and last["meeting"] == b["meeting"]
+            and last["title"] == b["title"]
+            and b["start"] <= last["end"]
+        ):
+            last["end"] = max(last["end"], b["end"])
+            last["done"] = last["done"] and b["done"]
+        else:
+            merged.append(dict(b))
+    return sorted(merged, key=lambda b: (b["start"], b["end"]))
+
+
+def _lanes(blocks):
+    """Give blocks that overlap in time side-by-side columns (`lane` of
+    `lanes`), so none is hidden behind another. Blocks must be sorted by start."""
+    cluster, ends, cluster_end = [], [], None
+    for b in blocks + [None]:
+        if cluster and (b is None or b["start"] >= cluster_end):
+            for c in cluster:
+                c["lanes"] = len(ends)
+            cluster, ends = [], []
+        if b is None:
+            break
+        free = next((i for i, end in enumerate(ends) if end <= b["start"]), None)
+        if free is None:
+            free = len(ends)
+            ends.append(b["end"])
+        else:
+            ends[free] = b["end"]
+        b["lane"] = free
+        cluster.append(b)
+        cluster_end = max(c["end"] for c in cluster)
+    return blocks
 
 
 def day_panel(user, date):
@@ -186,7 +228,7 @@ def day_panel(user, date):
                 "meeting": True,
             }
         )
-    blocks.sort(key=lambda b: b["start"])
+    blocks = _lanes(_merge(blocks))
     first, last = PANEL_START, PANEL_END
     span = (last - first) * PANEL_HOUR_HEIGHT
 
@@ -205,9 +247,13 @@ def day_panel(user, date):
     now_top = None
     if now.date() == date and first <= now.hour < last:
         now_top = offset(now.time())
-    done, total = progress(plan)
+    goals = [i for i in items if i.kind == PlanItem.Kind.GOAL]
+    done, total = sum(g.done for g in goals), len(goals)
     return {
-        "goals": [i for i in items if i.kind == PlanItem.Kind.GOAL],
+        "date": date,
+        "now": now.time() if now_top is not None else None,
+        "percent": round(done * 100 / total) if total else 0,
+        "goals": goals,
         "blocks": blocks,
         "hours": [
             (time(h), (h - first) * PANEL_HOUR_HEIGHT) for h in range(first, last + 1)

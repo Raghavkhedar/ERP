@@ -179,6 +179,38 @@ def test_panel_places_work_by_time(alice):
     block = draft
     assert block["title"] == "Draft"
     assert block["top"] == 0  # the panel starts at 10:00, so this is cut
-    assert block["height"] == 40
-    assert call["top"] == 40 and call["height"] == 40
+    assert block["height"] == 56
+    assert call["top"] == 56 and call["height"] == 56
     assert [hour.hour for hour, _ in panel["hours"]] == list(range(10, 19))
+
+
+def test_panel_joins_back_to_back_blocks_of_one_thing(alice):
+    save_plan(
+        alice,
+        DAY,
+        [
+            (None, G, "Ship it", False, None, None),
+            (None, W, "Calls", False, time(10), time(11)),
+            (None, W, "Calls", False, time(11), time(12)),
+            (None, W, "Calls", False, time(13), time(14)),  # a gap: stays apart
+            (None, W, "Review", False, time(12), time(13)),  # other title: apart
+        ],
+    )
+    blocks = day_panel(alice, DAY)["blocks"]
+    assert [(b["title"], b["start"], b["end"]) for b in blocks] == [
+        ("Calls", time(10), time(12)),
+        ("Review", time(12), time(13)),
+        ("Calls", time(13), time(14)),
+    ]
+
+
+def test_overlapping_blocks_get_side_by_side_lanes():
+    from plans.services import _lanes
+
+    def block(start, end):
+        return {"start": time(start), "end": time(end)}
+
+    draft, email, later = _lanes([block(10, 12), block(11, 12), block(14, 15)])
+    assert (draft["lane"], draft["lanes"]) == (0, 2)
+    assert (email["lane"], email["lanes"]) == (1, 2)
+    assert (later["lane"], later["lanes"]) == (0, 1)
