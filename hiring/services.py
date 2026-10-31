@@ -357,3 +357,23 @@ def mark_joined(offer, on):
             status=FollowUp.Status.PENDING,
         ).update(status=FollowUp.Status.COMPLETED)
         return current
+
+
+def funnel(companies):
+    """Requisitions with how many people reached each step. People are counted
+    once per step, so a candidate called five times is still one call."""
+    done = lambda path, **kw: Count(path, distinct=True, filter=Q(**kw) if kw else None)  # noqa: E731
+    return (
+        Requisition.objects.filter(company__in=companies, archived_at__isnull=True)
+        .annotate(
+            sourced_n=done("sourced"),
+            duplicate_n=done("sourced", sourced__is_duplicate=True),
+            called_n=done("followups__calls__person"),
+            interviewed_n=done("interviews__person"),
+            selected_n=done("interviews__person", interviews__result="selected"),
+            offered_n=done("offers__person"),
+            accepted_n=done("offers__person", offers__state="accepted"),
+            joined_n=done("offers__person", offers__joined_on__isnull=False),
+        )
+        .order_by("status", "needed_by", "-created_at")
+    )

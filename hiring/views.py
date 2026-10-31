@@ -5,10 +5,16 @@ from django.views.decorators.http import require_GET, require_POST
 
 from core.access import require_section
 
-from .export import requisitions_workbook
+from .export import STEPS, funnel_workbook, requisitions_workbook
 from .forms import RequisitionForm
 from .models import Requisition
-from .services import StaleRequisition, close, save_requisition, visible_requisitions
+from .services import (
+    StaleRequisition,
+    close,
+    funnel,
+    save_requisition,
+    visible_requisitions,
+)
 
 section = require_section("recruitment", "openings")
 
@@ -92,3 +98,19 @@ def close_requisition(request, pk):
     close(_requisition(request, pk))
     messages.success(request, "Requisition closed.")
     return redirect("hiring:list")
+
+
+@section
+def report(request):
+    rows = [(r, [getattr(r, f) for _, f in STEPS]) for r in funnel(request.companies)]
+    return render(
+        request,
+        "hiring/report.html",
+        {"rows": rows, "heads": [h for h, _ in STEPS]},
+    )
+
+
+@section
+@require_GET
+def export_report(request):
+    return funnel_workbook(funnel(request.companies))

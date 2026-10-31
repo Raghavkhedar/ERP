@@ -5,13 +5,14 @@
 {% block content %}
   <div class="rounded-2xl border border-ink bg-surface p-5 shadow-xl sm:p-8">
     <nav class="mb-6 flex flex-wrap gap-2 text-sm" aria-label="Empanelment sections">
-      {% url 'hiring:list' as preparing %}{% url 'hiring:sourcing' as sourcing %}{% url 'hiring:screening' as screening %}{% url 'hiring:selecting' as selecting %}{% url 'hiring:offers' as offers %}{% url 'hiring:onboarding' as onboarding %}{% url 'people:list' as candidates %}
+      {% url 'hiring:list' as preparing %}{% url 'hiring:sourcing' as sourcing %}{% url 'hiring:screening' as screening %}{% url 'hiring:selecting' as selecting %}{% url 'hiring:offers' as offers %}{% url 'hiring:onboarding' as onboarding %}{% url 'hiring:report' as report %}{% url 'people:list' as candidates %}
       <a href="{{ preparing }}" class="rounded-full border border-ink px-3 py-1 {% if '/requisitions/' in request.path %}bg-pop{% endif %}">Preparing</a>
       <a href="{{ sourcing }}" class="rounded-full border border-ink px-3 py-1 {% if '/sourcing/' in request.path %}bg-pop{% endif %}">Sourcing</a>
       <a href="{{ screening }}" class="rounded-full border border-ink px-3 py-1 {% if '/screening/' in request.path %}bg-pop{% endif %}">Screening</a>
       <a href="{{ selecting }}" class="rounded-full border border-ink px-3 py-1 {% if '/selecting/' in request.path %}bg-pop{% endif %}">Selecting</a>
       <a href="{{ offers }}" class="rounded-full border border-ink px-3 py-1 {% if '/hiring/' in request.path %}bg-pop{% endif %}">Hiring</a>
       <a href="{{ onboarding }}" class="rounded-full border border-ink px-3 py-1 {% if '/onboarding/' in request.path %}bg-pop{% endif %}">On-Boarding</a>
+      <a href="{{ report }}" class="rounded-full border border-ink px-3 py-1 {% if '/report/' in request.path %}bg-pop{% endif %}">Report</a>
       <a href="{{ candidates }}" class="rounded-full border border-ink px-3 py-1 {% if request.resolver_match.app_name == 'people' %}bg-pop{% endif %}">Candidates</a>
     </nav>
     <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
