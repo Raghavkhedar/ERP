@@ -1,3 +1,5 @@
+from datetime import datetime, time
+
 from django.db import transaction
 from django.db.models import Count, Q
 from django.urls import reverse
@@ -12,6 +14,8 @@ from .models import (
     FollowUp,
     HRAssessment,
     Interview,
+    Offer,
+    OfferRound,
     Requisition,
     SourcedNumber,
 )
@@ -254,3 +258,77 @@ def save_assessment(interview, decision, level, user, hold_tenure="", comments="
             assessor=user,
         ),
     )[0]
+
+
+class OfferError(FollowUpError):
+    """The offer can't change that way; the message says why."""
+
+
+def offers_waiting(user, companies):
+    return visible_followups(user, companies).filter(purpose=FollowUp.Purpose.OFFER)
+
+
+def visible_offers(companies):
+    return Offer.objects.filter(person__company__in=companies).select_related(
+        "person", "requisition"
+    )
+
+
+def start_offer(followup, amount, user, note=""):
+    """Make the first offer for a candidate whose interview went well."""
+    with transaction.atomic():
+        current = _pending(followup)
+        offer = Offer.objects.create(
+            person=current.person, requisition=current.requisition, made_by=user
+        )
+        OfferRound.objects.create(offer=offer, amount=amount, note=note, by=user)
+        current.status = FollowUp.Status.COMPLETED
+        current.version += 1
+        current.save(update_fields=["status", "version"])
+        return offer
+
+
+def _open_offer(offer):
+    current = Offer.objects.select_for_update().get(pk=offer.pk)
+    if current.state != Offer.State.OFFERED:
+        raise OfferError("That offer is already closed.")
+    return current
+
+
+def add_round(offer, amount, user, counter=None, note=""):
+    with transaction.atomic():
+        current = _open_offer(offer)
+        return OfferRound.objects.create(
+            offer=current, amount=amount, counter=counter, note=note, by=user
+        )
+
+
+def accept(offer, joining_date, user):
+    """The candidate said yes: close the offer and book the joining."""
+    with transaction.atomic():
+        current = _open_offer(offer)
+        current.state = Offer.State.ACCEPTED
+        current.joining_date = joining_date
+        current.decided_at = timezone.now()
+        current.save()
+        FollowUp.objects.get_or_create(
+            person=current.person,
+            purpose=FollowUp.Purpose.JOINING,
+            status=FollowUp.Status.PENDING,
+            defaults=dict(
+                requisition=current.requisition,
+                due=timezone.make_aware(datetime.combine(joining_date, time(9))),
+                owner=user,
+            ),
+        )
+        return current
+
+
+def decline(offer, reason=""):
+    with transaction.atomic():
+        current = _open_offer(offer)
+        current.state = Offer.State.DECLINED
+        current.decline_reason = reason
+        current.decided_at = timezone.now()
+        current.save()
+        return current
