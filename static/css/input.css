@@ -255,6 +255,12 @@ textarea:focus {
   }
   .nav-rail .nav-label {
     opacity: 0;
+    pointer-events: none;
+  }
+  /* The logo cell keeps its full width when the rest shrinks to the rail, over
+     the top bar, so the name never moves or hides. */
+  .nav-rail aside[aria-label="Modules"] {
+    overflow: visible;
   }
   .nav-chevron {
     transition: transform 120ms linear;
