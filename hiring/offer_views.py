@@ -4,14 +4,16 @@ from django.views.decorators.http import require_GET, require_POST
 
 from core.access import require_section
 
-from .export import offers_workbook
-from .forms import AcceptForm, DeclineForm, RoundForm, StartOfferForm
+from .export import offers_workbook, onboarding_workbook
+from .forms import AcceptForm, DeclineForm, JoinedForm, RoundForm, StartOfferForm
 from .services import (
     FollowUpError,
     accept,
     add_round,
     decline,
+    mark_joined,
     offers_waiting,
+    onboarding,
     start_offer,
     visible_offers,
 )
@@ -123,3 +125,33 @@ def decline_offer(request, pk):
         decline(o, d["reason"])
 
     return _act(request, pk, DeclineForm, "decline_form", run, "Offer declined.")
+
+
+@section
+def onboarding_page(request):
+    expecting, joined = onboarding(request.companies)
+    return render(
+        request,
+        "hiring/onboarding.html",
+        {"expecting": expecting, "joined": joined[:100], "form": JoinedForm()},
+    )
+
+
+@section
+@require_POST
+def joined(request, pk):
+    form = JoinedForm(request.POST)
+    if form.is_valid():
+        try:
+            mark_joined(_offer(request, pk), form.cleaned_data["joined_on"])
+        except FollowUpError as exc:
+            messages.error(request, str(exc))
+        else:
+            messages.success(request, "Marked as joined.")
+    return redirect("hiring:onboarding")
+
+
+@section
+@require_GET
+def export_onboarding(request):
+    return onboarding_workbook(*onboarding(request.companies))

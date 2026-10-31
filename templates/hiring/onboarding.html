@@ -1,0 +1,35 @@
+{% extends "people/base_people.html" %}
+
+{% block title %}On-Boarding · Senken ERP{% endblock %}
+{% block heading %}Joining{% endblock %}
+{% block actions %}<a href="{% url 'hiring:onboarding_export' %}" class="text-gray-500 hover:text-gray-900">Export</a>{% endblock %}
+
+{% block page %}
+  <h2 class="font-semibold">Yet to join <span class="font-normal text-gray-500">({{ expecting|length }})</span></h2>
+  <ul class="mt-1 divide-y divide-gray-100 border-y border-gray-100">
+    {% for o in expecting %}
+      <li class="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
+        <div class="min-w-[12rem] flex-1">
+          <p class="truncate font-medium">{{ o.person.name }}</p>
+          <p class="truncate text-sm text-gray-500">{{ o.person.phone }} · joins {{ o.joining_date|date:"j M Y" }}{% if o.requisition %} · {{ o.requisition }}{% endif %}</p>
+        </div>
+        <form method="post" action="{% url 'hiring:joined' o.pk %}" class="fields flex items-center gap-2">
+          {% csrf_token %}
+          <input type="date" name="joined_on" value="{% now 'Y-m-d' %}" aria-label="Joined on" class="h-9">
+          <button type="submit" class="h-9 rounded-lg bg-blue-600 px-3 text-sm font-medium">Joined</button>
+        </form>
+      </li>
+    {% empty %}<li class="py-4 text-sm text-gray-500">No one waiting. Accepted offers from Hiring land here.</li>{% endfor %}
+  </ul>
+
+  <h2 class="mt-8 font-semibold">Joined</h2>
+  <ul class="mt-1 divide-y divide-gray-100 border-y border-gray-100">
+    {% for o in joined %}
+      <li class="py-3">
+        <p class="truncate font-medium">{{ o.person.name }} <span class="text-sm font-normal text-gray-500">· joined {{ o.joined_on|date:"j M Y" }}</span></p>
+        {# The three-day assessment form isn't ready yet; this is its place. #}
+        <p class="mt-1 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-500">Three-day assessment: coming soon.</p>
+      </li>
+    {% empty %}<li class="py-4 text-sm text-gray-500">No one has joined yet.</li>{% endfor %}
+  </ul>
+{% endblock %}
