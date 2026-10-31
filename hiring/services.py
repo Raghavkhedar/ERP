@@ -541,3 +541,17 @@ def schedule_call(person, due, user):
             due=due,
             owner=user,
         )
+
+
+def shift_calls(followups, day, reason):
+    """Move pending calls to `day`, each keeping its time of day. For the days
+    staff are out or the queue is too long to get through."""
+    moved = 0
+    with transaction.atomic():
+        for f in followups:
+            if f.purpose != FollowUp.Purpose.CALL:
+                continue
+            at = timezone.localtime(f.due).time()
+            reschedule(f, timezone.make_aware(datetime.combine(day, at)), reason)
+            moved += 1
+    return moved

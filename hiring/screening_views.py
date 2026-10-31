@@ -9,7 +9,13 @@ from people.services import visible_people
 from tasks.services import can_assign
 
 from .export import followups_workbook
-from .forms import CallForm, ReassignForm, RescheduleForm, ScheduleCallForm
+from .forms import (
+    CallForm,
+    ReassignForm,
+    RescheduleForm,
+    ScheduleCallForm,
+    ShiftForm,
+)
 from .models import CallLog
 from .services import (
     FollowUpError,
@@ -18,6 +24,7 @@ from .services import (
     reassign,
     reschedule,
     schedule_call,
+    shift_calls,
     visible_followups,
 )
 
@@ -32,18 +39,49 @@ def _can_reassign(user):
     return user.is_superuser or can_assign(user)
 
 
+def _day(f):
+    return timezone.localtime(f.due).date()
+
+
+def _groups(request):
+    rows = visible_followups(request.user, request.companies)
+    today = timezone.localdate()
+    day = _day
+    return {
+        "overdue": [f for f in rows if day(f) < today],
+        "today": [f for f in rows if day(f) == today],
+        "later": [f for f in rows if day(f) > today],
+    }
+
+
 @section
 def screening(request):
-    rows = visible_followups(request.user, request.companies)
-    now = timezone.localtime()
-    overdue = [f for f in rows if f.due < now and f.due.date() < now.date()]
-    today = [f for f in rows if f.due.date() == now.date()]
-    later = [f for f in rows if f.due.date() > now.date()]
+    groups = _groups(request)
     return render(
         request,
         "hiring/screening.html",
-        {"groups": [("Overdue", overdue), ("Today", today), ("Later", later)]},
+        {
+            "groups": [(g.capitalize(), g, rows) for g, rows in groups.items()],
+            "shift_form": ShiftForm(),
+        },
     )
+
+
+@section
+@require_POST
+def shift(request):
+    form = ShiftForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, "Pick a day and a reason to move them.")
+        return redirect("hiring:screening")
+    d = form.cleaned_data
+    try:
+        moved = shift_calls(_groups(request)[d["group"]], d["day"], d["reason"])
+    except FollowUpError as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, f"Moved {moved} call{'s' if moved != 1 else ''}.")
+    return redirect("hiring:screening")
 
 
 @section

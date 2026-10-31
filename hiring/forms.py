@@ -100,6 +100,15 @@ class ScheduleCallForm(forms.Form):
         self.fields["due"].initial = tomorrow_morning()
 
 
+class ShiftForm(forms.Form):
+    group = forms.ChoiceField(choices=[(g, g) for g in ("overdue", "today", "later")])
+    day = forms.DateField(
+        label="Move to",
+        widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+    )
+    reason = forms.ChoiceField(choices=FollowUp.Reason.choices)
+
+
 class ReassignForm(forms.Form):
     owner = forms.ModelChoiceField(get_user_model().objects.none(), label="Give to")
 
