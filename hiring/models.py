@@ -272,6 +272,8 @@ class Offer(models.Model):
     )
     state = models.CharField(max_length=20, choices=State, default=State.OFFERED)
     joining_date = models.DateField(null=True, blank=True)
+    # The day they actually turned up, as opposed to the promised joining_date.
+    joined_on = models.DateField(null=True, blank=True)
     decline_reason = models.CharField(max_length=200, blank=True)
     decided_at = models.DateTimeField(null=True, blank=True)
     made_by = models.ForeignKey(
@@ -293,6 +295,10 @@ class Offer(models.Model):
                 condition=~models.Q(state="accepted")
                 | models.Q(joining_date__isnull=False),
                 name="accepted_offer_has_joining_date",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(joined_on__isnull=True) | models.Q(state="accepted"),
+                name="only_accepted_offers_join",
             ),
         ]
 

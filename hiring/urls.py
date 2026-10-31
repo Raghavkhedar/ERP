@@ -56,4 +56,7 @@ urlpatterns = [
         offer_views.decline_offer,
         name="offer_decline",
     ),
+    path("onboarding/", offer_views.onboarding_page, name="onboarding"),
+    path("onboarding/export/", offer_views.export_onboarding, name="onboarding_export"),
+    path("onboarding/<int:pk>/joined/", offer_views.joined, name="joined"),
 ]
