@@ -5,15 +5,28 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.http import Http404
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 
 from .excel import schedule_rows
 from .export import plans_workbook
 from .models import PlanItem
-from .services import PlanError, agenda, can_view, is_set, plan_for, progress, save_plan
+from .services import (
+    PlanError,
+    add_block,
+    agenda,
+    can_view,
+    day_panel,
+    delete_blocks,
+    is_set,
+    move_blocks,
+    plan_for,
+    progress,
+    rename_blocks,
+    save_plan,
+)
 
 
 def _rows(post):
@@ -144,3 +157,39 @@ def export_plans(request, user_id):
     return plans_workbook(
         owner, _day(request.GET.get("from")), _day(request.GET.get("to"))
     )
+
+
+@login_required
+@require_GET
+def panel(request):
+    """The home page's "Your day" panel on its own, to refresh it after an edit."""
+    today = timezone.localdate()
+    return render(
+        request, "plans/_day_panel.html", {"panel": day_panel(request.user, today)}
+    )
+
+
+@login_required
+@require_POST
+def block(request):
+    """Create, move, rename or delete blocks on today's plan, for the timeline."""
+    post, today = request.POST, timezone.localdate()
+    ids = [int(i) for i in post.getlist("ids") if i.isdigit()]
+    try:
+        action = post.get("action")
+        if action == "add":
+            start = datetime.strptime(post.get("start", ""), "%H:%M").time()
+            add_block(request.user, today, post.get("title", ""), start)
+        elif action == "move":
+            move_blocks(request.user, today, ids, int(post.get("delta", "")))
+        elif action == "rename":
+            rename_blocks(request.user, today, ids, post.get("title", ""))
+        elif action == "delete":
+            delete_blocks(request.user, today, ids)
+        else:
+            raise PlanError("Unknown action.")
+    except ValueError:
+        return JsonResponse({"error": "That time wasn't right."}, status=400)
+    except PlanError as error:
+        return JsonResponse({"error": str(error)}, status=400)
+    return JsonResponse({"ok": True})

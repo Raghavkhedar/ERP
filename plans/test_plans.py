@@ -10,6 +10,7 @@ from plans.services import (
     day_panel,
     has_plan_today,
     is_plan_day,
+    plan_for,
     save_plan,
 )
 
@@ -214,3 +215,85 @@ def test_overlapping_blocks_get_side_by_side_lanes():
     assert (draft["lane"], draft["lanes"]) == (0, 2)
     assert (email["lane"], email["lanes"]) == (1, 2)
     assert (later["lane"], later["lanes"]) == (0, 1)
+
+
+def _today_plan(alice):
+    from django.utils import timezone
+
+    today = timezone.localdate()
+    save_plan(alice, today, [(None, G, "Ship it", False, None, None)])
+    return today
+
+
+def test_add_move_rename_delete_a_block(alice):
+    from plans.services import add_block, delete_blocks, move_blocks, rename_blocks
+
+    today = _today_plan(alice)
+    add_block(alice, today, "  Calls ", time(10, 15))
+    item = alice_items(alice, today)[0]
+    assert (item.text, item.starts_at, item.ends_at) == (
+        "Calls",
+        time(10, 15),
+        time(10, 30),
+    )
+    move_blocks(alice, today, [item.pk], 45)
+    item.refresh_from_db()
+    assert (item.starts_at, item.ends_at) == (time(11, 0), time(11, 15))
+    rename_blocks(alice, today, [item.pk], "Interviews")
+    item.refresh_from_db()
+    assert item.text == "Interviews"
+    delete_blocks(alice, today, [item.pk])
+    assert alice_items(alice, today) == []
+
+
+def alice_items(alice, today):
+    return list(plan_for(alice, today).items.filter(kind=W))
+
+
+def test_blocks_cannot_overlap_leave_the_day_or_be_nameless(alice):
+    from plans.services import add_block, move_blocks
+
+    today = _today_plan(alice)
+    add_block(alice, today, "A", time(10, 0))
+    with pytest.raises(PlanError):
+        add_block(alice, today, "B", time(10, 0))
+    add_block(alice, today, "B", time(10, 15))  # back to back is fine
+    a, b = alice_items(alice, today)
+    with pytest.raises(PlanError):
+        move_blocks(alice, today, [b.pk], -15)
+    with pytest.raises(PlanError):
+        move_blocks(alice, today, [a.pk], -11 * 60)
+    with pytest.raises(PlanError):
+        add_block(alice, today, "  ", time(12, 0))
+
+
+def test_moving_a_joined_run_moves_every_piece(alice):
+    from plans.services import add_block, move_blocks
+
+    today = _today_plan(alice)
+    add_block(alice, today, "Calls", time(10, 0))
+    add_block(alice, today, "Calls", time(10, 15))
+    (block,) = day_panel(alice, today)["blocks"]
+    assert len(block["ids"]) == 2 and block["end"] == time(10, 30)
+    move_blocks(alice, today, block["ids"], 60)
+    (moved,) = day_panel(alice, today)["blocks"]
+    assert moved["start"] == time(11, 0) and moved["end"] == time(11, 30)
+
+
+def test_block_endpoint_is_only_for_your_own_plan(client, alice, django_user_model):
+    today = _today_plan(alice)
+    client.force_login(alice)
+    ok = client.post(
+        reverse("plans:block"), {"action": "add", "start": "10:00", "title": "Calls"}
+    )
+    assert ok.status_code == 200
+    bad = client.post(
+        reverse("plans:block"), {"action": "add", "start": "10:00", "title": "Again"}
+    )
+    assert bad.status_code == 400 and "overlaps" in bad.json()["error"]
+    item = alice_items(alice, today)[0]
+    other = django_user_model.objects.create_user("bob2", password="x")
+    client.force_login(other)
+    stolen = client.post(reverse("plans:block"), {"action": "delete", "ids": item.pk})
+    assert stolen.status_code == 400 and alice_items(alice, today)
+    assert client.get(reverse("plans:panel")).status_code == 200

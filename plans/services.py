@@ -154,6 +154,111 @@ PANEL_HOUR_HEIGHT = 56  # pixels per hour in the home page's day panel
 PANEL_START, PANEL_END = 10, 18  # the hours the panel shows
 
 
+BLOCK_MINUTES = 15
+DAY_MINUTES = 24 * 60
+
+
+def _minutes(moment):
+    return moment.hour * 60 + moment.minute
+
+
+def _at(minutes):
+    return time(minutes // 60, minutes % 60)
+
+
+def _own_blocks(user, date, ids):
+    """The user's timed work items among `ids`, on their plan for `date`, locked."""
+    plan = plan_for(user, date)
+    if plan is None:
+        raise PlanError("Set your plan for today first.")
+    items = list(
+        PlanItem.objects.select_for_update()
+        .filter(plan=plan, kind=PlanItem.Kind.WORK, pk__in=ids)
+        .exclude(starts_at=None)
+        .order_by("starts_at")
+    )
+    if not items or len(items) != len(set(ids)):
+        raise PlanError("That block is gone. Refresh and try again.")
+    return plan, items
+
+
+def _check_free(plan, start, end, ignore=()):
+    if start < 0 or end > DAY_MINUTES - 1:
+        raise PlanError("A block has to stay inside the day.")
+    clash = (
+        plan.items.filter(
+            kind=PlanItem.Kind.WORK, starts_at__lt=_at(end), ends_at__gt=_at(start)
+        )
+        .exclude(pk__in=ignore)
+        .first()
+    )
+    if clash:
+        raise PlanError(f"That overlaps \u201c{clash.text}\u201d.")
+
+
+def _title(text):
+    text = text.strip()
+    if not text:
+        raise PlanError("Give the block a name.")
+    if len(text) > TEXT_MAX:
+        raise PlanError(f"Keep the name under {TEXT_MAX} characters.")
+    return text
+
+
+@transaction.atomic
+def add_block(user, date, title, start):
+    """A 15 minute work block at `start` on the user's plan for `date`."""
+    title = _title(title)
+    plan = plan_for(user, date)
+    if plan is None:
+        raise PlanError("Set your plan for today first.")
+    if plan.items.count() >= ITEM_LIMIT:
+        raise PlanError(f"A day's plan can hold up to {ITEM_LIMIT} lines.")
+    begin = _minutes(start)
+    _check_free(plan, begin, begin + BLOCK_MINUTES)
+    PlanItem.objects.create(
+        plan=plan,
+        kind=PlanItem.Kind.WORK,
+        text=title,
+        starts_at=_at(begin),
+        ends_at=_at(begin + BLOCK_MINUTES),
+        position=plan.items.count(),
+    )
+    plan.save()
+
+
+@transaction.atomic
+def move_blocks(user, date, ids, delta):
+    """Shift blocks (a joined run is several items) by `delta` minutes."""
+    plan, items = _own_blocks(user, date, ids)
+    first = min(_minutes(i.starts_at) for i in items)
+    last = max(_minutes(i.ends_at) for i in items)
+    _check_free(plan, first + delta, last + delta, ignore=[i.pk for i in items])
+    for item in items:
+        item.starts_at = _at(_minutes(item.starts_at) + delta)
+        item.ends_at = _at(_minutes(item.ends_at) + delta)
+        item.save()
+    plan.save()
+
+
+@transaction.atomic
+def rename_blocks(user, date, ids, title):
+    plan, items = _own_blocks(user, date, ids)
+    title = _title(title)
+    for item in items:
+        item.text = title
+        item.save()
+    plan.save()
+
+
+@transaction.atomic
+def delete_blocks(user, date, ids):
+    plan, items = _own_blocks(user, date, ids)
+    for item in items:
+        item.delete()
+    plan.save()
+
+
 def _merge(blocks):
     """Blocks that touch, with the same kind and title, become one, the way a
     calendar draws a meeting that runs across several slots."""
@@ -168,6 +273,7 @@ def _merge(blocks):
         ):
             last["end"] = max(last["end"], b["end"])
             last["done"] = last["done"] and b["done"]
+            last["ids"] = last["ids"] + b["ids"]
         else:
             merged.append(dict(b))
     return sorted(merged, key=lambda b: (b["start"], b["end"]))
@@ -214,6 +320,7 @@ def day_panel(user, date):
                     "title": item.text,
                     "done": item.done,
                     "meeting": False,
+                    "ids": [item.pk],
                 }
             )
     for start, end, title in agenda(user, date):
@@ -226,6 +333,7 @@ def day_panel(user, date):
                 "title": title,
                 "done": False,
                 "meeting": True,
+                "ids": [],
             }
         )
     blocks = _lanes(_merge(blocks))
@@ -251,6 +359,8 @@ def day_panel(user, date):
     done, total = sum(g.done for g in goals), len(goals)
     return {
         "date": date,
+        "hour_height": PANEL_HOUR_HEIGHT,
+        "first_hour": first,
         "now": now.time() if now_top is not None else None,
         "percent": round(done * 100 / total) if total else 0,
         "goals": goals,

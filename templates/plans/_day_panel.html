@@ -30,17 +30,18 @@
   <p class="mt-4 rounded-xl border border-dashed border-ink bg-surface p-4 text-sm text-gray-500">You haven't set a plan for today.</p>
 {% endif %}
 
-<div class="relative mb-3 mt-6" style="height: {{ panel.height }}px">
+<p class="mt-6 text-sm text-gray-500">Click or double-tap the timeline to add a block. Drag to move it.</p>
+<div class="relative mb-3 mt-2" style="height: {{ panel.height }}px">
   {% for hour, top in panel.hours %}
     <div class="absolute inset-x-0 border-t border-gray-200" style="top: {{ top }}px">
       <span class="absolute -top-2 left-0 w-9 text-right text-xs tabular-nums text-gray-500">{{ hour|time:"H:i" }}</span>
     </div>
   {% endfor %}
 
-  <div class="absolute inset-y-0 left-12 right-0">
+  <div x-ref="grid" @pointerup="tap($event)" class="absolute inset-y-0 left-12 right-0 cursor-cell">
     {% for block in panel.blocks %}
-      <div style="top: {{ block.top }}px; height: {{ block.height }}px; left: calc(100% * {{ block.lane }} / {{ block.lanes }}); width: calc(100% / {{ block.lanes }} - 4px)"
-           class="absolute mt-px overflow-hidden rounded-md border border-ink px-2 py-1 text-xs leading-tight {% if block.meeting %}bg-blue-100{% else %}bg-pop{% endif %} {% if block.done %}opacity-60 line-through{% endif %}">
+      <div data-ids="{{ block.ids|join:',' }}" data-title="{{ block.title }}" {% if block.ids %}tabindex="0" @pointerdown="down($event)" @keydown.enter.prevent="edit($el)"{% endif %} style="top: {{ block.top }}px; height: {{ block.height }}px; left: calc(100% * {{ block.lane }} / {{ block.lanes }}); width: calc(100% / {{ block.lanes }} - 4px)"
+           class="absolute mt-px overflow-hidden rounded-md border border-ink px-2 py-1 text-xs leading-tight {% if block.ids %}cursor-grab touch-none select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink{% endif %} {% if block.meeting %}bg-blue-100{% else %}bg-pop{% endif %} {% if block.done %}opacity-60 line-through{% endif %}">
         {% if block.height >= 44 %}
           <p class="truncate font-medium">{{ block.title }}</p>
           <p class="tabular-nums">{{ block.start|time:"H:i" }}–{{ block.end|time:"H:i" }}</p>
