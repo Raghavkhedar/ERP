@@ -1,0 +1,28 @@
+{% extends "people/base_people.html" %}
+
+{% block title %}Screening · Senken ERP{% endblock %}
+{% block heading %}Follow-ups{% endblock %}
+{% block actions %}<a href="{% url 'hiring:screening_export' %}" class="text-gray-500 hover:text-gray-900">Export</a>{% endblock %}
+
+{% block page %}
+  {% for label, rows in groups %}
+    {% if rows %}
+      <h2 class="mb-1 mt-6 font-semibold first:mt-0 {% if label == 'Overdue' %}text-red-600{% endif %}">{{ label }} <span class="font-normal text-gray-500">({{ rows|length }})</span></h2>
+      <ul class="divide-y divide-gray-100 border-y border-gray-100">
+        {% for f in rows %}
+          <li class="flex items-center gap-4 py-3">
+            <div class="min-w-0 flex-1">
+              <p class="truncate font-medium">{{ f.person.name }} <span class="text-sm font-normal text-gray-500">· {{ f.get_purpose_display }}</span></p>
+              <p class="truncate text-sm text-gray-500">{{ f.person.phone }} · {{ f.due|date:"j M, g:i a" }}{% if f.requisition %} · {{ f.requisition }}{% endif %}{% if f.owner != user %} · {{ f.owner }}{% endif %}{% if f.reschedule_count %} · moved {{ f.reschedule_count }}×{% endif %}</p>
+            </div>
+            <a href="tel:{{ f.person.phone }}" class="shrink-0 text-sm text-gray-500 hover:text-gray-900">Call</a>
+            <a href="{% url 'hiring:followup' f.pk %}" class="inline-flex h-9 shrink-0 items-center rounded-lg bg-blue-600 px-3 text-sm font-medium">Log</a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  {% empty %}{% endfor %}
+  {% if not groups.0.1 and not groups.1.1 and not groups.2.1 %}
+    <p class="border-y border-gray-100 py-6 text-sm text-gray-500">Nothing to call. New numbers from Sourcing land here.</p>
+  {% endif %}
+{% endblock %}
