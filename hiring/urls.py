@@ -55,6 +55,7 @@ urlpatterns = [
         "selecting/export/", selecting_views.export_interviews, name="selecting_export"
     ),
     path("selecting/<int:pk>/interview/", selecting_views.record, name="interview"),
+    path("selecting/<int:pk>/edit/", selecting_views.edit, name="interview_edit"),
     path("selecting/<int:pk>/hr/", selecting_views.assess, name="assess"),
     path("hiring/", offer_views.hiring, name="offers"),
     path("hiring/export/", offer_views.export_offers, name="offers_export"),

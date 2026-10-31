@@ -606,3 +606,38 @@ def snooze_call(followup, user, length):
             raise FollowUpError("Choose how long to snooze.")
         current.save(update_fields=["snoozed_until"])
         return current
+
+
+def edit_interview(interview, result, questions, notes):
+    """Correct a saved interview. If it now reads "selected", the offer opens as
+    it would have the first time; a move away from selected leaves the offer
+    follow-up for someone to cancel."""
+    with transaction.atomic():
+        interview.result = result
+        interview.questions = questions
+        interview.notes = notes
+        interview.save()
+        person = interview.person
+        if result == Interview.Result.SELECTED and not person.offers.exists():
+            FollowUp.objects.get_or_create(
+                person=person,
+                purpose=FollowUp.Purpose.OFFER,
+                status=FollowUp.Status.PENDING,
+                defaults=dict(
+                    requisition=interview.requisition,
+                    due=timezone.now(),
+                    owner=interview.interviewer,
+                ),
+            )
+        return interview
+
+
+def by_source(rows):
+    """Per source: (source, numbers received, duplicates, duplicate rate)."""
+    return [
+        (r["source"] or "(none)", r["total"], r["dups"], r["dups"] / r["total"])
+        for r in rows.order_by()
+        .values("source")
+        .annotate(total=Count("id"), dups=Count("id", filter=Q(is_duplicate=True)))
+        .order_by("source")
+    ]

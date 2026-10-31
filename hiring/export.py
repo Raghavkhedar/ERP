@@ -1,8 +1,7 @@
-from django.db.models import Count, Q
-
 from core.export import stamp, workbook_response
 
 from .models import CallLog, OfferRound
+from .services import by_source
 
 
 def requisitions_workbook(requisitions):
@@ -46,13 +45,6 @@ def requisitions_workbook(requisitions):
 
 
 def sourced_workbook(rows):
-    by_source = [
-        (r["source"] or "(none)", r["total"], r["dups"], r["dups"] / r["total"])
-        for r in rows.order_by()
-        .values("source")
-        .annotate(total=Count("id"), dups=Count("id", filter=Q(is_duplicate=True)))
-        .order_by("source")
-    ]
     return workbook_response(
         stamp("sourced-numbers"),
         {
@@ -83,7 +75,7 @@ def sourced_workbook(rows):
             ),
             "By source": (
                 ("Source", "Sourced", "Duplicates", "Duplicate rate"),
-                by_source,
+                by_source(rows),
             ),
         },
     )

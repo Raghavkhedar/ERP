@@ -79,3 +79,37 @@ def test_schedule_call_view(req, user, client):
         reverse("hiring:schedule_call", args=[person.pk]), {"due": "2031-01-02T10:00"}
     )
     assert person.followups.get().purpose == "call"
+
+
+def test_edit_interview_opens_the_offer_when_it_becomes_selected(req, user, client):
+    from .services import edit_interview
+
+    person = source_number(req, "Ravi", "99999 11111", user).person
+    log_call(
+        person.followups.get(),
+        "interview",
+        user,
+        next_due=timezone.now() + timedelta(days=1),
+    )
+    interview = record_interview(
+        person.followups.get(purpose="interview"), "hold", user
+    )
+    assert not person.followups.filter(purpose="offer").exists()
+    page = client.get(reverse("hiring:interview_edit", args=[interview.pk]))
+    assert page.status_code == 200 and b"Save changes" in page.content
+    client.post(
+        reverse("hiring:interview_edit", args=[interview.pk]),
+        {"result": "selected", "questions": "Q", "notes": "Good"},
+    )
+    interview.refresh_from_db()
+    assert interview.result == "selected" and interview.notes == "Good"
+    assert person.followups.filter(purpose="offer", status="pending").count() == 1
+    edit_interview(interview, "selected", "Q", "Again")  # repeat-safe
+    assert person.followups.filter(purpose="offer").count() == 1
+
+
+def test_sourcing_page_shows_duplicate_rate_by_source(req, user, client):
+    source_number(req, "Ravi", "99999 11111", user, "Naukri")
+    source_number(req, "Ravi", "99999 11111", user, "Naukri")
+    page = client.get(reverse("hiring:sourcing"))
+    assert b"By source" in page.content and b"50%" in page.content
