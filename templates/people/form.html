@@ -4,14 +4,53 @@
 {% block heading %}{% if person %}Edit {{ person.name }}{% else %}New candidate{% endif %}{% endblock %}
 
 {% block page %}
-  <form method="post" class="fields max-w-xl space-y-5 [&_input]:w-full [&_select]:w-full [&_textarea]:w-full">
+  <form method="post" x-data="{ dirty: false }" @input="dirty = true" class="fields [&_input]:w-full [&_select]:w-full [&_textarea]:w-full">
     {% csrf_token %}
     {{ form.version }}
-    {% for error in form.non_field_errors %}<p class="text-sm text-red-600">{{ error }}</p>{% endfor %}
-    {% for field in form.visible_fields %}{% include "tasks/_field.html" %}{% endfor %}
-    <div class="flex items-center gap-4">
+    {% for error in form.non_field_errors %}<p class="mb-4 text-sm text-red-600">{{ error }}</p>{% endfor %}
+
+    <section class="grid gap-x-10 gap-y-5 border-t border-gray-100 py-8 first:border-t-0 first:pt-0 lg:grid-cols-[14rem_minmax(0,1fr)]">
+      <div>
+        <h2 class="title text-xl">Contact</h2>
+        <p class="mt-1 text-sm text-gray-500">How we reach them. The last 10 digits of the phone find duplicates.</p>
+      </div>
+      <div class="grid gap-5 sm:grid-cols-2">
+        {% include "tasks/_field.html" with field=form.name %}
+        {% include "tasks/_field.html" with field=form.phone %}
+        {% include "tasks/_field.html" with field=form.email %}
+        <div class="sm:col-span-2">{% include "tasks/_field.html" with field=form.address %}</div>
+      </div>
+    </section>
+
+    <section class="grid gap-x-10 gap-y-5 border-t border-gray-100 py-8 lg:grid-cols-[14rem_minmax(0,1fr)]">
+      <div>
+        <h2 class="title text-xl">Work and pay</h2>
+        <p class="mt-1 text-sm text-gray-500">Where they are now and what they want next.</p>
+      </div>
+      <div class="grid gap-5 sm:grid-cols-2">
+        <div class="sm:col-span-2">{% include "tasks/_field.html" with field=form.current_employer %}</div>
+        {% include "tasks/_field.html" with field=form.experience_years %}
+        {% include "tasks/_field.html" with field=form.joining_period %}
+        {% include "tasks/_field.html" with field=form.current_salary %}
+        {% include "tasks/_field.html" with field=form.expected_salary %}
+      </div>
+    </section>
+
+    <section class="grid gap-x-10 gap-y-5 border-t border-gray-100 py-8 lg:grid-cols-[14rem_minmax(0,1fr)]">
+      <div>
+        <h2 class="title text-xl">Standing</h2>
+        <p class="mt-1 text-sm text-gray-500">Whether we call them, and how much we want them.</p>
+      </div>
+      <div class="grid gap-5 sm:grid-cols-2">
+        {% include "tasks/_field.html" with field=form.contact_status %}
+        {% include "tasks/_field.html" with field=form.priority %}
+      </div>
+    </section>
+
+    <div class="sticky bottom-4 flex flex-wrap items-center gap-4 rounded-xl border border-ink bg-surface p-3 pr-20 shadow-lg">
       <button type="submit" class="h-11 rounded-lg bg-blue-600 px-5 font-medium">Save</button>
       <a href="{% if person %}{% url 'people:detail' person.pk %}{% else %}{% url 'people:list' %}{% endif %}" class="text-sm text-gray-500 hover:text-gray-900">Cancel</a>
+      <span x-show="dirty" x-cloak class="sticker ml-auto rounded-full border border-ink bg-pop px-3 py-1 text-sm">Unsaved changes</span>
     </div>
   </form>
 {% endblock %}
