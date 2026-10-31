@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
@@ -25,6 +26,7 @@ from .services import (
     reschedule,
     schedule_call,
     shift_calls,
+    snooze_call,
     visible_followups,
 )
 
@@ -194,3 +196,16 @@ def schedule_for_person(request, pk):
     else:
         messages.error(request, "Pick a date and time for the call.")
     return redirect("people:detail", pk=person.pk)
+
+
+@section
+@require_POST
+def snooze_followup(request, pk):
+    """The alarm popup's snooze and dismiss. Dismiss is an hour's quiet."""
+    action = request.POST.get("action", "snooze")
+    length = "1h" if action == "dismiss" else request.POST.get("length", "")
+    try:
+        snooze_call(_followup(request, pk), request.user, length)
+    except FollowUpError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+    return JsonResponse({"ok": True})

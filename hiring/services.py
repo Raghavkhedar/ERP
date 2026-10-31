@@ -1,4 +1,4 @@
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 
 from django.db import transaction
 from django.db.models import Count, Q
@@ -177,6 +177,7 @@ def reschedule(followup, due, reason):
     with transaction.atomic():
         current = _pending(followup)
         current.original_due = current.original_due or current.due
+        current.snoozed_until = None
         current.due = due
         current.reschedule_reason = reason
         current.reschedule_count += 1
@@ -555,3 +556,53 @@ def shift_calls(followups, day, reason):
             reschedule(f, timezone.make_aware(datetime.combine(day, at)), reason)
             moved += 1
     return moved
+
+
+RINGING = (FollowUp.Purpose.CALL, FollowUp.Purpose.INTERVIEW)
+
+
+def _alarmed(user):
+    return FollowUp.objects.filter(
+        owner=user, status=FollowUp.Status.PENDING, purpose__in=RINGING
+    ).select_related("person")
+
+
+def due_call_alarms(user):
+    """Calls and interviews of the user's whose time has come, until they're done."""
+    now = timezone.now()
+    return (
+        _alarmed(user)
+        .filter(due__lte=now)
+        .filter(Q(snoozed_until__isnull=True) | Q(snoozed_until__lte=now))
+        .order_by("due")
+    )
+
+
+def next_call_alarm_in(user):
+    """Seconds until the user's next call alarm, or None."""
+    now = timezone.now()
+    times = [
+        f.snoozed_until if f.snoozed_until and f.snoozed_until > now else f.due
+        for f in _alarmed(user).filter(Q(due__gt=now) | Q(snoozed_until__gt=now))
+    ]
+    return max((min(times) - now).total_seconds(), 0) if times else None
+
+
+def snooze_call(followup, user, length):
+    """Quiet the alarm for a while; the follow-up itself stays due."""
+    from tasks.services import SNOOZES
+
+    with transaction.atomic():
+        current = _pending(followup)
+        if current.owner_id != user.pk:
+            raise FollowUpError("Only the person it belongs to can snooze it.")
+        now = timezone.now()
+        if length == "tomorrow":
+            morning = timezone.localtime(now).replace(hour=9, minute=0, second=0)
+            current.snoozed_until = morning + timedelta(days=1)
+        elif length in SNOOZES:
+            current.snoozed_until = now + SNOOZES[length]
+        else:
+            raise FollowUpError("Choose how long to snooze.")
+        current.save(update_fields=["snoozed_until"])
+        return current

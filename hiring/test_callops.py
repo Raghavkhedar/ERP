@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 from django.urls import reverse
@@ -69,3 +69,39 @@ def test_shift_view_moves_a_group(req, user, client):
     assert timezone.localtime(due).date() == date(2031, 5, 1)
     client.post(reverse("hiring:shift"), {"group": "today", "day": "", "reason": ""})
     assert timezone.localtime(FollowUp.objects.get().due).date() == date(2031, 5, 1)
+
+
+def test_call_alarm_rings_until_snoozed_or_done(req, user, client):
+    from .services import due_call_alarms, next_call_alarm_in
+
+    source_number(req, "Ravi", "99999 11111", user)
+    call = FollowUp.objects.get()
+    call.due = timezone.now() - timedelta(minutes=1)
+    call.save()
+    assert list(due_call_alarms(user)) == [call]
+    ring = client.get(reverse("tasks:alarms")).json()["alarms"]
+    assert ring[0]["id"] == f"call-{call.pk}" and ring[0]["label"] == "Call alarm"
+
+    client.post(
+        reverse("hiring:followup_snooze", args=[call.pk]),
+        {"action": "snooze", "length": "10m"},
+    )
+    assert list(due_call_alarms(user)) == []
+    assert 0 < next_call_alarm_in(user) <= 600
+
+    call.refresh_from_db()
+    assert call.snoozed_until
+
+
+def test_only_the_owner_can_snooze(req, user, client, django_user_model, senken):
+    source_number(req, "Ravi", "99999 11111", user)
+    call = FollowUp.objects.get()
+    other = django_user_model.objects.create_user("o", password="x")
+    senken.memberships.create(user=other)
+    AccessGrant.objects.create(
+        user=other, company=senken, module="recruitment", section="candidates"
+    )
+    from .services import FollowUpError, snooze_call
+
+    with pytest.raises(FollowUpError):
+        snooze_call(call, other, "1h")

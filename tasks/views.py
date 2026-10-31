@@ -287,20 +287,37 @@ def task_alarm(request, pk):
 @login_required
 @require_GET
 def alarms(request):
-    """The user's alarms that are ringing, polled by the popup on every page."""
+    """The user's alarms that are ringing, polled by the popup on every page:
+    due tasks, and due calls and interviews from Empanelment."""
+    # Imported here: hiring already imports from tasks.
+    from hiring.services import due_call_alarms, next_call_alarm_in
+
+    user = request.user
+    rings = [
+        {
+            "id": task.pk,
+            "title": task.title,
+            "url": reverse("tasks:detail", args=[task.pk]),
+            "action": reverse("tasks:alarm", args=[task.pk]),
+            "repeats": bool(task.remind_every),
+        }
+        for task in due_alarms(user)
+    ] + [
+        {
+            "id": f"call-{f.pk}",
+            "label": f"{f.get_purpose_display()} alarm",
+            "title": f"{f.get_purpose_display()} {f.person.name}",
+            "url": reverse("hiring:followup", args=[f.pk]),
+            "action": reverse("hiring:followup_snooze", args=[f.pk]),
+            "repeats": True,
+        }
+        for f in due_call_alarms(user)
+    ]
+    waits = [next_alarm_in(user), next_call_alarm_in(user)]
     return JsonResponse(
         {
-            "alarms": [
-                {
-                    "id": task.pk,
-                    "title": task.title,
-                    "url": reverse("tasks:detail", args=[task.pk]),
-                    "action": reverse("tasks:alarm", args=[task.pk]),
-                    "repeats": bool(task.remind_every),
-                }
-                for task in due_alarms(request.user)
-            ],
-            "next_in": next_alarm_in(request.user),
+            "alarms": rings,
+            "next_in": min((w for w in waits if w is not None), default=None),
         }
     )
 

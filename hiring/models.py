@@ -123,6 +123,8 @@ class FollowUp(models.Model):
     original_due = models.DateTimeField(null=True, blank=True)
     reschedule_count = models.PositiveIntegerField(default=0)
     reschedule_reason = models.CharField(max_length=20, choices=Reason, blank=True)
+    # The call alarm stays quiet until then; set by "10 min" / "1 hour" / "Tomorrow".
+    snoozed_until = models.DateTimeField(null=True, blank=True)
     reassigned_from = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
