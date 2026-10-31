@@ -19,7 +19,7 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
-from core import access_views, views
+from core import access_views, command, views
 from core.forms import ChangePasswordForm, LoginForm, ResetPasswordForm
 
 urlpatterns = [
@@ -60,6 +60,7 @@ urlpatterns = [
         name="password_reset_complete",
     ),
     path("profile/", views.profile, name="profile"),
+    path("command/", command.command, name="command"),
     path("company/", access_views.switch_company, name="switch_company"),
     path("access/", access_views.people, name="access_people"),
     path("access/export/", access_views.export_access, name="access_export"),

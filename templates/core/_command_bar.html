@@ -1,0 +1,30 @@
+{% load static %}
+{# The command bar's palette; the header button opens it with a "command-open" event. #}
+<script src="{% static 'js/command_bar.js' %}"></script>
+<div x-data="commandBar('{% url 'command' %}')" @command-open.window="show()" x-show="open" x-cloak
+     @keydown.escape.window="hide()" class="fixed inset-0 z-[60]" role="dialog" aria-modal="true" aria-label="Search">
+  <div class="absolute inset-0 bg-ink/40" @click="hide()"></div>
+  <div class="relative mx-auto mt-[12vh] w-[36rem] max-w-[calc(100%-2rem)] overflow-hidden rounded-2xl border border-ink bg-surface shadow-xl">
+    <div class="flex items-center gap-3 px-4">
+      <svg class="size-5 shrink-0 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input x-ref="input" x-model="q" @input="search()" type="text" autocomplete="off" spellcheck="false"
+             placeholder="Jump to a page, candidate or task"
+             role="combobox" aria-expanded="true" aria-controls="command-list" :aria-activedescendant="results.length ? 'command-' + active : null"
+             @keydown.arrow-down.prevent="move(1)" @keydown.arrow-up.prevent="move(-1)" @keydown.enter.prevent="go(results[active])"
+             class="h-14 w-full border-0 bg-transparent text-base focus:!shadow-none text-gray-900 placeholder:text-gray-500 focus:outline-none">
+    </div>
+    <ul id="command-list" role="listbox" class="max-h-80 overflow-y-auto border-t border-ink py-1">
+      <template x-for="(r, i) in results" :key="r.group + r.url">
+        <li role="presentation">
+          <p x-show="startsGroup(i)" x-text="r.group" class="px-4 pb-1 pt-3 text-xs text-gray-500"></p>
+          <a :id="'command-' + i" :href="r.url" role="option" :aria-selected="i === active" @mousemove="active = i"
+             :class="i === active ? 'bg-pop' : ''" class="flex items-baseline justify-between gap-4 px-4 py-2 text-sm text-gray-900 focus-visible:outline-none">
+            <span class="truncate font-medium" x-text="r.label"></span>
+            <span class="shrink-0 truncate text-gray-600" x-text="r.hint"></span>
+          </a>
+        </li>
+      </template>
+      <li x-show="!results.length" class="px-4 py-6 text-sm text-gray-500">Nothing matches that.</li>
+    </ul>
+  </div>
+</div>
