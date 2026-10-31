@@ -2,6 +2,8 @@ from django.db.models import Count, Q
 
 from core.export import stamp, workbook_response
 
+from .models import CallLog
+
 
 def requisitions_workbook(requisitions):
     rows = [
@@ -82,6 +84,55 @@ def sourced_workbook(rows):
             "By source": (
                 ("Source", "Sourced", "Duplicates", "Duplicate rate"),
                 by_source,
+            ),
+        },
+    )
+
+
+def followups_workbook(followups):
+    people = {f.person_id for f in followups}
+    return workbook_response(
+        stamp("follow-ups"),
+        {
+            "Follow-ups": (
+                (
+                    "Candidate",
+                    "Phone",
+                    "Purpose",
+                    "Due",
+                    "Owner",
+                    "Requisition",
+                    "Rescheduled",
+                    "Original due",
+                ),
+                [
+                    (
+                        f.person.name,
+                        f.person.phone,
+                        f.get_purpose_display(),
+                        f.due,
+                        f.owner.get_full_name() or f.owner.get_username(),
+                        str(f.requisition) if f.requisition else "",
+                        f.reschedule_count,
+                        f.original_due,
+                    )
+                    for f in followups
+                ],
+            ),
+            "Call log": (
+                ("Candidate", "When", "Caller", "Outcome", "Notes"),
+                [
+                    (
+                        c.person.name,
+                        c.called_at,
+                        c.caller.get_full_name() or c.caller.get_username(),
+                        c.get_outcome_display(),
+                        c.notes,
+                    )
+                    for c in CallLog.objects.filter(person_id__in=people)
+                    .exclude(not_a_call=True)
+                    .select_related("person", "caller")
+                ],
             ),
         },
     )
