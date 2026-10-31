@@ -7,7 +7,14 @@ from notifications.services import notify
 from people.models import Person, phone_key
 from tasks.services import can_assign
 
-from .models import CallLog, FollowUp, Requisition, SourcedNumber
+from .models import (
+    CallLog,
+    FollowUp,
+    HRAssessment,
+    Interview,
+    Requisition,
+    SourcedNumber,
+)
 
 
 class StaleRequisition(Exception):
@@ -116,6 +123,16 @@ def _pending(followup):
     return current
 
 
+def _open(after, purpose, due):
+    """The next follow-up for the same person, unless one is already pending."""
+    FollowUp.objects.get_or_create(
+        person=after.person,
+        purpose=purpose,
+        status=FollowUp.Status.PENDING,
+        defaults=dict(requisition=after.requisition, due=due, owner=after.owner),
+    )
+
+
 # Outcomes that need a next date, and the follow-up they open.
 NEXT = {
     CallLog.Outcome.INTERESTED: FollowUp.Purpose.CALL,
@@ -144,13 +161,7 @@ def log_call(followup, outcome, user, notes="", next_due=None):
         current.version += 1
         current.save(update_fields=["status", "version"])
         if purpose:
-            FollowUp.objects.create(
-                person=current.person,
-                requisition=current.requisition,
-                purpose=purpose,
-                due=next_due,
-                owner=current.owner,
-            )
+            _open(current, purpose, next_due)
         if outcome == CallLog.Outcome.DO_NOT_CALL:
             current.person.contact_status = current.person.ContactStatus.DO_NOT_CALL
             current.person.version += 1
@@ -192,3 +203,54 @@ def reassign(followup, owner, by):
                 reverse("hiring:screening"),
             )
         return current
+
+
+def interviews_waiting(user, companies):
+    return visible_followups(user, companies).filter(purpose=FollowUp.Purpose.INTERVIEW)
+
+
+def record_interview(followup, result, user, questions="", notes="", next_due=None):
+    """Record how an interview went. It completes the booking, and what happens
+    next follows the result: selected opens an offer, hold opens a call if a date
+    is given, rejected ends it."""
+    with transaction.atomic():
+        current = _pending(followup)
+        interview = Interview.objects.create(
+            person=current.person,
+            requisition=current.requisition,
+            followup=current,
+            scheduled_at=current.due,
+            result=result,
+            questions=questions,
+            notes=notes,
+            interviewer=user,
+        )
+        current.status = FollowUp.Status.COMPLETED
+        current.version += 1
+        current.save(update_fields=["status", "version"])
+        nxt = {
+            Interview.Result.SELECTED: (FollowUp.Purpose.OFFER, timezone.now()),
+            Interview.Result.HOLD: (FollowUp.Purpose.CALL, next_due),
+        }.get(result)
+        if nxt and nxt[1]:
+            _open(current, *nxt)
+        return interview
+
+
+def visible_interviews(companies):
+    return Interview.objects.filter(person__company__in=companies).select_related(
+        "person", "requisition", "hr"
+    )
+
+
+def save_assessment(interview, decision, level, user, hold_tenure="", comments=""):
+    return HRAssessment.objects.update_or_create(
+        interview=interview,
+        defaults=dict(
+            decision=decision,
+            level=level,
+            hold_tenure=hold_tenure,
+            comments=comments,
+            assessor=user,
+        ),
+    )[0]
