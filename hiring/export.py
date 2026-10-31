@@ -2,7 +2,7 @@ from django.db.models import Count, Q
 
 from core.export import stamp, workbook_response
 
-from .models import CallLog
+from .models import CallLog, OfferRound
 
 
 def requisitions_workbook(requisitions):
@@ -186,3 +186,56 @@ def interviews_workbook(interviews, include_hr=False):
             ],
         )
     return workbook_response(stamp("interviews"), sheets)
+
+
+def offers_workbook(offers):
+    def who(u):
+        return u.get_full_name() or u.get_username()
+
+    rounds = OfferRound.objects.filter(offer__in=offers).select_related(
+        "offer__person", "by"
+    )
+    return workbook_response(
+        stamp("offers"),
+        {
+            "Offers": (
+                (
+                    "Candidate",
+                    "Phone",
+                    "Requisition",
+                    "State",
+                    "Latest offer",
+                    "Joining date",
+                    "Decline reason",
+                    "Made by",
+                ),
+                [
+                    (
+                        o.person.name,
+                        o.person.phone,
+                        str(o.requisition) if o.requisition else "",
+                        o.get_state_display(),
+                        float(o.latest.amount),
+                        o.joining_date,
+                        o.decline_reason,
+                        who(o.made_by),
+                    )
+                    for o in offers
+                ],
+            ),
+            "Rounds": (
+                ("Candidate", "When", "We offered", "They asked", "Note", "By"),
+                [
+                    (
+                        r.offer.person.name,
+                        r.created_at,
+                        float(r.amount),
+                        float(r.counter) if r.counter else None,
+                        r.note,
+                        who(r.by),
+                    )
+                    for r in rounds
+                ],
+            ),
+        },
+    )

@@ -249,3 +249,84 @@ class HRAssessment(models.Model):
 
     def __str__(self):
         return f"HR: {self.interview}"
+
+
+class Offer(models.Model):
+    """The offer made to one candidate. Negotiation is a list of rounds; the
+    offer ends as accepted (with a joining date) or declined."""
+
+    class State(models.TextChoices):
+        OFFERED = "offered", "Offered"
+        ACCEPTED = "accepted", "Accepted"
+        DECLINED = "declined", "Declined"
+
+    person = models.ForeignKey(
+        "people.Person", on_delete=models.PROTECT, related_name="offers"
+    )
+    requisition = models.ForeignKey(
+        Requisition,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="offers",
+    )
+    state = models.CharField(max_length=20, choices=State, default=State.OFFERED)
+    joining_date = models.DateField(null=True, blank=True)
+    decline_reason = models.CharField(max_length=200, blank=True)
+    decided_at = models.DateTimeField(null=True, blank=True)
+    made_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    history = HistoricalRecords()
+
+    class Meta:
+        ordering = ["state", "-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["person"],
+                condition=models.Q(state="offered"),
+                name="one_open_offer_per_person",
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(state="accepted")
+                | models.Q(joining_date__isnull=False),
+                name="accepted_offer_has_joining_date",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.person} · {self.get_state_display()}"
+
+    @property
+    def latest(self):
+        return self.rounds.order_by("-id").first()
+
+
+class OfferRound(models.Model):
+    """One step of the negotiation: what we offered and what they asked for."""
+
+    offer = models.ForeignKey(Offer, on_delete=models.PROTECT, related_name="rounds")
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    counter = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True
+    )
+    note = models.CharField(max_length=300, blank=True)
+    by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    history = HistoricalRecords()
+
+    class Meta:
+        ordering = ["id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(amount__gt=0), name="offer_round_amount_gt_0"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.offer.person}: {self.amount}"

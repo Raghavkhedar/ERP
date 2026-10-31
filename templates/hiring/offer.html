@@ -1,0 +1,39 @@
+{% extends "people/base_people.html" %}
+
+{% block title %}{{ offer.person.name }} · Senken ERP{% endblock %}
+{% block heading %}{{ offer.person.name }}{% endblock %}
+{% block actions %}<a href="{% url 'people:detail' offer.person_id %}" class="text-gray-500 hover:text-gray-900">Card</a><a href="{% url 'hiring:offers' %}" class="text-gray-500 hover:text-gray-900">Back</a>{% endblock %}
+
+{% block page %}
+  <p class="text-sm text-gray-500"><span class="rounded-full border border-ink px-2.5 py-0.5 text-xs {% if offer.state == 'accepted' %}bg-pop{% endif %}">{{ offer.get_state_display }}</span> {{ offer.person.phone }}{% if offer.requisition %} · {{ offer.requisition }}{% endif %}{% if offer.joining_date %} · joins {{ offer.joining_date|date:"j M Y" }}{% endif %}{% if offer.decline_reason %} · {{ offer.decline_reason }}{% endif %}</p>
+
+  <h2 class="mt-6 font-semibold">Rounds</h2>
+  <ul class="mt-1 divide-y divide-gray-100 border-y border-gray-100 text-sm">
+    {% for r in rounds %}
+      <li class="py-2"><span class="font-medium">We offered {{ r.amount }}</span>{% if r.counter %} · they asked {{ r.counter }}{% endif %} · {{ r.created_at|date:"j M, g:i a" }} · {{ r.by }}{% if r.note %}<br><span class="text-gray-500">{{ r.note }}</span>{% endif %}</li>
+    {% endfor %}
+  </ul>
+
+  {% if offer.state == "offered" %}
+    <div class="mt-8 grid max-w-xl gap-8">
+      <form method="post" action="{% url 'hiring:offer_round' offer.pk %}" class="fields space-y-3 [&_input]:w-full">
+        {% csrf_token %}
+        <h2 class="font-semibold">Another round</h2>
+        {% for field in round_form %}{% include "tasks/_field.html" %}{% endfor %}
+        <button type="submit" class="h-10 rounded-lg border border-ink px-4">Add round</button>
+      </form>
+      <form method="post" action="{% url 'hiring:offer_accept' offer.pk %}" class="fields space-y-3 [&_input]:w-full">
+        {% csrf_token %}
+        <h2 class="font-semibold">They accepted</h2>
+        {% for field in accept_form %}{% include "tasks/_field.html" %}{% endfor %}
+        <button type="submit" class="h-11 rounded-lg bg-blue-600 px-5 font-medium">Accept and book joining</button>
+      </form>
+      <form method="post" action="{% url 'hiring:offer_decline' offer.pk %}" class="fields space-y-3 [&_input]:w-full">
+        {% csrf_token %}
+        <h2 class="font-semibold">They declined</h2>
+        {% for field in decline_form %}{% include "tasks/_field.html" %}{% endfor %}
+        <button type="submit" class="h-10 rounded-lg border border-ink px-4 text-red-600">Mark declined</button>
+      </form>
+    </div>
+  {% endif %}
+{% endblock %}

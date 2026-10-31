@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import screening_views, selecting_views, source_views, views
+from . import offer_views, screening_views, selecting_views, source_views, views
 
 app_name = "hiring"
 
@@ -43,4 +43,17 @@ urlpatterns = [
     ),
     path("selecting/<int:pk>/interview/", selecting_views.record, name="interview"),
     path("selecting/<int:pk>/hr/", selecting_views.assess, name="assess"),
+    path("hiring/", offer_views.hiring, name="offers"),
+    path("hiring/export/", offer_views.export_offers, name="offers_export"),
+    path("hiring/<int:pk>/start/", offer_views.begin, name="offer_start"),
+    path("hiring/offer/<int:pk>/", offer_views.offer_detail, name="offer"),
+    path("hiring/offer/<int:pk>/round/", offer_views.new_round, name="offer_round"),
+    path(
+        "hiring/offer/<int:pk>/accept/", offer_views.accept_offer, name="offer_accept"
+    ),
+    path(
+        "hiring/offer/<int:pk>/decline/",
+        offer_views.decline_offer,
+        name="offer_decline",
+    ),
 ]
