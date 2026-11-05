@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import source_views, views
+from . import screening_views, source_views, views
 
 app_name = "hiring"
 
@@ -14,4 +14,27 @@ urlpatterns = [
     path("sourcing/export/", source_views.export_sourced, name="sourcing_export"),
     path("sourcing/new/", source_views.new_source, name="source_new"),
     path("sourcing/import/", source_views.import_source, name="source_import"),
+    path("screening/", screening_views.screening, name="screening"),
+    path(
+        "screening/export/", screening_views.export_followups, name="screening_export"
+    ),
+    path("screening/<int:pk>/", screening_views.followup_detail, name="followup"),
+    path(
+        "screening/<int:pk>/call/", screening_views.log_followup, name="followup_call"
+    ),
+    path(
+        "screening/<int:pk>/reschedule/",
+        screening_views.reschedule_followup,
+        name="followup_reschedule",
+    ),
+    path(
+        "screening/<int:pk>/reassign/",
+        screening_views.reassign_followup,
+        name="followup_reassign",
+    ),
+    path(
+        "screening/<int:pk>/cancel/",
+        screening_views.cancel_followup,
+        name="followup_cancel",
+    ),
 ]

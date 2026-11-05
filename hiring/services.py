@@ -1,9 +1,13 @@
 from django.db import transaction
 from django.db.models import Count, Q
+from django.urls import reverse
+from django.utils import timezone
 
+from notifications.services import notify
 from people.models import Person, phone_key
+from tasks.services import can_assign
 
-from .models import Requisition, SourcedNumber
+from .models import CallLog, FollowUp, Requisition, SourcedNumber
 
 
 class StaleRequisition(Exception):
@@ -57,6 +61,11 @@ def source_number(requisition, name, phone, user, source="", email=""):
             person = Person.objects.create(
                 company=requisition.company, name=name, phone=phone, email=email
             )
+        if not duplicate:
+            # A new card goes straight into the sourcer's call queue.
+            FollowUp.objects.create(
+                person=person, requisition=requisition, due=timezone.now(), owner=user
+            )
         return SourcedNumber.objects.create(
             requisition=requisition,
             person=person,
@@ -83,3 +92,103 @@ def sources_in_use(companies):
         .distinct()
         .order_by("source")
     )
+
+
+class FollowUpError(Exception):
+    """The follow-up can't change that way; the message says why."""
+
+
+def visible_followups(user, companies):
+    """Pending follow-ups: your own, or everyone's for supervisors and admins."""
+    rows = FollowUp.objects.filter(
+        status=FollowUp.Status.PENDING, person__company__in=companies
+    ).select_related("person", "requisition", "owner")
+    if user.is_superuser or can_assign(user):
+        return rows
+    return rows.filter(owner=user)
+
+
+def _pending(followup):
+    # Re-read under a lock so a double submit can't act on it twice.
+    current = FollowUp.objects.select_for_update().get(pk=followup.pk)
+    if current.status != FollowUp.Status.PENDING:
+        raise FollowUpError("That follow-up is already closed.")
+    return current
+
+
+# Outcomes that need a next date, and the follow-up they open.
+NEXT = {
+    CallLog.Outcome.INTERESTED: FollowUp.Purpose.CALL,
+    CallLog.Outcome.CALL_BACK: FollowUp.Purpose.CALL,
+    CallLog.Outcome.NO_ANSWER: FollowUp.Purpose.CALL,
+    CallLog.Outcome.INTERVIEW: FollowUp.Purpose.INTERVIEW,
+}
+
+
+def log_call(followup, outcome, user, notes="", next_due=None):
+    """Record a call: complete the follow-up, then open the next one if the
+    outcome calls for it (a date is required then)."""
+    purpose = NEXT.get(outcome)
+    if purpose and not next_due:
+        raise FollowUpError("Pick when to follow up next.")
+    with transaction.atomic():
+        current = _pending(followup)
+        call = CallLog.objects.create(
+            person=current.person,
+            followup=current,
+            caller=user,
+            outcome=outcome,
+            notes=notes,
+        )
+        current.status = FollowUp.Status.COMPLETED
+        current.version += 1
+        current.save(update_fields=["status", "version"])
+        if purpose:
+            FollowUp.objects.create(
+                person=current.person,
+                requisition=current.requisition,
+                purpose=purpose,
+                due=next_due,
+                owner=current.owner,
+            )
+        if outcome == CallLog.Outcome.DO_NOT_CALL:
+            current.person.contact_status = current.person.ContactStatus.DO_NOT_CALL
+            current.person.version += 1
+            current.person.save(update_fields=["contact_status", "version"])
+        return call
+
+
+def reschedule(followup, due, reason):
+    with transaction.atomic():
+        current = _pending(followup)
+        current.original_due = current.original_due or current.due
+        current.due = due
+        current.reschedule_reason = reason
+        current.reschedule_count += 1
+        current.version += 1
+        current.save()
+        return current
+
+
+def cancel(followup):
+    with transaction.atomic():
+        current = _pending(followup)
+        current.status = FollowUp.Status.CANCELLED
+        current.version += 1
+        current.save(update_fields=["status", "version"])
+
+
+def reassign(followup, owner, by):
+    with transaction.atomic():
+        current = _pending(followup)
+        if owner != current.owner:
+            current.reassigned_from = current.owner
+            current.owner = owner
+            current.version += 1
+            current.save()
+            notify(
+                owner,
+                f"{by} gave you a call: {current.person.name}",
+                reverse("hiring:screening"),
+            )
+        return current

@@ -1,8 +1,12 @@
+from datetime import timedelta
+
 from django import forms
+from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 from people.models import phone_key
 
-from .models import Requisition
+from .models import CallLog, FollowUp, Requisition
 
 
 class RequisitionForm(forms.ModelForm):
@@ -52,3 +56,48 @@ class ImportForm(forms.Form):
     def __init__(self, *args, requisitions, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["requisition"].queryset = requisitions
+
+
+def _when(label, **kw):
+    return forms.DateTimeField(
+        label=label,
+        widget=forms.DateTimeInput(
+            attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"
+        ),
+        **kw,
+    )
+
+
+def tomorrow_morning():
+    day = timezone.localtime() + timedelta(days=1)
+    return day.replace(hour=10, minute=0, second=0, microsecond=0)
+
+
+class CallForm(forms.Form):
+    outcome = forms.ChoiceField(
+        choices=CallLog.Outcome.choices, widget=forms.RadioSelect
+    )
+    next_due = _when("Next follow-up", required=False)
+    notes = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Pre-filled so the usual "try again tomorrow" is one tap.
+        self.fields["next_due"].initial = tomorrow_morning()
+
+
+class RescheduleForm(forms.Form):
+    due = _when("New date and time")
+    reason = forms.ChoiceField(choices=FollowUp.Reason.choices)
+
+
+class ReassignForm(forms.Form):
+    owner = forms.ModelChoiceField(get_user_model().objects.none(), label="Give to")
+
+    def __init__(self, *args, companies, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["owner"].queryset = (
+            get_user_model()
+            .objects.filter(is_active=True, memberships__company__in=companies)
+            .distinct()
+        )

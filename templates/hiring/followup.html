@@ -1,0 +1,51 @@
+{% extends "people/base_people.html" %}
+
+{% block title %}{{ f.person.name }} · Senken ERP{% endblock %}
+{% block heading %}{{ f.person.name }}{% endblock %}
+{% block actions %}<a href="{% url 'people:detail' f.person_id %}" class="text-gray-500 hover:text-gray-900">Card</a><a href="{% url 'hiring:screening' %}" class="text-gray-500 hover:text-gray-900">Back</a>{% endblock %}
+
+{% block page %}
+  <p class="text-sm text-gray-500">{{ f.get_purpose_display }} · {{ f.person.phone }} · due {{ f.due|date:"j M, g:i a" }}{% if f.requisition %} · {{ f.requisition }}{% endif %}{% if f.original_due %} · first due {{ f.original_due|date:"j M, g:i a" }}{% endif %}</p>
+
+  <form method="post" action="{% url 'hiring:followup_call' f.pk %}" class="fields mt-6 max-w-xl space-y-4 [&_input[type=datetime-local]]:w-full [&_textarea]:w-full">
+    {% csrf_token %}
+    <h2 class="font-semibold">How did the call go?</h2>
+    {% for error in call_form.outcome.errors %}<p class="text-sm text-red-600">{{ error }}</p>{% endfor %}
+    <div class="flex flex-wrap gap-2">
+      {% for radio in call_form.outcome %}
+        <label class="cursor-pointer rounded-lg border border-ink px-3 py-2 text-sm has-[:checked]:bg-pop"><span class="sr-only">{{ radio.tag }}</span>{{ radio.choice_label }}</label>
+      {% endfor %}
+    </div>
+    {% include "tasks/_field.html" with field=call_form.next_due %}
+    {% include "tasks/_field.html" with field=call_form.notes %}
+    <button type="submit" class="h-11 rounded-lg bg-blue-600 px-5 font-medium">Save call</button>
+  </form>
+
+  <div class="mt-10 grid max-w-xl gap-6 border-t border-gray-100 pt-6">
+    <form method="post" action="{% url 'hiring:followup_reschedule' f.pk %}" class="fields space-y-3 [&_input]:w-full [&_select]:w-full">
+      {% csrf_token %}
+      <h2 class="font-semibold">Move it</h2>
+      {% for field in reschedule_form %}{% include "tasks/_field.html" %}{% endfor %}
+      <button type="submit" class="h-10 rounded-lg border border-ink px-4">Reschedule</button>
+    </form>
+    {% if reassign_form %}
+      <form method="post" action="{% url 'hiring:followup_reassign' f.pk %}" class="fields space-y-3 [&_select]:w-full">
+        {% csrf_token %}
+        <h2 class="font-semibold">Give it to someone else</h2>
+        {% for field in reassign_form %}{% include "tasks/_field.html" %}{% endfor %}
+        <button type="submit" class="h-10 rounded-lg border border-ink px-4">Reassign</button>
+      </form>
+    {% endif %}
+    <form method="post" action="{% url 'hiring:followup_cancel' f.pk %}">
+      {% csrf_token %}
+      <button type="submit" class="text-sm text-red-600 hover:underline">Cancel this follow-up</button>
+    </form>
+  </div>
+
+  {% if calls %}
+    <h2 class="mt-10 font-semibold">Earlier calls</h2>
+    <ul class="mt-1 divide-y divide-gray-100 border-y border-gray-100 text-sm">
+      {% for c in calls %}<li class="py-2"><span class="font-medium">{{ c.get_outcome_display }}</span> · {{ c.called_at|date:"j M, g:i a" }} · {{ c.caller }}{% if c.notes %}<br><span class="text-gray-500">{{ c.notes }}</span>{% endif %}</li>{% endfor %}
+    </ul>
+  {% endif %}
+{% endblock %}
