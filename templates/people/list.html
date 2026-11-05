@@ -1,0 +1,37 @@
+{% extends "people/base_people.html" %}
+
+{% block title %}Candidates · Senken ERP{% endblock %}
+{% block actions %}
+  <a href="{% url 'people:export' %}?q={{ search|urlencode }}&status={{ status }}" class="text-gray-500 hover:text-gray-900">Export</a>
+  <a href="{% url 'people:new' %}" class="inline-flex h-10 items-center rounded-lg bg-blue-600 px-4 font-medium">Add candidate</a>
+{% endblock %}
+
+{% block page %}
+  <form method="get" class="fields flex flex-wrap gap-3">
+    <input type="text" name="q" value="{{ search }}" placeholder="Name, phone or email" aria-label="Search" class="min-w-0 flex-1">
+    <select name="status" aria-label="Contact status" onchange="this.form.submit()">
+      <option value="">Any status</option>
+      {% for key, label in statuses %}<option value="{{ key }}" {% if key == status %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <button type="submit" class="h-10 rounded-lg border border-ink px-4">Search</button>
+  </form>
+
+  {% if people %}
+    <p class="mt-4 text-sm text-gray-500">{{ total }} card{{ total|pluralize }}{% if total > 200 %}, showing the first 200{% endif %}</p>
+    <ul class="mt-2 divide-y divide-gray-100 border-y border-gray-100">
+      {% for p in people %}
+        <li>
+          <a href="{% url 'people:detail' p.pk %}" class="flex items-center gap-4 py-3 hover:bg-canvas/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pop">
+            <div class="min-w-0 flex-1">
+              <p class="truncate font-medium">{{ p.name }}</p>
+              <p class="truncate text-sm text-gray-500">{{ p.phone }}{% if p.current_employer %} · {{ p.current_employer }}{% endif %}</p>
+            </div>
+            <span class="shrink-0 rounded-full border border-ink px-2.5 py-0.5 text-xs">{{ p.get_contact_status_display }}</span>
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="mt-6 border-y border-gray-100 py-6 text-sm text-gray-500">No candidates{% if search or status %} match{% endif %}.</p>
+  {% endif %}
+{% endblock %}

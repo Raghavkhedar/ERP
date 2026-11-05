@@ -1,9 +1,10 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block header %}
-  <div class="flex h-14 items-center gap-2.5 border-b border-ink bg-surface px-6 text-sm tracking-tight text-gray-800 sm:px-8">
-    {% include "_mark.html" %}
-    <span class="title text-xl">Senken ERP</span>
+  <div class="flex h-16 items-center gap-2.5 border-b border-ink bg-surface px-6 text-sm tracking-tight text-gray-800 sm:px-8">
+    <img src="{% static 'img/logo.png' %}" alt="" width="36" height="36" class="size-9 shrink-0 object-contain">
+    <span class="title text-2xl">Senken ERP</span>
   </div>
 {% endblock %}
 {% block band %}
@@ -11,23 +12,24 @@
   <div class="overflow-hidden border-b border-ink bg-ink py-2 text-sm font-semibold text-pop" aria-hidden="true">
     <div class="marquee">
       {% for _ in "12" %}
-        <span class="flex shrink-0 items-center gap-6 pr-6">
-          <span>Tasks</span><i class="size-2 rotate-45 bg-blue-400"></i>
-          <span>Schedule</span><i class="size-2 rotate-45 bg-blue-400"></i>
-          <span>Chat</span><i class="size-2 rotate-45 bg-blue-400"></i>
-          <span>Red flags</span><i class="size-2 rotate-45 bg-blue-400"></i>
-          <span>Plans</span><i class="size-2 rotate-45 bg-blue-400"></i>
-          <span>Creating trust</span><i class="size-2 rotate-45 bg-blue-400"></i>
+        <span class="flex shrink-0 items-center gap-10 pr-10">
+          <span>Tasks</span>
+          <span>Schedule</span>
+          <span>Chat</span>
+          <span>Red flags</span>
+          <span>Plans</span>
+          <span>Building trust</span>
         </span>
       {% endfor %}
     </div>
   </div>
 {% endblock %}
-{% block main_class %}flex min-h-[calc(100dvh-5.5rem)] items-center justify-center px-6 pb-16{% endblock %}
+{% block main_class %}flex min-h-[calc(100dvh-6rem)] items-center justify-center gap-16 px-6 pb-16{% endblock %}
 
 {% block content %}
+  <p class="title hidden max-w-sm text-6xl leading-[1.05] lg:block" aria-hidden="true">Building <span class="bg-pop px-2">trust.</span></p>
   <div class="relative w-full max-w-96">
-    <span class="sticker absolute -right-3 -top-4 z-10 rounded border-2 border-ink bg-pop px-3 py-1 text-sm font-bold text-ink shadow-md" aria-hidden="true">Creating trust</span>
+    <span class="sticker absolute lg:hidden -right-3 -top-4 z-10 rounded border-2 border-ink bg-pop px-3 py-1 text-sm font-bold text-ink shadow-md" aria-hidden="true">Building trust</span>
     <div class="rounded-2xl border border-ink bg-surface p-8 shadow-xl animate-rise motion-reduce:animate-none">
       {% block card %}{% endblock %}
     </div>

@@ -8,27 +8,32 @@
   <link rel="icon" type="image/png" href="{% static 'img/favicon.png' %}">
   <link rel="preload" href="{% static 'vendor/fonts/Geist-Variable.woff2' %}" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <script>try { if (localStorage.getItem("nav-rail")) document.documentElement.classList.add("nav-rail") } catch {}</script>
   <script src="{% static 'vendor/htmx.min.js' %}" defer></script>
   <script src="{% static 'vendor/alpine.min.js' %}" defer></script>
 </head>
 <body class="{% block body_class %}min-h-dvh bg-canvas text-gray-900 antialiased{% endblock %}">
+<div class="flex min-h-dvh" x-data="{ nav: false }">
+  {% block sidebar %}{% if user.is_authenticated %}{% include "_sidebar.html" %}{% endif %}{% endblock %}
+  <div class="flex min-w-0 flex-1 flex-col">
   {% block header %}
-  <header class="sticky top-0 z-40 flex h-14 shrink-0 items-center justify-between border-b border-ink bg-surface/90 px-6 backdrop-blur text-sm text-gray-500 sm:px-8">
-    <nav class="flex h-full items-center gap-7">
-      <a href="{% url 'home' %}" class="flex items-center gap-2.5 font-semibold tracking-tight text-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/40 rounded">
+  <header class="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-ink bg-surface/90 px-4 backdrop-blur text-sm text-gray-500 sm:px-8">
+    {% if user.is_authenticated %}
+      <button type="button" aria-label="Open the menu" class="rounded-md border border-ink p-1.5 text-gray-900 hover:bg-pop lg:hidden" @click="nav = !nav">
+        <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <a href="{% url 'home' %}" class="ml-3 mr-auto flex items-center gap-2.5 lg:hidden">
+        {% include "_mark.html" %}
+        <span class="title text-xl text-gray-900">Senken ERP</span>
+      </a>
+    {% else %}
+      <a href="{% url 'home' %}" class="flex items-center gap-2.5 font-semibold tracking-tight text-gray-800">
         {% include "_mark.html" %}
         <span class="title text-xl">Senken ERP</span>
       </a>
-      {% if user.is_authenticated %}
-        {% with section=request.resolver_match.app_name %}
-          {% url 'meetings:schedule' as meetings_url %}{% url 'tasks:list' as tasks_url %}
-          {% include "_nav_link.html" with url=meetings_url label="Schedule" name="meetings" %}
-          {% include "_nav_link.html" with url=tasks_url label="Tasks" name="tasks" %}
-        {% endwith %}
-      {% endif %}
-    </nav>
+    {% endif %}
     {% if user.is_authenticated %}
-      <div class="flex items-center gap-4">
+      <div class="ml-auto flex items-center gap-4">
         {% include "core/_company_switcher.html" %}
         {% if user.is_office_admin %}<a href="{% url 'access_people' %}" class="transition-colors hover:text-gray-900">Access</a>{% endif %}
         {% include "feedback/_button.html" %}
@@ -51,6 +56,8 @@
   <main class="{% block main_class %}container mx-auto p-4{% endblock %}">
     {% block content %}{% endblock %}
   </main>
+  </div>
+</div>
 
   {% if user.is_authenticated %}
     {% block chat_launcher %}{% include "chat/_launcher.html" %}{% endblock %}

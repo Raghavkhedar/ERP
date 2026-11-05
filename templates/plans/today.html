@@ -2,6 +2,8 @@
 
 {% block title %}Today's plan · Senken ERP{% endblock %}
 
+{% block sidebar %}{% if not locked %}{{ block.super }}{% endif %}{% endblock %}
+
 {% block header %}
   {% if locked %}
     <div class="flex h-14 items-center justify-between gap-2.5 border-b border-ink bg-surface px-6 text-sm font-semibold tracking-tight text-gray-800 sm:px-8">

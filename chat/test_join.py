@@ -59,13 +59,13 @@ def test_after_joining_the_message_box_appears(client, alice, bob):
 
 def test_non_member_sees_no_messages_until_they_join(client, alice, bob):
     general = make_channel("general", alice, members=[alice])
-    Message.objects.create(conversation=general, author=alice, body="plans")
+    Message.objects.create(conversation=general, author=alice, body="lunch menu")
     client.force_login(bob)
-    assert "plans" not in client.get(detail_url(general)).content.decode()
+    assert "lunch menu" not in client.get(detail_url(general)).content.decode()
 
     client.post(join_url(general))
 
-    assert "plans" in client.get(detail_url(general)).content.decode()
+    assert "lunch menu" in client.get(detail_url(general)).content.decode()
 
 
 def test_private_channel_cannot_be_joined_by_outsiders(client, alice, bob):

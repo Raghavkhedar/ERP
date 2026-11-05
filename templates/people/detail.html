@@ -1,0 +1,30 @@
+{% extends "people/base_people.html" %}
+
+{% block title %}{{ person.name }} · Senken ERP{% endblock %}
+{% block heading %}{{ person.name }}{% endblock %}
+{% block actions %}
+  <a href="{% url 'people:list' %}" class="text-gray-500 hover:text-gray-900">All candidates</a>
+  <a href="{% url 'people:edit' person.pk %}" class="inline-flex h-10 items-center rounded-lg bg-blue-600 px-4 font-medium">Edit</a>
+{% endblock %}
+
+{% block page %}
+  <dl class="grid gap-x-8 gap-y-4 sm:grid-cols-2">
+    {% for label, value in rows %}
+      <div><dt class="text-sm text-gray-500">{{ label }}</dt><dd class="mt-0.5">{{ value|default:"—" }}</dd></div>
+    {% endfor %}
+  </dl>
+
+  {% if same_number %}
+    <div class="mt-8 rounded-xl border border-ink bg-pop/40 p-4">
+      <p class="font-medium">Shares this phone number with {{ same_number|length }} other card{{ same_number|length|pluralize }}</p>
+      <ul class="mt-2 text-sm">
+        {% for other in same_number %}<li><a href="{% url 'people:detail' other.pk %}" class="underline">{{ other.name }}</a></li>{% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  <form method="post" action="{% url 'people:archive' person.pk %}" class="mt-10" onsubmit="return confirm('Archive this card? It leaves the lists but is kept.')">
+    {% csrf_token %}
+    <button type="submit" class="text-sm text-red-600 hover:underline">Archive card</button>
+  </form>
+{% endblock %}

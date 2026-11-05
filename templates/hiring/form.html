@@ -1,0 +1,17 @@
+{% extends "people/base_people.html" %}
+
+{% block title %}{% if requisition %}Edit requisition{% else %}Release requisition{% endif %} · Senken ERP{% endblock %}
+{% block heading %}{% if requisition %}Edit requisition{% else %}Release requisition{% endif %}{% endblock %}
+
+{% block page %}
+  <form method="post" class="fields max-w-xl space-y-5 [&_input]:w-full [&_select]:w-full [&_textarea]:w-full">
+    {% csrf_token %}
+    {{ form.version }}
+    {% for error in form.non_field_errors %}<p class="text-sm text-red-600">{{ error }}</p>{% endfor %}
+    {% for field in form.visible_fields %}{% include "tasks/_field.html" %}{% endfor %}
+    <div class="flex items-center gap-4">
+      <button type="submit" class="h-11 rounded-lg bg-blue-600 px-5 font-medium">Save</button>
+      <a href="{% url 'hiring:list' %}" class="text-sm text-gray-500 hover:text-gray-900">Cancel</a>
+    </div>
+  </form>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% load access_tags %}
+{# The left sidebar. On wide screens it shrinks to an icon rail (the choice is remembered, see base.html); on phones it is a drawer opened from the header. #}
+<aside class="fixed inset-y-0 left-0 z-50 flex w-60 -translate-x-full flex-col overflow-hidden border-r border-ink bg-surface transition-transform duration-100 ease-linear motion-reduce:transition-none lg:sticky lg:top-0 lg:h-dvh lg:translate-x-0"
+       :class="{ 'translate-x-0': nav }" aria-label="Modules">
+  <a href="{% url 'home' %}" title="Home" class="flex h-14 shrink-0 items-center gap-2.5 border-b border-ink px-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pop">
+    {% include "_mark.html" %}
+    <span class="nav-label title whitespace-nowrap text-xl">Senken ERP</span>
+  </a>
+  <nav class="flex-1 space-y-3 overflow-y-auto overflow-x-hidden p-3 text-sm">
+    {% with section=request.resolver_match.app_name %}
+      <div class="space-y-1">
+        {% url 'home' as u %}{% include "_sidebar_link.html" with url=u label="Home" name="home" icon="home" %}
+        {% url 'tasks:list' as u %}{% include "_sidebar_link.html" with url=u label="Tasks" name="tasks" icon="tasks" %}
+        {% url 'meetings:schedule' as u %}{% include "_sidebar_link.html" with url=u label="Schedule" name="meetings" icon="schedule" %}
+        {% url 'chat:conversation_list' as u %}{% include "_sidebar_link.html" with url=u label="Chat" name="chat" icon="chat" %}
+        {% url 'plans:today' as u %}{% include "_sidebar_link.html" with url=u label="Daily plan" name="plans" icon="plan" %}
+      </div>
+      {% if user|can_open:"recruitment" %}
+        <div class="space-y-1 border-t border-gray-100 pt-3">
+          <p class="nav-label whitespace-nowrap px-3 pb-1 text-xs text-gray-500">Modules</p>
+          {% url 'people:list' as u %}{% include "_sidebar_link.html" with url=u label="Empanelment" name="people" also="hiring" icon="people" %}
+        </div>
+      {% endif %}
+    {% endwith %}
+  </nav>
+  <button type="button" title="Collapse or expand" aria-label="Collapse or expand the sidebar"
+          class="hidden h-12 shrink-0 items-center gap-3 border-t border-ink px-6 text-sm text-gray-700 hover:bg-pop focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pop lg:flex"
+          @click="const r = document.documentElement.classList.toggle('nav-rail'); try { r ? localStorage.setItem('nav-rail', '1') : localStorage.removeItem('nav-rail') } catch {}">
+    <svg class="nav-chevron size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m11 17-5-5 5-5M18 17l-5-5 5-5"/></svg>
+    <span class="nav-label whitespace-nowrap">Collapse</span>
+  </button>
+</aside>
+<div class="fixed inset-0 z-40 bg-ink/40 lg:hidden" x-show="nav" x-cloak @click="nav = false"></div>

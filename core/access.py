@@ -39,7 +39,7 @@ MODULES = {
         {"leads": "Leads", "deals": "Deals", "customers": "Customers"},
     ),
     "recruitment": Module(
-        "Recruitment",
+        "Empanelment",
         {
             "openings": "Openings",
             "candidates": "Candidates",

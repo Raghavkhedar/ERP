@@ -13,7 +13,7 @@
         {% for error in form.non_field_errors %}{{ error }}{% endfor %}
       </p>
     {% else %}
-      <p class="mt-2 text-sm text-gray-500">Use your employee ID, like S123.</p>
+      <p class="mt-2 text-base text-gray-600">Use your employee ID, like S123.</p>
     {% endif %}
 
     <div class="mt-8 space-y-3">
@@ -41,6 +41,6 @@
             class="mt-6 h-12 w-full rounded-lg bg-blue-600 font-medium text-white transition duration-150 hover:bg-blue-700 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30 disabled:opacity-70"
             x-text="sending ? 'Logging in…' : 'Log in'">Log in</button>
 
-    <a href="{% url 'password_reset' %}" class="mt-6 inline-block text-sm text-gray-500 transition-colors hover:text-gray-900">Forgot your password?</a>
+    <a href="{% url 'password_reset' %}" class="mt-6 inline-block text-sm font-medium text-ink underline underline-offset-4 transition-colors hover:text-blue-600">Forgot your password?</a>
   </form>
 {% endblock %}
