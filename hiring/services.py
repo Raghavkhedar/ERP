@@ -332,3 +332,28 @@ def decline(offer, reason=""):
         current.decided_at = timezone.now()
         current.save()
         return current
+
+
+def onboarding(companies):
+    """Accepted offers: (still to join, joined)."""
+    accepted = visible_offers(companies).filter(state=Offer.State.ACCEPTED)
+    return (
+        accepted.filter(joined_on__isnull=True).order_by("joining_date"),
+        accepted.filter(joined_on__isnull=False).order_by("-joined_on"),
+    )
+
+
+def mark_joined(offer, on):
+    """They turned up. Records the day and closes the joining follow-up."""
+    with transaction.atomic():
+        current = Offer.objects.select_for_update().get(pk=offer.pk)
+        if current.state != Offer.State.ACCEPTED or current.joined_on:
+            raise OfferError("That candidate is not waiting to join.")
+        current.joined_on = on
+        current.save(update_fields=["joined_on"])
+        FollowUp.objects.filter(
+            person=current.person,
+            purpose=FollowUp.Purpose.JOINING,
+            status=FollowUp.Status.PENDING,
+        ).update(status=FollowUp.Status.COMPLETED)
+        return current

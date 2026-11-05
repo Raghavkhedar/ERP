@@ -150,3 +150,11 @@ class AcceptForm(forms.Form):
 
 class DeclineForm(forms.Form):
     reason = forms.CharField(required=False, max_length=200)
+
+
+class JoinedForm(forms.Form):
+    joined_on = forms.DateField(
+        label="Joined on",
+        initial=timezone.localdate,
+        widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+    )

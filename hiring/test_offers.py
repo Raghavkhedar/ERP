@@ -126,3 +126,37 @@ def test_export(client, offer):
     book = load_workbook(BytesIO(client.get(reverse("hiring:offers_export")).content))
     assert list(book["Offers"].values)[1][3:5] == ("Offered", 30000.0)
     assert len(list(book["Rounds"].values)) == 2
+
+
+def test_marking_joined_closes_the_joining_follow_up(client, offer, caller):
+    accept(offer, date(2030, 1, 6), caller)
+    r = client.post(
+        reverse("hiring:joined", args=[offer.pk]), {"joined_on": "2030-01-07"}
+    )
+    assert r.status_code == 302
+    offer.refresh_from_db()
+    assert offer.joined_on == date(2030, 1, 7)
+    assert not FollowUp.objects.filter(purpose="joining", status="pending").exists()
+    page = client.get(reverse("hiring:onboarding")).content.decode()
+    assert "joined 7 Jan 2030" in page and "coming soon" in page
+
+
+def test_only_accepted_unjoined_offers_can_join(client, offer, caller):
+    client.post(reverse("hiring:joined", args=[offer.pk]), {"joined_on": "2030-01-07"})
+    offer.refresh_from_db()
+    assert offer.joined_on is None
+    accept(offer, date(2030, 1, 6), caller)
+    for _ in range(2):
+        client.post(
+            reverse("hiring:joined", args=[offer.pk]), {"joined_on": "2030-01-07"}
+        )
+    offer.refresh_from_db()
+    assert offer.joined_on == date(2030, 1, 7)
+
+
+def test_onboarding_export(client, offer, caller):
+    accept(offer, date(2030, 1, 6), caller)
+    book = load_workbook(
+        BytesIO(client.get(reverse("hiring:onboarding_export")).content)
+    )
+    assert list(book["On-Boarding"].values)[1][0] == "Asha"

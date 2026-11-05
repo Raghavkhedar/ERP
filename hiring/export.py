@@ -239,3 +239,32 @@ def offers_workbook(offers):
             ),
         },
     )
+
+
+def onboarding_workbook(expecting, joined):
+    def row(o):
+        return (
+            o.person.name,
+            o.person.phone,
+            str(o.requisition) if o.requisition else "",
+            o.joining_date,
+            o.joined_on,
+            float(o.latest.amount),
+        )
+
+    return workbook_response(
+        stamp("onboarding"),
+        {
+            "On-Boarding": (
+                (
+                    "Candidate",
+                    "Phone",
+                    "Requisition",
+                    "Joining date",
+                    "Joined on",
+                    "Agreed offer",
+                ),
+                [row(o) for o in [*expecting, *joined]],
+            )
+        },
+    )
