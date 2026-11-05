@@ -268,3 +268,36 @@ def onboarding_workbook(expecting, joined):
             )
         },
     )
+
+
+STEPS = (
+    ("Sourced", "sourced_n"),
+    ("Duplicates", "duplicate_n"),
+    ("Called", "called_n"),
+    ("Interviewed", "interviewed_n"),
+    ("Selected", "selected_n"),
+    ("Offered", "offered_n"),
+    ("Accepted", "accepted_n"),
+    ("Joined", "joined_n"),
+)
+
+
+def funnel_workbook(requisitions):
+    return workbook_response(
+        stamp("funnel"),
+        {
+            "Funnel": (
+                ("Requisition", "Site", "Status", "Needed", *(h for h, _ in STEPS)),
+                [
+                    (
+                        str(r),
+                        r.site,
+                        r.get_status_display(),
+                        r.headcount,
+                        *(getattr(r, f) for _, f in STEPS),
+                    )
+                    for r in requisitions
+                ],
+            )
+        },
+    )

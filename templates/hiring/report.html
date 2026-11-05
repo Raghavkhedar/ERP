@@ -1,0 +1,33 @@
+{% extends "people/base_people.html" %}
+
+{% block title %}Report · Senken ERP{% endblock %}
+{% block heading %}Funnel by requisition{% endblock %}
+{% block actions %}<a href="{% url 'hiring:report_export' %}" class="text-gray-500 hover:text-gray-900">Export</a>{% endblock %}
+
+{% block page %}
+  {% if rows %}
+    <div class="overflow-x-auto">
+      <table class="w-full min-w-[40rem] text-left text-sm">
+        <thead>
+          <tr class="border-b border-ink">
+            <th scope="col" class="py-2 pr-4 font-semibold">Requisition</th>
+            <th scope="col" class="px-2 py-2 text-right font-semibold">Needed</th>
+            {% for h in heads %}<th scope="col" class="px-2 py-2 text-right font-semibold">{{ h }}</th>{% endfor %}
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for r, counts in rows %}
+            <tr>
+              <th scope="row" class="py-2 pr-4 font-medium">{{ r.profile }}<span class="block text-xs font-normal text-gray-500">{{ r.get_department_display }}{% if r.site %} · {{ r.site }}{% endif %} · {{ r.get_status_display }}</span></th>
+              <td class="px-2 py-2 text-right tabular-nums">{{ r.headcount }}</td>
+              {% for n in counts %}<td class="px-2 py-2 text-right tabular-nums {% if forloop.last and n >= r.headcount %}font-semibold{% endif %}">{{ n }}</td>{% endfor %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="mt-4 text-sm text-gray-500">Each person counts once per step. Duplicates are numbers that were already on a card.</p>
+  {% else %}
+    <p class="border-y border-gray-100 py-6 text-sm text-gray-500">No requisitions yet.</p>
+  {% endif %}
+{% endblock %}
