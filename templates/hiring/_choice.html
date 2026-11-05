@@ -1,0 +1,13 @@
+{# A short list of choices as big tap targets. `field` is a radio field. #}
+<fieldset>
+  <legend class="mb-1.5 text-sm font-medium">{{ field.label }}</legend>
+  <div class="grid gap-2 {% if cols == 2 %}sm:grid-cols-2{% else %}sm:grid-cols-3{% endif %}">
+    {% for radio in field %}{% if radio.data.value != '' %}
+      <label class="flex min-h-11 cursor-pointer items-center justify-center rounded-lg border border-ink bg-white px-3 py-2 text-center font-medium shadow-md transition-transform duration-100 has-[:checked]:translate-x-px has-[:checked]:translate-y-px has-[:checked]:shadow-none has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-blue-600 {% if radio.data.value == 'fire_fighting' %}has-[:checked]:bg-ink has-[:checked]:text-pop{% else %}has-[:checked]:bg-pop{% endif %}">
+        <input type="radio" name="{{ radio.data.name }}" value="{{ radio.data.value }}" {% if radio.data.selected %}checked{% endif %} class="sr-only">
+        {{ radio.choice_label }}
+      </label>
+    {% endif %}{% endfor %}
+  </div>
+  {% for error in field.errors %}<p class="mt-1 text-sm text-red-600">{{ error }}</p>{% endfor %}
+</fieldset>
