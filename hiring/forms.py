@@ -119,3 +119,34 @@ class AssessmentForm(forms.ModelForm):
         model = HRAssessment
         fields = ["decision", "level", "hold_tenure", "comments"]
         widgets = {"comments": forms.Textarea(attrs={"rows": 3})}
+
+
+class StartOfferForm(forms.Form):
+    amount = forms.DecimalField(
+        label="Monthly offer", max_digits=10, decimal_places=2, min_value=1
+    )
+    note = forms.CharField(required=False, max_length=300)
+
+
+class RoundForm(forms.Form):
+    amount = forms.DecimalField(
+        label="We offer", max_digits=10, decimal_places=2, min_value=1
+    )
+    counter = forms.DecimalField(
+        label="They ask for",
+        max_digits=10,
+        decimal_places=2,
+        min_value=1,
+        required=False,
+    )
+    note = forms.CharField(required=False, max_length=300)
+
+
+class AcceptForm(forms.Form):
+    joining_date = forms.DateField(
+        widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d")
+    )
+
+
+class DeclineForm(forms.Form):
+    reason = forms.CharField(required=False, max_length=200)

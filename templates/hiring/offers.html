@@ -1,0 +1,55 @@
+{% extends "people/base_people.html" %}
+
+{% block title %}Hiring · Senken ERP{% endblock %}
+{% block heading %}Offers{% endblock %}
+{% block actions %}<a href="{% url 'hiring:offers_export' %}" class="text-gray-500 hover:text-gray-900">Export</a>{% endblock %}
+
+{% block page %}
+  <h2 class="font-semibold">To offer <span class="font-normal text-gray-500">({{ waiting|length }})</span></h2>
+  {% if waiting %}
+    <ul class="mt-1 divide-y divide-gray-100 border-y border-gray-100">
+      {% for f in waiting %}
+        <li class="flex items-center gap-4 py-3">
+          <div class="min-w-0 flex-1">
+            <p class="truncate font-medium">{{ f.person.name }}</p>
+            <p class="truncate text-sm text-gray-500">{{ f.person.phone }}{% if f.person.expected_salary %} · expects {{ f.person.expected_salary }}{% endif %}{% if f.requisition %} · {{ f.requisition }}{% endif %}</p>
+          </div>
+          <a href="{% url 'hiring:offer_start' f.pk %}" class="inline-flex h-9 shrink-0 items-center rounded-lg bg-blue-600 px-3 text-sm font-medium">Make offer</a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="mt-1 border-y border-gray-100 py-4 text-sm text-gray-500">No one waiting. Selected candidates from Selecting land here.</p>
+  {% endif %}
+
+  <h2 class="mt-8 font-semibold">Negotiating <span class="font-normal text-gray-500">({{ open|length }})</span></h2>
+  <ul class="mt-1 divide-y divide-gray-100 border-y border-gray-100">
+    {% for o in open %}
+      <li>
+        <a href="{% url 'hiring:offer' o.pk %}" class="flex items-center gap-4 py-3 hover:bg-canvas/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pop">
+          <div class="min-w-0 flex-1">
+            <p class="truncate font-medium">{{ o.person.name }}</p>
+            <p class="truncate text-sm text-gray-500">offered {{ o.latest.amount }}{% if o.latest.counter %} · they ask {{ o.latest.counter }}{% endif %}</p>
+          </div>
+        </a>
+      </li>
+    {% empty %}<li class="py-4 text-sm text-gray-500">None.</li>{% endfor %}
+  </ul>
+
+  {% if closed %}
+    <h2 class="mt-8 font-semibold">Decided</h2>
+    <ul class="mt-1 divide-y divide-gray-100 border-y border-gray-100">
+      {% for o in closed %}
+        <li>
+          <a href="{% url 'hiring:offer' o.pk %}" class="flex items-center gap-4 py-3 hover:bg-canvas/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pop">
+            <div class="min-w-0 flex-1">
+              <p class="truncate font-medium">{{ o.person.name }}</p>
+              <p class="truncate text-sm text-gray-500">{{ o.latest.amount }}{% if o.joining_date %} · joins {{ o.joining_date|date:"j M Y" }}{% endif %}{% if o.decline_reason %} · {{ o.decline_reason }}{% endif %}</p>
+            </div>
+            <span class="shrink-0 rounded-full border border-ink px-2.5 py-0.5 text-xs {% if o.state == 'accepted' %}bg-pop{% endif %}">{{ o.get_state_display }}</span>
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+{% endblock %}

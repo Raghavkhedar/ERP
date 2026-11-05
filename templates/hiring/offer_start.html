@@ -1,0 +1,14 @@
+{% extends "people/base_people.html" %}
+
+{% block title %}Make offer · Senken ERP{% endblock %}
+{% block heading %}{{ f.person.name }}{% endblock %}
+{% block actions %}<a href="{% url 'hiring:offers' %}" class="text-gray-500 hover:text-gray-900">Back</a>{% endblock %}
+
+{% block page %}
+  <p class="text-sm text-gray-500">{{ f.person.phone }}{% if f.person.current_salary %} · earns {{ f.person.current_salary }}{% endif %}{% if f.person.expected_salary %} · expects {{ f.person.expected_salary }}{% endif %}{% if f.requisition %} · {{ f.requisition }}{% endif %}</p>
+  <form method="post" class="fields mt-6 max-w-xl space-y-5 [&_input]:w-full">
+    {% csrf_token %}
+    {% for field in form %}{% include "tasks/_field.html" %}{% endfor %}
+    <button type="submit" class="h-11 rounded-lg bg-blue-600 px-5 font-medium">Make offer</button>
+  </form>
+{% endblock %}
