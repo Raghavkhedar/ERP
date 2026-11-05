@@ -136,3 +136,53 @@ def followups_workbook(followups):
             ),
         },
     )
+
+
+def interviews_workbook(interviews, include_hr=False):
+    def who(u):
+        return u.get_full_name() or u.get_username()
+
+    sheets = {
+        "Interviews": (
+            (
+                "Candidate",
+                "Phone",
+                "Requisition",
+                "Interview",
+                "Result",
+                "Interviewer",
+                "Questions asked",
+                "Notes",
+            ),
+            [
+                (
+                    i.person.name,
+                    i.person.phone,
+                    str(i.requisition) if i.requisition else "",
+                    i.scheduled_at,
+                    i.get_result_display(),
+                    who(i.interviewer),
+                    i.questions,
+                    i.notes,
+                )
+                for i in interviews
+            ],
+        )
+    }
+    if include_hr:
+        sheets["HR assessments"] = (
+            ("Candidate", "Decision", "Level", "Hold tenure", "Comments", "Assessor"),
+            [
+                (
+                    i.person.name,
+                    i.hr.get_decision_display(),
+                    i.hr.get_level_display(),
+                    i.hr.hold_tenure,
+                    i.hr.comments,
+                    who(i.hr.assessor),
+                )
+                for i in interviews
+                if hasattr(i, "hr")
+            ],
+        )
+    return workbook_response(stamp("interviews"), sheets)

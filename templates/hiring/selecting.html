@@ -1,0 +1,42 @@
+{% extends "people/base_people.html" %}
+
+{% block title %}Selecting · Senken ERP{% endblock %}
+{% block heading %}Interviews{% endblock %}
+{% block actions %}<a href="{% url 'hiring:selecting_export' %}" class="text-gray-500 hover:text-gray-900">Export</a>{% endblock %}
+
+{% block page %}
+  <h2 class="font-semibold">To interview <span class="font-normal text-gray-500">({{ waiting|length }})</span></h2>
+  {% if waiting %}
+    <ul class="mt-1 divide-y divide-gray-100 border-y border-gray-100">
+      {% for f in waiting %}
+        <li class="flex items-center gap-4 py-3">
+          <div class="min-w-0 flex-1">
+            <p class="truncate font-medium">{{ f.person.name }}</p>
+            <p class="truncate text-sm text-gray-500">{{ f.person.phone }} · {{ f.due|date:"j M, g:i a" }}{% if f.requisition %} · {{ f.requisition }}{% endif %}</p>
+          </div>
+          <a href="{% url 'hiring:interview' f.pk %}" class="inline-flex h-9 shrink-0 items-center rounded-lg bg-blue-600 px-3 text-sm font-medium">Record</a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="mt-1 border-y border-gray-100 py-4 text-sm text-gray-500">No interviews booked. They appear when a call ends with "Interview booked".</p>
+  {% endif %}
+
+  <h2 class="mt-8 font-semibold">Done</h2>
+  {% if done %}
+    <ul class="mt-1 divide-y divide-gray-100 border-y border-gray-100">
+      {% for i in done %}
+        <li class="flex items-center gap-4 py-3">
+          <div class="min-w-0 flex-1">
+            <p class="truncate font-medium">{{ i.person.name }}</p>
+            <p class="truncate text-sm text-gray-500">{{ i.scheduled_at|date:"j M" }}{% if i.requisition %} · {{ i.requisition }}{% endif %}{% if has_hr and i.hr %} · HR: {{ i.hr.get_decision_display }}, {{ i.hr.get_level_display }}{% endif %}</p>
+          </div>
+          {% if has_hr %}<a href="{% url 'hiring:assess' i.pk %}" class="shrink-0 text-sm text-gray-500 hover:text-gray-900">{% if i.hr %}HR notes{% else %}Add HR notes{% endif %}</a>{% endif %}
+          <span class="shrink-0 rounded-full border border-ink px-2.5 py-0.5 text-xs {% if i.result == 'selected' %}bg-pop{% endif %}">{{ i.get_result_display }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="mt-1 border-y border-gray-100 py-4 text-sm text-gray-500">Nothing recorded yet.</p>
+  {% endif %}
+{% endblock %}

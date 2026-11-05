@@ -1,0 +1,24 @@
+{% extends "people/base_people.html" %}
+
+{% block title %}Interview · Senken ERP{% endblock %}
+{% block heading %}{{ f.person.name }}{% endblock %}
+{% block actions %}<a href="{% url 'people:detail' f.person_id %}" class="text-gray-500 hover:text-gray-900">Card</a><a href="{% url 'hiring:selecting' %}" class="text-gray-500 hover:text-gray-900">Back</a>{% endblock %}
+
+{% block page %}
+  <p class="text-sm text-gray-500">{{ f.person.phone }} · {{ f.due|date:"j M, g:i a" }}{% if f.requisition %} · {{ f.requisition }}{% endif %}{% if f.person.current_employer %} · {{ f.person.current_employer }}{% endif %}{% if f.person.expected_salary %} · expects {{ f.person.expected_salary }}{% endif %}{% if f.person.experience_years %} · {{ f.person.experience_years }} yrs{% endif %}</p>
+  <form method="post" class="fields mt-6 max-w-xl space-y-4 [&_input[type=datetime-local]]:w-full [&_textarea]:w-full">
+    {% csrf_token %}
+    <h2 class="font-semibold">Result</h2>
+    {% for error in form.result.errors %}<p class="text-sm text-red-600">{{ error }}</p>{% endfor %}
+    <div class="flex flex-wrap gap-2">
+      {% for radio in form.result %}
+        <label class="cursor-pointer rounded-lg border border-ink px-3 py-2 text-sm has-[:checked]:bg-pop"><span class="sr-only">{{ radio.tag }}</span>{{ radio.choice_label }}</label>
+      {% endfor %}
+    </div>
+    <p class="text-xs text-gray-500">Selected opens an offer for this person. Hold opens a call if you set a date.</p>
+    {% include "tasks/_field.html" with field=form.next_due %}
+    {% include "tasks/_field.html" with field=form.questions %}
+    {% include "tasks/_field.html" with field=form.notes %}
+    <button type="submit" class="h-11 rounded-lg bg-blue-600 px-5 font-medium">Save interview</button>
+  </form>
+{% endblock %}

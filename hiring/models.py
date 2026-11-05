@@ -182,3 +182,70 @@ class CallLog(models.Model):
 
     def __str__(self):
         return f"{self.get_outcome_display()} {self.person}"
+
+
+class Interview(models.Model):
+    """The interview event, pre-filled from the follow-up that booked it."""
+
+    class Result(models.TextChoices):
+        SELECTED = "selected", "Selected"
+        HOLD = "hold", "Hold"
+        REJECTED = "rejected", "Rejected"
+
+    person = models.ForeignKey(
+        "people.Person", on_delete=models.PROTECT, related_name="interviews"
+    )
+    requisition = models.ForeignKey(
+        Requisition,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="interviews",
+    )
+    followup = models.OneToOneField(
+        FollowUp, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    scheduled_at = models.DateTimeField()
+    result = models.CharField(max_length=20, choices=Result)
+    questions = models.TextField(blank=True)
+    notes = models.TextField(blank=True)
+    interviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    history = HistoricalRecords()
+
+    class Meta:
+        ordering = ["-scheduled_at", "-id"]
+
+    def __str__(self):
+        return f"{self.person} · {self.get_result_display()}"
+
+
+class HRAssessment(models.Model):
+    """HR's view of an interview, kept apart from it and readable only by those
+    granted the HR assessments section."""
+
+    class Level(models.TextChoices):
+        EXPERT = "expert", "Expert"
+        INTERMEDIATE = "intermediate", "Intermediate"
+        BEGINNER = "beginner", "Beginner"
+        HELPER = "helper", "Helper"
+
+    interview = models.OneToOneField(
+        Interview, on_delete=models.PROTECT, related_name="hr"
+    )
+    decision = models.CharField(max_length=20, choices=Interview.Result)
+    level = models.CharField(max_length=20, choices=Level)
+    hold_tenure = models.CharField(max_length=60, blank=True)
+    comments = models.TextField(blank=True)
+    assessor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    history = HistoricalRecords()
+
+    def __str__(self):
+        return f"HR: {self.interview}"

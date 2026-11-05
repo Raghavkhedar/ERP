@@ -44,6 +44,7 @@ MODULES = {
             "openings": "Openings",
             "candidates": "Candidates",
             "interviews": "Interviews",
+            "assessments": "HR assessments",
         },
     ),
 }

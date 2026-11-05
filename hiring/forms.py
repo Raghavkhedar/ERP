@@ -6,7 +6,7 @@ from django.utils import timezone
 
 from people.models import phone_key
 
-from .models import CallLog, FollowUp, Requisition
+from .models import CallLog, FollowUp, HRAssessment, Interview, Requisition
 
 
 class RequisitionForm(forms.ModelForm):
@@ -101,3 +101,21 @@ class ReassignForm(forms.Form):
             .objects.filter(is_active=True, memberships__company__in=companies)
             .distinct()
         )
+
+
+class InterviewForm(forms.Form):
+    result = forms.ChoiceField(
+        choices=Interview.Result.choices, widget=forms.RadioSelect
+    )
+    next_due = _when("Call again on", required=False)
+    questions = forms.CharField(
+        required=False, widget=forms.Textarea(attrs={"rows": 3})
+    )
+    notes = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
+
+
+class AssessmentForm(forms.ModelForm):
+    class Meta:
+        model = HRAssessment
+        fields = ["decision", "level", "hold_tenure", "comments"]
+        widgets = {"comments": forms.Textarea(attrs={"rows": 3})}
