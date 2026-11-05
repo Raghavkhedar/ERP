@@ -22,6 +22,7 @@
           <div class="min-w-0 flex-1">
             <p class="truncate font-medium">{{ r.headcount }} × {{ r.profile }} <span class="text-gray-500">· {{ r.get_department_display }}</span></p>
             <p class="truncate text-sm text-gray-500">{% if r.site %}{{ r.site }}{% endif %}{% if r.needed_by %}{% if r.site %} · {% endif %}needed by {{ r.needed_by|date:"j M Y" }}{% endif %}</p>
+            <p class="truncate text-sm text-gray-500">{{ r.sourced_count }} sourced of {{ r.headcount }} needed{% if r.duplicate_count %} · {{ r.duplicate_count }} duplicate{{ r.duplicate_count|pluralize }}{% endif %}</p>
           </div>
           <span class="shrink-0 rounded-full border border-ink px-2.5 py-0.5 text-xs">{{ r.get_status_display }}</span>
           {% if user.is_superuser %}
