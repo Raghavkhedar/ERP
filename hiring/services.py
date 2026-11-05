@@ -1,7 +1,7 @@
 from datetime import datetime, time, timedelta
 
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Case, Count, Q, When
 from django.urls import reverse
 from django.utils import timezone
 
@@ -32,6 +32,14 @@ def visible_requisitions(companies, status=""):
         sourced_count=Count("sourced"),
         duplicate_count=Count("sourced", filter=Q(sourced__is_duplicate=True)),
     )
+    # Open first, then fire fighting before urgent before the rest.
+    reqs = reqs.annotate(
+        rank=Case(
+            When(urgency="fire_fighting", then=0),
+            When(urgency="urgent", then=1),
+            default=2,
+        )
+    ).order_by("status", "rank", "needed_by", "-created_at")
     return reqs.filter(status=status) if status else reqs
 
 

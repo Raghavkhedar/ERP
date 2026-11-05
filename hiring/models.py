@@ -19,15 +19,63 @@ class Requisition(models.Model):
         OPEN = "open", "Open"
         CLOSED = "closed", "Closed"
 
+    class Kind(models.TextChoices):
+        NEW = "new", "New"
+        BACKFILL = "backfill", "Backfill"
+
+    class Employment(models.TextChoices):
+        PERMANENT = "permanent", "Permanent"
+        TEMPORARY = "temporary", "Temporary"
+        PART_TIME = "part_time", "Part-time"
+
+    # Sourcing goes to the highest first: fire fighting, then urgent.
+    class Urgency(models.TextChoices):
+        FIRE_FIGHTING = "fire_fighting", "Fire fighting"
+        URGENT = "urgent", "Urgent"
+        NOT_URGENT = "not_urgent", "Not urgent"
+
+    class Exposure(models.TextChoices):
+        LOW = "low", "Low"
+        MEDIUM = "medium", "Medium"
+        HIGH = "high", "High"
+
+    class Gender(models.TextChoices):
+        ANY = "", "No restriction"
+        MALE = "M", "Male"
+        FEMALE = "F", "Female"
+
     company = models.ForeignKey(
         "core.Company", on_delete=models.PROTECT, related_name="requisitions"
     )
+    kind = models.CharField(max_length=10, choices=Kind, default=Kind.NEW)
     department = models.CharField(max_length=20, choices=Department)
+    sub_department = models.CharField(max_length=120, blank=True)
+    # The designation.
     profile = models.CharField(max_length=120)
     headcount = models.PositiveIntegerField()
     site = models.CharField(max_length=200, blank=True)
     needed_by = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=10, choices=Status, default=Status.OPEN)
+    urgency = models.CharField(
+        max_length=15, choices=Urgency, default=Urgency.NOT_URGENT
+    )
+    experience_years = models.CharField(max_length=40, blank=True)
+    employment = models.CharField(
+        max_length=10, choices=Employment, default=Employment.PERMANENT
+    )
+    gender = models.CharField(max_length=1, choices=Gender, blank=True)
+    requirements = models.TextField(blank=True)
+    languages = models.JSONField(default=list, blank=True)
+    industry = models.CharField(max_length=200, blank=True)
+    education = models.CharField(max_length=200, blank=True)
+    previous_employment_restriction = models.CharField(max_length=200, blank=True)
+    reputed_company_must = models.BooleanField(default=False)
+    exposure = models.CharField(max_length=10, choices=Exposure, blank=True)
+    budget = models.CharField(max_length=100, blank=True)
+    physical_restriction = models.CharField(max_length=200, blank=True)
+    domicile_restriction = models.CharField(max_length=200, blank=True)
+    age_restriction = models.CharField(max_length=100, blank=True)
+    other_details = models.TextField(blank=True)
     opened_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
     )

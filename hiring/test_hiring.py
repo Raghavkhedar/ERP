@@ -35,6 +35,9 @@ def reader(client, django_user_model, senken):
     return user
 
 
+REQUIRED = {"kind": "new", "employment": "permanent", "urgency": "not_urgent"}
+
+
 def make(senken, user, **kw):
     kw = {"department": "bo", "profile": "MECH fitter", "headcount": 3} | kw
     return Requisition.objects.create(company=senken, opened_by=user, **kw)
@@ -43,7 +46,7 @@ def make(senken, user, **kw):
 def test_superadmin_releases_requisition(client, boss, senken):
     r = client.post(
         reverse("hiring:new"),
-        {"department": "bo", "profile": "MECH fitter", "headcount": 3},
+        REQUIRED | {"department": "bo", "profile": "MECH fitter", "headcount": 3},
     )
     assert r.status_code == 302
     req = Requisition.objects.get()
@@ -68,7 +71,7 @@ def test_zero_headcount_rejected(client, boss):
 
 def test_stale_edit_is_rejected(client, boss, senken):
     req = make(senken, boss)
-    data = {"department": "bo", "profile": "Electrician", "headcount": 2}
+    data = REQUIRED | {"department": "bo", "profile": "Electrician", "headcount": 2}
     client.post(reverse("hiring:edit", args=[req.pk]), data | {"version": 1})
     client.post(
         reverse("hiring:edit", args=[req.pk]), data | {"profile": "Late", "version": 1}
@@ -87,3 +90,30 @@ def test_close_keeps_the_row(client, boss, senken):
 def test_sidebar_lights_empanelment_on_preparing(client, boss):
     page = client.get(reverse("hiring:list")).content.decode()
     assert 'title="Empanelment" aria-current="page"' in page
+
+
+def test_requisition_form_fields_and_priority_order(client, boss, senken):
+    client.post(
+        reverse("hiring:new"),
+        {
+            "kind": "backfill",
+            "department": "bo",
+            "sub_department": "Accounts",
+            "profile": "Accountant",
+            "headcount": 1,
+            "employment": "permanent",
+            "urgency": "fire_fighting",
+            "languages": ["Hindi", "English"],
+            "exposure": "high",
+        },
+    )
+    make(senken, boss, urgency="urgent", profile="Urgent one")
+    make(senken, boss, profile="Calm one")
+    r = Requisition.objects.get(profile="Accountant")
+    assert (r.kind, r.sub_department, r.languages) == (
+        "backfill",
+        "Accounts",
+        ["Hindi", "English"],
+    )
+    page = client.get(reverse("hiring:list")).content.decode()
+    assert page.index("Accountant") < page.index("Urgent one") < page.index("Calm one")

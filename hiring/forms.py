@@ -9,16 +9,67 @@ from people.widgets import PhoneWidget
 
 from .models import CallLog, FollowUp, HRAssessment, Interview, Requisition
 
+LANGUAGES = [
+    (x, x)
+    for x in (
+        "Hindi English Marathi Gujarati Bengali Tamil Telugu Kannada Malayalam "
+        "Punjabi Odia Urdu"
+    ).split()
+]
+
 
 class RequisitionForm(forms.ModelForm):
+    languages = forms.MultipleChoiceField(
+        choices=LANGUAGES,
+        required=False,
+        label="Language fluency",
+        widget=forms.CheckboxSelectMultiple,
+    )
     # The version the form was opened at; see services.save_requisition.
     version = forms.IntegerField(widget=forms.HiddenInput, required=False)
 
     class Meta:
         model = Requisition
-        fields = ["department", "profile", "headcount", "site", "needed_by"]
+        fields = [
+            "kind",
+            "department",
+            "sub_department",
+            "profile",
+            "headcount",
+            "experience_years",
+            "employment",
+            "needed_by",
+            "urgency",
+            "gender",
+            "requirements",
+            "languages",
+            "industry",
+            "education",
+            "previous_employment_restriction",
+            "reputed_company_must",
+            "exposure",
+            "budget",
+            "physical_restriction",
+            "domicile_restriction",
+            "age_restriction",
+            "site",
+            "other_details",
+        ]
+        labels = {
+            "kind": "Is this a new or a backfill requisition?",
+            "profile": "Designation",
+            "headcount": "Number of openings",
+            "experience_years": "Years of experience",
+            "needed_by": "Needed by",
+            "requirements": "Job requirements",
+            "reputed_company_must": "Experience in a reputed company is a must",
+            "site": "Place of job",
+        }
         widgets = {
-            "needed_by": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d")
+            "kind": forms.RadioSelect,
+            "needed_by": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+            "requirements": forms.Textarea(attrs={"rows": 3}),
+            "other_details": forms.Textarea(attrs={"rows": 3}),
         }
 
 

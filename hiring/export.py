@@ -18,6 +18,12 @@ def requisitions_workbook(requisitions):
             r.get_status_display(),
             r.opened_by.get_full_name() or r.opened_by.get_username(),
             r.company.name,
+            r.get_kind_display(),
+            r.sub_department,
+            r.get_urgency_display(),
+            r.get_employment_display(),
+            r.experience_years,
+            r.budget,
         )
         for r in requisitions.select_related("company", "opened_by")
     ]
@@ -37,6 +43,12 @@ def requisitions_workbook(requisitions):
                     "Status",
                     "Opened by",
                     "Company",
+                    "Kind",
+                    "Sub-department",
+                    "Urgency",
+                    "Employment",
+                    "Experience (years)",
+                    "Budget",
                 ),
                 rows,
             )
