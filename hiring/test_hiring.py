@@ -140,7 +140,7 @@ def test_discussion_comment_and_job_post(client, boss, senken):
         "post_status": "active",
         "payment": "free",
         "portal_user": "nish.S@senkenindia.in",
-        "posting_company": "Senken",
+        "posting_company": Company.objects.get(slug="senken").name,
     }
     assert client.post(url, job).status_code == 302
     assert [p.is_job_post for p in r.posts.all()] == [False, True]
@@ -202,3 +202,19 @@ def test_job_post_on_a_portal_not_in_the_list(client, boss, senken):
         client.post(url, job | {"portal_other": "Local Jobs Board"}).status_code == 302
     )
     assert r.posts.get().portal == "Local Jobs Board"
+
+
+def test_job_post_company_is_senken_or_avris(client, boss, senken):
+    r = _req(boss, senken)
+    url = reverse("hiring:post", args=[r.pk])
+    job = {
+        "portal": "Naukri",
+        "keyword": "x",
+        "posted_on": "2026-10-29",
+        "post_status": "active",
+        "payment": "free",
+    }
+    assert client.post(url, job | {"posting_company": "Acme"}).status_code == 422
+    avris = Company.objects.get(slug="avris").name
+    assert client.post(url, job | {"posting_company": avris}).status_code == 302
+    assert r.posts.get().posting_company == avris

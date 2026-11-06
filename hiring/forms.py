@@ -4,6 +4,7 @@ from django import forms
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
+from core.models import Company
 from people.models import phone_key
 from people.widgets import PhoneWidget
 
@@ -306,7 +307,6 @@ class JobPostForm(forms.ModelForm):
             "post_status": "Status",
             "payment": "Payment type",
             "portal_user": "Portal user ID",
-            "posting_company": "Company",
             "body": "Note (optional)",
         }
         widgets = {
@@ -318,6 +318,11 @@ class JobPostForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         for name in ("portal", "keyword", "posted_on", "post_status", "payment"):
             self.fields[name].required = True
+        # Only our own companies (Senken, Avris), stored by name.
+        names = Company.objects.order_by("name").values_list("name", "name")
+        self.fields["posting_company"] = forms.ChoiceField(
+            label="Company", required=False, choices=[("", "---------"), *names]
+        )
 
     def clean(self):
         data = super().clean()
