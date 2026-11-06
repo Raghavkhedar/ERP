@@ -7,7 +7,14 @@ from django.utils import timezone
 from people.models import phone_key
 from people.widgets import PhoneWidget
 
-from .models import CallLog, FollowUp, HRAssessment, Interview, Requisition
+from .models import (
+    CallLog,
+    FollowUp,
+    HRAssessment,
+    Interview,
+    Requisition,
+    RequisitionPost,
+)
 
 LANGUAGES = [
     (x, x)
@@ -227,3 +234,47 @@ class JoinedForm(forms.Form):
         initial=timezone.localdate,
         widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
     )
+
+
+class CommentForm(forms.ModelForm):
+    body = forms.CharField(
+        label="Message", widget=forms.Textarea(attrs={"rows": 3}), max_length=4000
+    )
+
+    class Meta:
+        model = RequisitionPost
+        fields = ["body"]
+
+
+class JobPostForm(forms.ModelForm):
+    class Meta:
+        model = RequisitionPost
+        fields = [
+            "portal",
+            "keyword",
+            "posted_on",
+            "post_status",
+            "payment",
+            "portal_user",
+            "posting_company",
+            "body",
+        ]
+        labels = {
+            "portal": "Job portal",
+            "keyword": "Source keyword",
+            "posted_on": "Date posted",
+            "post_status": "Status",
+            "payment": "Payment type",
+            "portal_user": "Portal user ID",
+            "posting_company": "Company",
+            "body": "Note (optional)",
+        }
+        widgets = {
+            "posted_on": forms.DateInput(attrs={"type": "date"}),
+            "body": forms.Textarea(attrs={"rows": 2}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name in ("portal", "keyword", "posted_on", "post_status", "payment"):
+            self.fields[name].required = True

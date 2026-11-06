@@ -117,3 +117,47 @@ def test_requisition_form_fields_and_priority_order(client, boss, senken):
     )
     page = client.get(reverse("hiring:list")).content.decode()
     assert page.index("Accountant") < page.index("Urgent one") < page.index("Calm one")
+
+
+def _req(boss, senken):
+    return Requisition.objects.create(
+        company=senken,
+        department="bo",
+        profile="Data Analyst",
+        headcount=1,
+        opened_by=boss,
+    )
+
+
+def test_discussion_comment_and_job_post(client, boss, senken):
+    r = _req(boss, senken)
+    url = reverse("hiring:post", args=[r.pk])
+    assert client.post(url, {"body": "Need it by Friday"}).status_code == 302
+    job = {
+        "portal": "Job hai",
+        "keyword": "Data Analyst Intern",
+        "posted_on": "2026-10-29",
+        "post_status": "active",
+        "payment": "free",
+        "portal_user": "nish.S@senkenindia.in",
+        "posting_company": "Senken",
+    }
+    assert client.post(url, job).status_code == 302
+    assert [p.is_job_post for p in r.posts.all()] == [False, True]
+    page = client.get(reverse("hiring:detail", args=[r.pk]))
+    assert b"Job post on Job hai" in page.content
+
+
+def test_discussion_rejects_empty_and_incomplete(client, boss, senken):
+    r = _req(boss, senken)
+    url = reverse("hiring:post", args=[r.pk])
+    assert client.post(url, {"body": "  "}).status_code == 422
+    assert client.post(url, {"portal": "Job hai"}).status_code == 422
+    assert r.posts.count() == 0
+
+
+def test_reader_can_join_discussion(client, boss, reader, senken):
+    r = _req(boss, senken)
+    url = reverse("hiring:post", args=[r.pk])
+    assert client.post(url, {"body": "On it"}).status_code == 302
+    assert r.posts.get().author == reader

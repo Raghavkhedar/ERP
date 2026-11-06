@@ -6,7 +6,7 @@ from django.views.decorators.http import require_GET, require_POST
 from core.access import require_section
 
 from .export import STEPS, funnel_workbook, requisitions_workbook
-from .forms import RequisitionForm
+from .forms import CommentForm, JobPostForm, RequisitionForm
 from .models import Requisition
 from .services import (
     StaleRequisition,
@@ -88,6 +88,47 @@ def edit_requisition(request, pk):
         return redirect("hiring:list")
     return render(
         request, "hiring/form.html", {"form": form, "requisition": requisition}
+    )
+
+
+@section
+def requisition_detail(request, pk):
+    requisition = _requisition(request, pk)
+    return render(
+        request,
+        "hiring/detail.html",
+        {
+            "r": requisition,
+            "posts": requisition.posts.select_related("author"),
+            "comment_form": CommentForm(),
+            "job_form": JobPostForm(
+                initial={"posting_company": requisition.company.name}
+            ),
+        },
+    )
+
+
+@section
+@require_POST
+def post_to_requisition(request, pk):
+    # Everyone who can see the requisition may join the discussion.
+    requisition = _requisition(request, pk)
+    form = (JobPostForm if "portal" in request.POST else CommentForm)(request.POST)
+    if form.is_valid():
+        form.instance.requisition = requisition
+        form.instance.author = request.user
+        form.save()
+        return redirect("hiring:detail", pk=pk)
+    return render(
+        request,
+        "hiring/detail.html",
+        {
+            "r": requisition,
+            "posts": requisition.posts.select_related("author"),
+            "comment_form": form if isinstance(form, CommentForm) else CommentForm(),
+            "job_form": form if isinstance(form, JobPostForm) else JobPostForm(),
+        },
+        status=422,
     )
 
 

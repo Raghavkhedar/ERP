@@ -1,6 +1,6 @@
 from core.export import stamp, workbook_response
 
-from .models import CallLog, OfferRound
+from .models import CallLog, OfferRound, RequisitionPost
 from .services import by_source
 
 
@@ -51,7 +51,42 @@ def requisitions_workbook(requisitions):
                     "Budget",
                 ),
                 rows,
-            )
+            ),
+            "Job posts": (
+                (
+                    "Req #",
+                    "Department",
+                    "Sub-department",
+                    "Portal",
+                    "Source keyword",
+                    "Date posted",
+                    "Status",
+                    "Payment type",
+                    "Portal user ID",
+                    "Company",
+                    "Posted by",
+                ),
+                [
+                    (
+                        p.requisition_id,
+                        p.requisition.get_department_display(),
+                        p.requisition.sub_department,
+                        p.portal,
+                        p.keyword,
+                        p.posted_on,
+                        p.get_post_status_display(),
+                        p.get_payment_display(),
+                        p.portal_user,
+                        p.posting_company,
+                        p.author.get_full_name() or p.author.get_username(),
+                    )
+                    for p in RequisitionPost.objects.filter(
+                        requisition__in=requisitions
+                    )
+                    .exclude(portal="")
+                    .select_related("requisition", "author")
+                ],
+            ),
         },
     )
 

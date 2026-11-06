@@ -98,6 +98,53 @@ class Requisition(models.Model):
         return f"{self.headcount} × {self.profile}"
 
 
+class RequisitionPost(models.Model):
+    """One entry in a requisition's discussion: a comment, or a job post's details
+    (portal, keyword, date, status, payment). Append-only, like a chat."""
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        PAUSED = "paused", "Paused"
+        CLOSED = "closed", "Closed"
+
+    class Payment(models.TextChoices):
+        FREE = "free", "Free"
+        PAID = "paid", "Paid"
+
+    requisition = models.ForeignKey(
+        Requisition, on_delete=models.CASCADE, related_name="posts"
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    body = models.TextField(max_length=4000, blank=True)
+    # Job post details; portal set means this entry is a job post.
+    portal = models.CharField(max_length=120, blank=True)
+    keyword = models.CharField(max_length=200, blank=True)
+    posted_on = models.DateField(null=True, blank=True)
+    post_status = models.CharField(max_length=10, choices=Status, blank=True)
+    payment = models.CharField(max_length=10, choices=Payment, blank=True)
+    portal_user = models.CharField(max_length=200, blank=True)
+    posting_company = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=~models.Q(body="") | ~models.Q(portal=""),
+                name="requisition_post_not_empty",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.requisition_id}: {self.portal or self.body[:40]}"
+
+    @property
+    def is_job_post(self):
+        return bool(self.portal)
+
+
 class SourcedNumber(models.Model):
     """One row per number received, for one requisition. A number that matches an
     existing card creates no second card: the row points at that card and is
