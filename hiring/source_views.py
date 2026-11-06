@@ -1,12 +1,15 @@
+from urllib.parse import urlencode
+
 from django.contrib import messages
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_GET
 
 from core.access import require_section
 
 from .excel import SheetError, import_numbers
 from .export import sourced_workbook
-from .forms import ImportForm, SourceForm
+from .forms import PORTALS, ImportForm, SourceForm
 from .models import Requisition
 from .services import (
     by_source,
@@ -71,7 +74,16 @@ def _form_page(request, form, title, help_text=""):
 
 @section
 def new_source(request):
-    form = SourceForm(request.POST or None, requisitions=_open(request))
+    # "Save and add another" comes back with the requisition and source kept.
+    form = SourceForm(
+        request.POST or None,
+        initial={
+            k: request.GET[k]
+            for k in ("requisition", "source", "source_other")
+            if k in request.GET
+        },
+        requisitions=_open(request),
+    )
     if request.method == "POST" and form.is_valid():
         d = form.cleaned_data
         made = source_number(
@@ -90,8 +102,18 @@ def new_source(request):
             )
         else:
             messages.success(request, f"{made.person.name} added.")
+        if "again" in request.POST:
+            known = d["source"] in PORTALS or not d["source"]
+            query = urlencode(
+                {
+                    "requisition": d["requisition"].pk,
+                    "source": d["source"] if known else "other",
+                    "source_other": "" if known else d["source"],
+                }
+            )
+            return redirect(f"{reverse('hiring:source_new')}?{query}")
         return redirect("hiring:sourcing")
-    return _form_page(request, form, "Add a number")
+    return render(request, "hiring/source_add.html", {"form": form})
 
 
 @section

@@ -26,6 +26,22 @@ LANGUAGES = [
 ]
 
 
+PORTALS = [
+    "Naukri",
+    "LinkedIn",
+    "Indeed",
+    "Apna",
+    "WorkIndia",
+    "Foundit",
+    "Shine",
+    "Job Hai",
+    "Internshala",
+    "Freshersworld",
+    "TimesJobs",
+    "Glassdoor",
+]
+
+
 class RequisitionForm(forms.ModelForm):
     languages = forms.MultipleChoiceField(
         choices=LANGUAGES,
@@ -102,11 +118,13 @@ class SourceForm(forms.Form):
     name = forms.CharField(max_length=200)
     phone = forms.CharField(max_length=30, widget=PhoneWidget)
     email = forms.EmailField(required=False)
-    source = forms.CharField(
-        max_length=120,
+    # A well-known portal, or "other" with the name typed below it.
+    source = forms.ChoiceField(
         required=False,
-        widget=forms.TextInput(attrs={"list": "sources"}),
+        choices=[(x, x) for x in PORTALS] + [("other", "Other")],
+        widget=forms.RadioSelect(attrs={"x-model": "source"}),
     )
+    source_other = forms.CharField(label="Source name", max_length=120, required=False)
 
     def __init__(self, *args, requisitions, **kwargs):
         super().__init__(*args, **kwargs)
@@ -117,6 +135,15 @@ class SourceForm(forms.Form):
         if len(phone_key(phone)) < 10:
             raise forms.ValidationError("Enter a phone number with at least 10 digits.")
         return phone
+
+    def clean(self):
+        data = super().clean()
+        if data.get("source") == "other":
+            name = (data.get("source_other") or "").strip()
+            if not name:
+                self.add_error("source_other", "Write the source's name.")
+            data["source"] = name
+        return data
 
 
 class ImportForm(forms.Form):
@@ -261,22 +288,6 @@ class CommentForm(forms.ModelForm):
     class Meta:
         model = RequisitionPost
         fields = ["body"]
-
-
-PORTALS = [
-    "Naukri",
-    "LinkedIn",
-    "Indeed",
-    "Apna",
-    "WorkIndia",
-    "Foundit",
-    "Shine",
-    "Job Hai",
-    "Internshala",
-    "Freshersworld",
-    "TimesJobs",
-    "Glassdoor",
-]
 
 
 class JobPostForm(forms.ModelForm):
