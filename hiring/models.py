@@ -19,15 +19,63 @@ class Requisition(models.Model):
         OPEN = "open", "Open"
         CLOSED = "closed", "Closed"
 
+    class Kind(models.TextChoices):
+        NEW = "new", "New"
+        BACKFILL = "backfill", "Backfill"
+
+    class Employment(models.TextChoices):
+        PERMANENT = "permanent", "Permanent"
+        TEMPORARY = "temporary", "Temporary"
+        PART_TIME = "part_time", "Part-time"
+
+    # Sourcing goes to the highest first: fire fighting, then urgent.
+    class Urgency(models.TextChoices):
+        FIRE_FIGHTING = "fire_fighting", "Fire fighting"
+        URGENT = "urgent", "Urgent"
+        NOT_URGENT = "not_urgent", "Not urgent"
+
+    class Exposure(models.TextChoices):
+        LOW = "low", "Low"
+        MEDIUM = "medium", "Medium"
+        HIGH = "high", "High"
+
+    class Gender(models.TextChoices):
+        ANY = "", "No restriction"
+        MALE = "M", "Male"
+        FEMALE = "F", "Female"
+
     company = models.ForeignKey(
         "core.Company", on_delete=models.PROTECT, related_name="requisitions"
     )
+    kind = models.CharField(max_length=10, choices=Kind, default=Kind.NEW)
     department = models.CharField(max_length=20, choices=Department)
+    sub_department = models.CharField(max_length=120, blank=True)
+    # The designation.
     profile = models.CharField(max_length=120)
     headcount = models.PositiveIntegerField()
     site = models.CharField(max_length=200, blank=True)
     needed_by = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=10, choices=Status, default=Status.OPEN)
+    urgency = models.CharField(
+        max_length=15, choices=Urgency, default=Urgency.NOT_URGENT
+    )
+    experience_years = models.CharField(max_length=40, blank=True)
+    employment = models.CharField(
+        max_length=10, choices=Employment, default=Employment.PERMANENT
+    )
+    gender = models.CharField(max_length=1, choices=Gender, blank=True)
+    requirements = models.TextField(blank=True)
+    languages = models.JSONField(default=list, blank=True)
+    industry = models.CharField(max_length=200, blank=True)
+    education = models.CharField(max_length=200, blank=True)
+    previous_employment_restriction = models.CharField(max_length=200, blank=True)
+    reputed_company_must = models.BooleanField(default=False)
+    exposure = models.CharField(max_length=10, choices=Exposure, blank=True)
+    budget = models.CharField(max_length=100, blank=True)
+    physical_restriction = models.CharField(max_length=200, blank=True)
+    domicile_restriction = models.CharField(max_length=200, blank=True)
+    age_restriction = models.CharField(max_length=100, blank=True)
+    other_details = models.TextField(blank=True)
     opened_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
     )
@@ -48,6 +96,53 @@ class Requisition(models.Model):
 
     def __str__(self):
         return f"{self.headcount} × {self.profile}"
+
+
+class RequisitionPost(models.Model):
+    """One entry in a requisition's discussion: a comment, or a job post's details
+    (portal, keyword, date, status, payment). Append-only, like a chat."""
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        PAUSED = "paused", "Paused"
+        CLOSED = "closed", "Closed"
+
+    class Payment(models.TextChoices):
+        FREE = "free", "Free"
+        PAID = "paid", "Paid"
+
+    requisition = models.ForeignKey(
+        Requisition, on_delete=models.CASCADE, related_name="posts"
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    body = models.TextField(max_length=4000, blank=True)
+    # Job post details; portal set means this entry is a job post.
+    portal = models.CharField(max_length=120, blank=True)
+    keyword = models.CharField(max_length=200, blank=True)
+    posted_on = models.DateField(null=True, blank=True)
+    post_status = models.CharField(max_length=10, choices=Status, blank=True)
+    payment = models.CharField(max_length=10, choices=Payment, blank=True)
+    portal_user = models.CharField(max_length=200, blank=True)
+    posting_company = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=~models.Q(body="") | ~models.Q(portal=""),
+                name="requisition_post_not_empty",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.requisition_id}: {self.portal or self.body[:40]}"
+
+    @property
+    def is_job_post(self):
+        return bool(self.portal)
 
 
 class SourcedNumber(models.Model):
@@ -123,6 +218,8 @@ class FollowUp(models.Model):
     original_due = models.DateTimeField(null=True, blank=True)
     reschedule_count = models.PositiveIntegerField(default=0)
     reschedule_reason = models.CharField(max_length=20, choices=Reason, blank=True)
+    # The call alarm stays quiet until then; set by "10 min" / "1 hour" / "Tomorrow".
+    snoozed_until = models.DateTimeField(null=True, blank=True)
     reassigned_from = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,

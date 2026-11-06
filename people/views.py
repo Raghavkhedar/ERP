@@ -2,7 +2,9 @@ from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
-from core.access import require_section
+from core.access import companies_with_access, require_section
+from hiring.forms import ScheduleCallForm
+from hiring.services import stage, timeline
 
 from .export import people_workbook
 from .forms import PersonForm
@@ -44,6 +46,14 @@ def export_people(request):
     return people_workbook(_shown(request)[2])
 
 
+def _has_hr(request):
+    return (
+        companies_with_access(request.user, "recruitment", "assessments")
+        .filter(pk__in=[c.pk for c in request.companies])
+        .exists()
+    )
+
+
 @section
 def person_detail(request, pk):
     person = _card(request, pk)
@@ -65,6 +75,9 @@ def person_detail(request, pk):
                 ("Priority", person.get_priority_display()),
             ],
             "same_number": person.same_number().filter(archived_at=None),
+            "stage": stage(person),
+            "schedule_form": ScheduleCallForm(),
+            "events": timeline(person, with_hr=_has_hr(request)),
         },
     )
 

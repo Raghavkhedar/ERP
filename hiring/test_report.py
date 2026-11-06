@@ -85,3 +85,32 @@ def test_page_and_export(client, senken, boss):
     assert "Fitter" in page and "Joined" in page
     book = load_workbook(BytesIO(client.get(reverse("hiring:report_export")).content))
     assert list(book["Funnel"].values)[1][3:] == (1, 1, 0, 1, 1, 1, 1, 1, 1)
+
+
+def test_timeline_and_card(client, senken, boss):
+    req = Requisition.objects.create(
+        company=senken, department="sales", profile="Rep", headcount=1, opened_by=boss
+    )
+    AccessGrant.objects.create(
+        user=boss, company=senken, module="recruitment", section="candidates"
+    )
+    person = source_number(req, "Ravi", "99999 11111", boss, "Naukri").person
+    log_call(
+        person.followups.get(),
+        "no_answer",
+        boss,
+        notes="Keen",
+        next_due=timezone.now() + timedelta(days=1),
+    )
+    person.name = "Ravi K"
+    person.version += 1
+    person.save()
+    from .services import timeline
+
+    texts = [t for _, _, t in timeline(person)]
+    assert "Card created" in texts
+    assert any("via Naukri" in t for t in texts)
+    assert any(t.startswith("Call: no answer. Keen") for t in texts)
+    assert "Edited name" in texts
+    page = client.get(reverse("people:detail", args=[person.pk]))
+    assert page.status_code == 200 and b"Timeline" in page.content

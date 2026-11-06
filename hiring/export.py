@@ -1,8 +1,7 @@
-from django.db.models import Count, Q
-
 from core.export import stamp, workbook_response
 
-from .models import CallLog, OfferRound
+from .models import CallLog, OfferRound, RequisitionPost
+from .services import by_source
 
 
 def requisitions_workbook(requisitions):
@@ -19,6 +18,12 @@ def requisitions_workbook(requisitions):
             r.get_status_display(),
             r.opened_by.get_full_name() or r.opened_by.get_username(),
             r.company.name,
+            r.get_kind_display(),
+            r.sub_department,
+            r.get_urgency_display(),
+            r.get_employment_display(),
+            r.experience_years,
+            r.budget,
         )
         for r in requisitions.select_related("company", "opened_by")
     ]
@@ -38,21 +43,55 @@ def requisitions_workbook(requisitions):
                     "Status",
                     "Opened by",
                     "Company",
+                    "Kind",
+                    "Sub-department",
+                    "Urgency",
+                    "Employment",
+                    "Experience (years)",
+                    "Budget",
                 ),
                 rows,
-            )
+            ),
+            "Job posts": (
+                (
+                    "Req #",
+                    "Department",
+                    "Sub-department",
+                    "Portal",
+                    "Source keyword",
+                    "Date posted",
+                    "Status",
+                    "Payment type",
+                    "Portal user ID",
+                    "Company",
+                    "Posted by",
+                ),
+                [
+                    (
+                        p.requisition_id,
+                        p.requisition.get_department_display(),
+                        p.requisition.sub_department,
+                        p.portal,
+                        p.keyword,
+                        p.posted_on,
+                        p.get_post_status_display(),
+                        p.get_payment_display(),
+                        p.portal_user,
+                        p.posting_company,
+                        p.author.get_full_name() or p.author.get_username(),
+                    )
+                    for p in RequisitionPost.objects.filter(
+                        requisition__in=requisitions
+                    )
+                    .exclude(portal="")
+                    .select_related("requisition", "author")
+                ],
+            ),
         },
     )
 
 
 def sourced_workbook(rows):
-    by_source = [
-        (r["source"] or "(none)", r["total"], r["dups"], r["dups"] / r["total"])
-        for r in rows.order_by()
-        .values("source")
-        .annotate(total=Count("id"), dups=Count("id", filter=Q(is_duplicate=True)))
-        .order_by("source")
-    ]
     return workbook_response(
         stamp("sourced-numbers"),
         {
@@ -83,7 +122,7 @@ def sourced_workbook(rows):
             ),
             "By source": (
                 ("Source", "Sourced", "Duplicates", "Duplicate rate"),
-                by_source,
+                by_source(rows),
             ),
         },
     )

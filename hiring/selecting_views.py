@@ -9,6 +9,7 @@ from .forms import AssessmentForm, InterviewForm
 from .models import Interview
 from .services import (
     FollowUpError,
+    edit_interview,
     interviews_waiting,
     record_interview,
     save_assessment,
@@ -70,7 +71,35 @@ def record(request, pk):
         else:
             messages.success(request, "Interview recorded.")
         return redirect("hiring:selecting")
-    return render(request, "hiring/interview_form.html", {"f": followup, "form": form})
+    return render(
+        request,
+        "hiring/interview_form.html",
+        {"f": followup, "when": followup.due, "form": form},
+    )
+
+
+@section
+def edit(request, pk):
+    interview = get_object_or_404(visible_interviews(request.companies), pk=pk)
+    form = InterviewForm(
+        request.POST or None,
+        initial={
+            "result": interview.result,
+            "questions": interview.questions,
+            "notes": interview.notes,
+        },
+    )
+    del form.fields["next_due"]
+    if request.method == "POST" and form.is_valid():
+        d = form.cleaned_data
+        edit_interview(interview, d["result"], d["questions"], d["notes"])
+        messages.success(request, "Interview updated.")
+        return redirect("hiring:selecting")
+    return render(
+        request,
+        "hiring/interview_form.html",
+        {"f": interview, "when": interview.scheduled_at, "form": form, "editing": True},
+    )
 
 
 @hr_section

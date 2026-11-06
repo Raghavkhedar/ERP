@@ -5,26 +5,85 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from people.models import phone_key
+from people.widgets import PhoneWidget
 
-from .models import CallLog, FollowUp, HRAssessment, Interview, Requisition
+from .models import (
+    CallLog,
+    FollowUp,
+    HRAssessment,
+    Interview,
+    Requisition,
+    RequisitionPost,
+)
+
+LANGUAGES = [
+    (x, x)
+    for x in (
+        "Hindi English Marathi Gujarati Bengali Tamil Telugu Kannada Malayalam "
+        "Punjabi Odia Urdu"
+    ).split()
+]
 
 
 class RequisitionForm(forms.ModelForm):
+    languages = forms.MultipleChoiceField(
+        choices=LANGUAGES,
+        required=False,
+        label="Language fluency",
+        widget=forms.CheckboxSelectMultiple,
+    )
     # The version the form was opened at; see services.save_requisition.
     version = forms.IntegerField(widget=forms.HiddenInput, required=False)
 
     class Meta:
         model = Requisition
-        fields = ["department", "profile", "headcount", "site", "needed_by"]
+        fields = [
+            "kind",
+            "department",
+            "sub_department",
+            "profile",
+            "headcount",
+            "experience_years",
+            "employment",
+            "needed_by",
+            "urgency",
+            "gender",
+            "requirements",
+            "languages",
+            "industry",
+            "education",
+            "previous_employment_restriction",
+            "reputed_company_must",
+            "exposure",
+            "budget",
+            "physical_restriction",
+            "domicile_restriction",
+            "age_restriction",
+            "site",
+            "other_details",
+        ]
+        labels = {
+            "kind": "Is this a new or a backfill requisition?",
+            "profile": "Designation",
+            "headcount": "Number of openings",
+            "experience_years": "Years of experience",
+            "needed_by": "Needed by",
+            "requirements": "Job requirements",
+            "reputed_company_must": "Experience in a reputed company is a must",
+            "site": "Place of job",
+        }
         widgets = {
-            "needed_by": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d")
+            "kind": forms.RadioSelect,
+            "needed_by": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+            "requirements": forms.Textarea(attrs={"rows": 3}),
+            "other_details": forms.Textarea(attrs={"rows": 3}),
         }
 
 
 class SourceForm(forms.Form):
     requisition = forms.ModelChoiceField(Requisition.objects.none())
     name = forms.CharField(max_length=200)
-    phone = forms.CharField(max_length=30)
+    phone = forms.CharField(max_length=30, widget=PhoneWidget)
     email = forms.EmailField(required=False)
     source = forms.CharField(
         max_length=120,
@@ -88,6 +147,23 @@ class CallForm(forms.Form):
 
 class RescheduleForm(forms.Form):
     due = _when("New date and time")
+    reason = forms.ChoiceField(choices=FollowUp.Reason.choices)
+
+
+class ScheduleCallForm(forms.Form):
+    due = _when("Call on")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["due"].initial = tomorrow_morning()
+
+
+class ShiftForm(forms.Form):
+    group = forms.ChoiceField(choices=[(g, g) for g in ("overdue", "today", "later")])
+    day = forms.DateField(
+        label="Move to",
+        widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+    )
     reason = forms.ChoiceField(choices=FollowUp.Reason.choices)
 
 
@@ -158,3 +234,47 @@ class JoinedForm(forms.Form):
         initial=timezone.localdate,
         widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
     )
+
+
+class CommentForm(forms.ModelForm):
+    body = forms.CharField(
+        label="Message", widget=forms.Textarea(attrs={"rows": 3}), max_length=4000
+    )
+
+    class Meta:
+        model = RequisitionPost
+        fields = ["body"]
+
+
+class JobPostForm(forms.ModelForm):
+    class Meta:
+        model = RequisitionPost
+        fields = [
+            "portal",
+            "keyword",
+            "posted_on",
+            "post_status",
+            "payment",
+            "portal_user",
+            "posting_company",
+            "body",
+        ]
+        labels = {
+            "portal": "Job portal",
+            "keyword": "Source keyword",
+            "posted_on": "Date posted",
+            "post_status": "Status",
+            "payment": "Payment type",
+            "portal_user": "Portal user ID",
+            "posting_company": "Company",
+            "body": "Note (optional)",
+        }
+        widgets = {
+            "posted_on": forms.DateInput(attrs={"type": "date"}),
+            "body": forms.Textarea(attrs={"rows": 2}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name in ("portal", "keyword", "posted_on", "post_status", "payment"):
+            self.fields[name].required = True

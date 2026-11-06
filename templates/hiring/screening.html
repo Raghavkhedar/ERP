@@ -5,9 +5,19 @@
 {% block actions %}<a href="{% url 'hiring:screening_export' %}" class="text-gray-500 hover:text-gray-900">Export</a>{% endblock %}
 
 {% block page %}
-  {% for label, rows in groups %}
+  {% for label, key, rows in groups %}
     {% if rows %}
       <h2 class="mb-1 mt-6 font-semibold first:mt-0 {% if label == 'Overdue' %}text-red-600{% endif %}">{{ label }} <span class="font-normal text-gray-500">({{ rows|length }})</span></h2>
+      <details class="mb-2 text-sm">
+        <summary class="cursor-pointer text-gray-500 hover:text-gray-900">Move all calls</summary>
+        <form method="post" action="{% url 'hiring:shift' %}" class="fields mt-2 flex flex-wrap items-end gap-3">
+          {% csrf_token %}
+          <input type="hidden" name="group" value="{{ key }}">
+          <div><label for="day-{{ key }}" class="mb-1.5 block font-medium">Move to</label><input type="date" name="day" id="day-{{ key }}" required></div>
+          <div><label for="why-{{ key }}" class="mb-1.5 block font-medium">Why</label><select name="reason" id="why-{{ key }}">{% for value, name in shift_form.fields.reason.choices %}<option value="{{ value }}">{{ name }}</option>{% endfor %}</select></div>
+          <button type="submit" class="h-10 rounded-lg border border-ink px-4">Move</button>
+        </form>
+      </details>
       <ul class="divide-y divide-gray-100 border-y border-gray-100">
         {% for f in rows %}
           <li class="flex items-center gap-4 py-3">
@@ -22,7 +32,7 @@
       </ul>
     {% endif %}
   {% empty %}{% endfor %}
-  {% if not groups.0.1 and not groups.1.1 and not groups.2.1 %}
+  {% if not groups.0.2 and not groups.1.2 and not groups.2.2 %}
     <p class="border-y border-gray-100 py-6 text-sm text-gray-500">Nothing to call. New numbers from Sourcing land here.</p>
   {% endif %}
 {% endblock %}

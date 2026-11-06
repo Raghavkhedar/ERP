@@ -8,6 +8,8 @@ urlpatterns = [
     path("requisitions/", views.requisition_list, name="list"),
     path("requisitions/export/", views.export_requisitions, name="export"),
     path("requisitions/new/", views.new_requisition, name="new"),
+    path("requisitions/<int:pk>/", views.requisition_detail, name="detail"),
+    path("requisitions/<int:pk>/post/", views.post_to_requisition, name="post"),
     path("requisitions/<int:pk>/edit/", views.edit_requisition, name="edit"),
     path("requisitions/<int:pk>/close/", views.close_requisition, name="close"),
     path("report/", views.report, name="report"),
@@ -17,6 +19,12 @@ urlpatterns = [
     path("sourcing/new/", source_views.new_source, name="source_new"),
     path("sourcing/import/", source_views.import_source, name="source_import"),
     path("screening/", screening_views.screening, name="screening"),
+    path(
+        "screening/<int:pk>/snooze/",
+        screening_views.snooze_followup,
+        name="followup_snooze",
+    ),
+    path("screening/shift/", screening_views.shift, name="shift"),
     path(
         "screening/export/", screening_views.export_followups, name="screening_export"
     ),
@@ -39,11 +47,17 @@ urlpatterns = [
         screening_views.cancel_followup,
         name="followup_cancel",
     ),
+    path(
+        "screening/person/<int:pk>/call/",
+        screening_views.schedule_for_person,
+        name="schedule_call",
+    ),
     path("selecting/", selecting_views.selecting, name="selecting"),
     path(
         "selecting/export/", selecting_views.export_interviews, name="selecting_export"
     ),
     path("selecting/<int:pk>/interview/", selecting_views.record, name="interview"),
+    path("selecting/<int:pk>/edit/", selecting_views.edit, name="interview_edit"),
     path("selecting/<int:pk>/hr/", selecting_views.assess, name="assess"),
     path("hiring/", offer_views.hiring, name="offers"),
     path("hiring/export/", offer_views.export_offers, name="offers_export"),

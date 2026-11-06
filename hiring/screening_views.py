@@ -1,14 +1,22 @@
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from core.access import require_section
+from people.services import visible_people
 from tasks.services import can_assign
 
 from .export import followups_workbook
-from .forms import CallForm, ReassignForm, RescheduleForm
+from .forms import (
+    CallForm,
+    ReassignForm,
+    RescheduleForm,
+    ScheduleCallForm,
+    ShiftForm,
+)
 from .models import CallLog
 from .services import (
     FollowUpError,
@@ -16,6 +24,9 @@ from .services import (
     log_call,
     reassign,
     reschedule,
+    schedule_call,
+    shift_calls,
+    snooze_call,
     visible_followups,
 )
 
@@ -30,18 +41,49 @@ def _can_reassign(user):
     return user.is_superuser or can_assign(user)
 
 
+def _day(f):
+    return timezone.localtime(f.due).date()
+
+
+def _groups(request):
+    rows = visible_followups(request.user, request.companies)
+    today = timezone.localdate()
+    day = _day
+    return {
+        "overdue": [f for f in rows if day(f) < today],
+        "today": [f for f in rows if day(f) == today],
+        "later": [f for f in rows if day(f) > today],
+    }
+
+
 @section
 def screening(request):
-    rows = visible_followups(request.user, request.companies)
-    now = timezone.localtime()
-    overdue = [f for f in rows if f.due < now and f.due.date() < now.date()]
-    today = [f for f in rows if f.due.date() == now.date()]
-    later = [f for f in rows if f.due.date() > now.date()]
+    groups = _groups(request)
     return render(
         request,
         "hiring/screening.html",
-        {"groups": [("Overdue", overdue), ("Today", today), ("Later", later)]},
+        {
+            "groups": [(g.capitalize(), g, rows) for g, rows in groups.items()],
+            "shift_form": ShiftForm(),
+        },
     )
+
+
+@section
+@require_POST
+def shift(request):
+    form = ShiftForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, "Pick a day and a reason to move them.")
+        return redirect("hiring:screening")
+    d = form.cleaned_data
+    try:
+        moved = shift_calls(_groups(request)[d["group"]], d["day"], d["reason"])
+    except FollowUpError as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, f"Moved {moved} call{'s' if moved != 1 else ''}.")
+    return redirect("hiring:screening")
 
 
 @section
@@ -137,3 +179,33 @@ def cancel_followup(request, pk):
     else:
         messages.success(request, "Follow-up cancelled.")
     return redirect("hiring:screening")
+
+
+@section
+@require_POST
+def schedule_for_person(request, pk):
+    person = get_object_or_404(visible_people(request.companies), pk=pk)
+    form = ScheduleCallForm(request.POST)
+    if form.is_valid():
+        try:
+            schedule_call(person, form.cleaned_data["due"], request.user)
+        except FollowUpError as exc:
+            messages.error(request, str(exc))
+        else:
+            messages.success(request, "Call booked.")
+    else:
+        messages.error(request, "Pick a date and time for the call.")
+    return redirect("people:detail", pk=person.pk)
+
+
+@section
+@require_POST
+def snooze_followup(request, pk):
+    """The alarm popup's snooze and dismiss. Dismiss is an hour's quiet."""
+    action = request.POST.get("action", "snooze")
+    length = "1h" if action == "dismiss" else request.POST.get("length", "")
+    try:
+        snooze_call(_followup(request, pk), request.user, length)
+    except FollowUpError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+    return JsonResponse({"ok": True})

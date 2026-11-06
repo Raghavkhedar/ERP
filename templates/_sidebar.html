@@ -2,9 +2,9 @@
 {# The left sidebar. On wide screens it shrinks to an icon rail (the choice is remembered, see base.html); on phones it is a drawer opened from the header. #}
 <aside class="fixed inset-y-0 left-0 z-50 flex w-60 -translate-x-full flex-col overflow-hidden border-r border-ink bg-surface transition-transform duration-100 ease-linear motion-reduce:transition-none lg:sticky lg:top-0 lg:h-dvh lg:translate-x-0"
        :class="{ 'translate-x-0': nav }" aria-label="Modules">
-  <a href="{% url 'home' %}" title="Home" class="flex h-14 shrink-0 items-center gap-2.5 border-b border-ink px-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pop">
+  <a href="{% url 'home' %}" title="Home" class="relative flex h-14 w-60 shrink-0 items-center gap-2.5 border-b border-ink bg-surface px-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pop">
     {% include "_mark.html" %}
-    <span class="nav-label title whitespace-nowrap text-xl">Senken ERP</span>
+    <span class="title whitespace-nowrap text-xl">Senken ERP</span>
   </a>
   <nav class="flex-1 space-y-3 overflow-y-auto overflow-x-hidden p-3 text-sm">
     {% with section=request.resolver_match.app_name %}

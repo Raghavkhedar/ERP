@@ -5,6 +5,8 @@ from . import views
 app_name = "plans"
 
 urlpatterns = [
+    path("panel/", views.panel, name="panel"),
+    path("block/", views.block, name="block"),
     path("today/", views.today, name="today"),
     path("<int:user_id>/export/", views.export_plans, name="export"),
     path("<int:user_id>/<int:year>/<int:month>/<int:day>/", views.view, name="view"),

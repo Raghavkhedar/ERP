@@ -1,7 +1,7 @@
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Case, Count, Q, When
 from django.urls import reverse
 from django.utils import timezone
 
@@ -32,6 +32,14 @@ def visible_requisitions(companies, status=""):
         sourced_count=Count("sourced"),
         duplicate_count=Count("sourced", filter=Q(sourced__is_duplicate=True)),
     )
+    # Open first, then fire fighting before urgent before the rest.
+    reqs = reqs.annotate(
+        rank=Case(
+            When(urgency="fire_fighting", then=0),
+            When(urgency="urgent", then=1),
+            default=2,
+        )
+    ).order_by("status", "rank", "needed_by", "-created_at")
     return reqs.filter(status=status) if status else reqs
 
 
@@ -177,6 +185,7 @@ def reschedule(followup, due, reason):
     with transaction.atomic():
         current = _pending(followup)
         current.original_due = current.original_due or current.due
+        current.snoozed_until = None
         current.due = due
         current.reschedule_reason = reason
         current.reschedule_count += 1
@@ -377,3 +386,266 @@ def funnel(companies):
         )
         .order_by("status", "needed_by", "-created_at")
     )
+
+
+def _at(when):
+    return f"{timezone.localtime(when):%d %b %H:%M}"
+
+
+def timeline(person, with_hr=False):
+    """Everything that has happened around a card, newest first, as
+    (when, who, text). Built from the records and their history, not stored."""
+    events = [(person.created_at, None, "Card created")]
+
+    # Person edits: the "~" history rows, naming the fields that changed.
+    for rec in person.history.filter(history_type="~"):
+        prev = rec.prev_record
+        if not prev:
+            continue
+        fields = [
+            c.field.replace("_", " ")
+            for c in rec.diff_against(prev).changes
+            if c.field != "version"
+        ]
+        if fields:
+            events.append(
+                (rec.history_date, rec.history_user, "Edited " + ", ".join(fields))
+            )
+
+    for s in person.sourced.select_related("requisition", "sourced_by"):
+        text = f"Number received for {s.requisition.profile}"
+        if s.source:
+            text += f" via {s.source}"
+        if s.is_duplicate:
+            text += " (already on this card)"
+        events.append((s.created_at, s.sourced_by, text))
+
+    for f in person.followups.all():
+        label = f.get_purpose_display().lower()
+        events.append(
+            (
+                f.created_at,
+                None,
+                f"{label.capitalize()} booked for {_at(f.due)}",
+            )
+        )
+        for rec in f.history.filter(history_type="~"):
+            prev = rec.prev_record
+            if not prev:
+                continue
+            if rec.due != prev.due:
+                text = (
+                    f"{label.capitalize()} moved from {_at(prev.due)} to {_at(rec.due)}"
+                )
+                if rec.reschedule_reason:
+                    text += f" ({rec.get_reschedule_reason_display().lower()})"
+                events.append((rec.history_date, rec.history_user, text))
+            if rec.owner_id != prev.owner_id:
+                events.append(
+                    (
+                        rec.history_date,
+                        rec.history_user,
+                        f"{label.capitalize()} given to {f.owner}",
+                    )
+                )
+            if rec.status != prev.status and rec.status in ("cancelled", "not_done"):
+                events.append(
+                    (
+                        rec.history_date,
+                        rec.history_user,
+                        f"{label.capitalize()} {rec.get_status_display().lower()}",
+                    )
+                )
+
+    for c in person.calls.select_related("caller"):
+        text = f"Call: {c.get_outcome_display().lower()}"
+        events.append(
+            (c.called_at, c.caller, f"{text}. {c.notes}" if c.notes else text)
+        )
+
+    for i in person.interviews.select_related("interviewer"):
+        text = f"Interview: {i.get_result_display().lower()}"
+        events.append(
+            (i.scheduled_at, i.interviewer, f"{text}. {i.notes}" if i.notes else text)
+        )
+        if with_hr and hasattr(i, "hr"):
+            h = i.hr
+            events.append(
+                (
+                    h.created_at,
+                    h.assessor,
+                    f"HR assessment: {h.get_decision_display().lower()}, "
+                    f"{h.get_level_display().lower()}",
+                )
+            )
+
+    for o in person.offers.select_related("made_by"):
+        events.append((o.created_at, o.made_by, "Offer made"))
+        for r in o.rounds.select_related("by"):
+            text = f"Offer round: {r.amount}"
+            if r.counter is not None:
+                text += f", candidate asked {r.counter}"
+            events.append((r.created_at, r.by, text))
+        if o.decided_at:
+            text = (
+                "Offer accepted, joining " + f"{o.joining_date:%d %b %Y}"
+                if o.state == "accepted"
+                else "Offer declined"
+            )
+            events.append((o.decided_at, None, text))
+        if o.joined_on:
+            events.append(
+                (
+                    timezone.make_aware(datetime.combine(o.joined_on, time(9))),
+                    None,
+                    "Joined",
+                )
+            )
+
+    return sorted(events, key=lambda e: e[0], reverse=True)
+
+
+def stage(person):
+    """Where a candidate is now, worked out from what exists, never stored."""
+    offers = list(person.offers.all())
+    if any(o.joined_on for o in offers):
+        return "Working"
+    if any(o.state == Offer.State.ACCEPTED for o in offers):
+        return "On-Boarding"
+    pending = set(
+        person.followups.filter(status=FollowUp.Status.PENDING).values_list(
+            "purpose", flat=True
+        )
+    )
+    if any(o.state == Offer.State.OFFERED for o in offers) or "offer" in pending:
+        return "Hiring"
+    if "interview" in pending:
+        return "Selecting"
+    if offers:
+        return "Offer declined"
+    last = person.interviews.first()
+    if last:
+        return "Not selected" if last.result == "rejected" else "Selecting"
+    if person.calls.exists() or pending:
+        return "Screening"
+    return "Sourcing"
+
+
+def schedule_call(person, due, user):
+    """Book a call for a card that has none pending (a new number books its own)."""
+    with transaction.atomic():
+        existing = person.followups.filter(
+            status=FollowUp.Status.PENDING, purpose=FollowUp.Purpose.CALL
+        ).first()
+        if existing:
+            raise FollowUpError(
+                f"A call is already booked for {_at(existing.due)}. "
+                "Move that one instead."
+            )
+        last = person.sourced.first()
+        return FollowUp.objects.create(
+            person=person,
+            requisition=last.requisition if last else None,
+            purpose=FollowUp.Purpose.CALL,
+            due=due,
+            owner=user,
+        )
+
+
+def shift_calls(followups, day, reason):
+    """Move pending calls to `day`, each keeping its time of day. For the days
+    staff are out or the queue is too long to get through."""
+    moved = 0
+    with transaction.atomic():
+        for f in followups:
+            if f.purpose != FollowUp.Purpose.CALL:
+                continue
+            at = timezone.localtime(f.due).time()
+            reschedule(f, timezone.make_aware(datetime.combine(day, at)), reason)
+            moved += 1
+    return moved
+
+
+RINGING = (FollowUp.Purpose.CALL, FollowUp.Purpose.INTERVIEW)
+
+
+def _alarmed(user):
+    return FollowUp.objects.filter(
+        owner=user, status=FollowUp.Status.PENDING, purpose__in=RINGING
+    ).select_related("person")
+
+
+def due_call_alarms(user):
+    """Calls and interviews of the user's whose time has come, until they're done."""
+    now = timezone.now()
+    return (
+        _alarmed(user)
+        .filter(due__lte=now)
+        .filter(Q(snoozed_until__isnull=True) | Q(snoozed_until__lte=now))
+        .order_by("due")
+    )
+
+
+def next_call_alarm_in(user):
+    """Seconds until the user's next call alarm, or None."""
+    now = timezone.now()
+    times = [
+        f.snoozed_until if f.snoozed_until and f.snoozed_until > now else f.due
+        for f in _alarmed(user).filter(Q(due__gt=now) | Q(snoozed_until__gt=now))
+    ]
+    return max((min(times) - now).total_seconds(), 0) if times else None
+
+
+def snooze_call(followup, user, length):
+    """Quiet the alarm for a while; the follow-up itself stays due."""
+    from tasks.services import SNOOZES
+
+    with transaction.atomic():
+        current = _pending(followup)
+        if current.owner_id != user.pk:
+            raise FollowUpError("Only the person it belongs to can snooze it.")
+        now = timezone.now()
+        if length == "tomorrow":
+            morning = timezone.localtime(now).replace(hour=9, minute=0, second=0)
+            current.snoozed_until = morning + timedelta(days=1)
+        elif length in SNOOZES:
+            current.snoozed_until = now + SNOOZES[length]
+        else:
+            raise FollowUpError("Choose how long to snooze.")
+        current.save(update_fields=["snoozed_until"])
+        return current
+
+
+def edit_interview(interview, result, questions, notes):
+    """Correct a saved interview. If it now reads "selected", the offer opens as
+    it would have the first time; a move away from selected leaves the offer
+    follow-up for someone to cancel."""
+    with transaction.atomic():
+        interview.result = result
+        interview.questions = questions
+        interview.notes = notes
+        interview.save()
+        person = interview.person
+        if result == Interview.Result.SELECTED and not person.offers.exists():
+            FollowUp.objects.get_or_create(
+                person=person,
+                purpose=FollowUp.Purpose.OFFER,
+                status=FollowUp.Status.PENDING,
+                defaults=dict(
+                    requisition=interview.requisition,
+                    due=timezone.now(),
+                    owner=interview.interviewer,
+                ),
+            )
+        return interview
+
+
+def by_source(rows):
+    """Per source: (source, numbers received, duplicates, duplicate rate)."""
+    return [
+        (r["source"] or "(none)", r["total"], r["dups"], r["dups"] / r["total"])
+        for r in rows.order_by()
+        .values("source")
+        .annotate(total=Count("id"), dups=Count("id", filter=Q(is_duplicate=True)))
+        .order_by("source")
+    ]

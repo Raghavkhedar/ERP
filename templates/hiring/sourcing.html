@@ -17,6 +17,18 @@
     <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="dup" value="1" {% if dups %}checked{% endif %} onchange="this.form.submit()"> Duplicates only</label>
   </form>
 
+  {% if sources %}
+    <h2 class="mt-6 font-semibold">By source</h2>
+    <table class="mt-1 w-full text-left text-sm">
+      <thead><tr class="border-b border-gray-100 text-gray-500"><th class="py-1.5 font-normal">Source</th><th class="py-1.5 text-right font-normal">Received</th><th class="py-1.5 text-right font-normal">Duplicates</th><th class="py-1.5 text-right font-normal">Duplicate rate</th></tr></thead>
+      <tbody>
+        {% for name, total, dup, rate in sources %}
+          <tr class="border-b border-gray-100"><td class="py-1.5">{{ name }}</td><td class="py-1.5 text-right">{{ total }}</td><td class="py-1.5 text-right">{{ dup }}</td><td class="py-1.5 text-right">{% widthratio dup total 100 %}%</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
   {% if rows %}
     <p class="mt-4 text-sm text-gray-500">{{ total }} number{{ total|pluralize }}{% if total > 200 %}, showing the first 200{% endif %}</p>
     <ul class="mt-2 divide-y divide-gray-100 border-y border-gray-100">

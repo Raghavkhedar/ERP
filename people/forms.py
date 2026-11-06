@@ -1,6 +1,7 @@
 from django import forms
 
 from .models import Person, phone_key
+from .widgets import PhoneWidget
 
 FIELDS = [
     "name",
@@ -24,7 +25,10 @@ class PersonForm(forms.ModelForm):
     class Meta:
         model = Person
         fields = FIELDS
-        widgets = {"address": forms.Textarea(attrs={"rows": 3})}
+        widgets = {
+            "address": forms.Textarea(attrs={"rows": 3}),
+            "phone": PhoneWidget,
+        }
 
     def clean_phone(self):
         phone = self.cleaned_data["phone"]
