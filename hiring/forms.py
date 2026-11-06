@@ -310,7 +310,7 @@ class JobPostForm(forms.ModelForm):
             "body": "Note (optional)",
         }
         widgets = {
-            "posted_on": forms.DateInput(attrs={"type": "date"}),
+            "posted_on": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
             "body": forms.Textarea(attrs={"rows": 2}),
         }
 
@@ -319,10 +319,17 @@ class JobPostForm(forms.ModelForm):
         for name in ("portal", "keyword", "posted_on", "post_status", "payment"):
             self.fields[name].required = True
         # Only our own companies (Senken, Avris), stored by name.
-        names = Company.objects.order_by("name").values_list("name", "name")
+        names = list(Company.objects.order_by("name").values_list("name", "name"))
+        old = self.instance.posting_company
+        if old and (old, old) not in names:
+            names.append((old, old))  # saved before the list was fixed
         self.fields["posting_company"] = forms.ChoiceField(
             label="Company", required=False, choices=[("", "---------"), *names]
         )
+        # A portal outside the list is edited as "other" with its name filled in.
+        portal = self.instance.portal
+        if portal and portal not in PORTALS:
+            self.initial["portal"], self.initial["portal_other"] = "other", portal
 
     def clean(self):
         data = super().clean()

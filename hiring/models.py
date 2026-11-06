@@ -100,7 +100,8 @@ class Requisition(models.Model):
 
 class RequisitionPost(models.Model):
     """One entry in a requisition's discussion: a comment, or a job post's details
-    (portal, keyword, date, status, payment). Append-only, like a chat."""
+    (portal, keyword, date, status, payment). Comments are append-only, like a
+    chat; job post details can be edited."""
 
     class Status(models.TextChoices):
         ACTIVE = "active", "Active"
@@ -127,6 +128,9 @@ class RequisitionPost(models.Model):
     portal_user = models.CharField(max_length=200, blank=True)
     posting_company = models.CharField(max_length=200, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    # Job post details can be edited (e.g. status), so every change is kept.
+    history = HistoricalRecords()
 
     class Meta:
         ordering = ["created_at", "id"]

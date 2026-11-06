@@ -218,3 +218,31 @@ def test_job_post_company_is_senken_or_avris(client, boss, senken):
     avris = Company.objects.get(slug="avris").name
     assert client.post(url, job | {"posting_company": avris}).status_code == 302
     assert r.posts.get().posting_company == avris
+
+
+def test_job_post_can_be_edited_and_the_change_is_kept(client, boss, senken):
+    r = _req(boss, senken)
+    job = {
+        "portal": "other",
+        "portal_other": "Local Jobs Board",
+        "keyword": "Data Analyst",
+        "posted_on": "2026-10-29",
+        "post_status": "active",
+        "payment": "free",
+    }
+    client.post(reverse("hiring:post", args=[r.pk]), job)
+    post = r.posts.get()
+    url = reverse("hiring:edit_post", args=[r.pk, post.pk])
+    page = client.get(url).content.decode()
+    assert "Local Jobs Board" in page and 'value="2026-10-29"' in page
+    assert client.post(url, job | {"post_status": "closed"}).status_code == 302
+    post.refresh_from_db()
+    assert (post.post_status, post.portal) == ("closed", "Local Jobs Board")
+    assert post.history.count() == 2
+
+
+def test_only_job_posts_are_editable(client, boss, senken):
+    r = _req(boss, senken)
+    client.post(reverse("hiring:post", args=[r.pk]), {"body": "hello"})
+    url = reverse("hiring:edit_post", args=[r.pk, r.posts.get().pk])
+    assert client.get(url).status_code == 404

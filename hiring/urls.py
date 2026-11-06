@@ -10,6 +10,11 @@ urlpatterns = [
     path("requisitions/new/", views.new_requisition, name="new"),
     path("requisitions/<int:pk>/", views.requisition_detail, name="detail"),
     path("requisitions/<int:pk>/post/", views.post_to_requisition, name="post"),
+    path(
+        "requisitions/<int:pk>/post/<int:post_pk>/edit/",
+        views.edit_job_post,
+        name="edit_post",
+    ),
     path("requisitions/<int:pk>/edit/", views.edit_requisition, name="edit"),
     path("requisitions/<int:pk>/close/", views.close_requisition, name="close"),
     path("report/", views.report, name="report"),

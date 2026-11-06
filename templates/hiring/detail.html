@@ -21,7 +21,7 @@
       <li class="rounded-lg border border-ink bg-white p-4 shadow-md">
         <p class="text-sm text-gray-500">{{ p.author.get_full_name|default:p.author.get_username }} · {{ p.created_at|date:"j M, H:i" }}</p>
         {% if p.is_job_post %}
-          <p class="mt-1 font-medium">Job post on {{ p.portal }} <span class="rounded-full border border-ink bg-pop px-2.5 py-0.5 text-xs">{{ p.get_post_status_display }}</span></p>
+          <p class="mt-1 flex flex-wrap items-center gap-2 font-medium">Job post on {{ p.portal }} <span class="rounded-full border border-ink bg-pop px-2.5 py-0.5 text-xs">{{ p.get_post_status_display }}</span> <a href="{% url 'hiring:edit_post' r.pk p.pk %}" class="ml-auto text-sm font-normal text-gray-500 hover:text-gray-900">Edit</a></p>
           <dl class="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
             <dt class="text-gray-500">Source keyword</dt><dd>{{ p.keyword }}</dd>
             <dt class="text-gray-500">Date posted</dt><dd>{{ p.posted_on|date:"j F Y" }}</dd>

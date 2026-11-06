@@ -133,6 +133,20 @@ def post_to_requisition(request, pk):
 
 
 @section
+def edit_job_post(request, pk, post_pk):
+    # Same people who can post may update a job post, e.g. to change its status.
+    requisition = _requisition(request, pk)
+    post = get_object_or_404(requisition.posts.exclude(portal=""), pk=post_pk)
+    form = JobPostForm(request.POST or None, instance=post)
+    if request.method == "POST" and form.is_valid():
+        form._change_reason = f"Edited by {request.user.get_username()}"
+        form.save()
+        messages.success(request, "Job post updated.")
+        return redirect("hiring:detail", pk=pk)
+    return render(request, "hiring/post_edit.html", {"r": requisition, "form": form})
+
+
+@section
 @require_POST
 def close_requisition(request, pk):
     _superadmin(request)
