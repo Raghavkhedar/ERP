@@ -4,7 +4,12 @@
 {% block actions %}
   <div class="flex items-center gap-3">
     {% if can_assign %}{% include "tasks/_person_filter.html" %}{% endif %}
-    <a href="{% url 'tasks:export' %}" class="text-sm text-gray-500 hover:text-gray-900">Export</a>
+    <form method="get"><label for="due-filter" class="sr-only">Due date</label>
+      <select id="due-filter" name="due" onchange="this.form.requestSubmit()"
+              class="h-8 rounded-md border border-ink bg-white pl-2.5 pr-7 text-sm outline-none focus:border-blue-600">
+        {% for value, label in due_choices %}<option value="{{ value }}" {% if value == due %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select></form>
+    <a href="{% url 'tasks:export' %}{% if due %}?due={{ due }}{% endif %}" class="text-sm text-gray-500 hover:text-gray-900">Export</a>
     {% include "tasks/_add_task_button.html" %}
   </div>
 {% endblock %}

@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
@@ -83,13 +85,38 @@ def _person_filter(request):
     return {"people": people, "person": person}
 
 
+DUE_CHOICES = [
+    ("", "Any due date"),
+    ("overdue", "Overdue"),
+    ("0", "Due today"),
+    ("3", "Due in 3 days"),
+    ("7", "Due in 7 days"),
+    ("30", "Due in 30 days"),
+]
+
+
+def _due_filter(tasks, request):
+    """?due=N: due from today through N days ahead; ?due=overdue: late ones."""
+    due = request.GET.get("due", "")
+    today = timezone.localdate()
+    if due == "overdue":
+        return tasks.filter(due_date__lt=today), due
+    if due in ("0", "3", "7", "30"):
+        end = today + timedelta(days=int(due))
+        return tasks.filter(due_date__gte=today, due_date__lte=end), due
+    return tasks, ""
+
+
 @login_required
 def task_list(request):
     filtering = _person_filter(request)
     tasks = visible_tasks(request.user)
     if filtering.get("person"):
         tasks = tasks.filter(assigned_to=filtering["person"])
+    tasks, due = _due_filter(tasks, request)
     context = {
+        "due": due,
+        "due_choices": DUE_CHOICES,
         "tasks": list(tasks.exclude(status=Status.CLOSED)),
         "closed": tasks.filter(status=Status.CLOSED).order_by("-closed_at")[:20],
         "can_assign": can_assign(request.user),
@@ -106,7 +133,7 @@ def export_tasks(request):
     person = _person_filter(request).get("person")
     if person:
         tasks = tasks.filter(assigned_to=person)
-    return tasks_workbook(tasks)
+    return tasks_workbook(_due_filter(tasks, request)[0])
 
 
 @login_required
