@@ -6,7 +6,7 @@
 
 {% block page %}
   {# Quick entry: the requisition and source stay put between numbers (Save and add another). #}
-  <form method="post" x-data="{ source: '{{ form.source.value|default:'' }}' }" class="fields max-w-3xl space-y-6 [&_input:not([type=radio])]:w-full [&_select]:w-full">
+  <form method="post" x-data="{ source: '{{ form.source.value|default:'' }}' }" class="fields max-w-3xl space-y-6 [&_input:not([type=radio])]:w-full [&_select]:w-full [&_textarea]:w-full">
     {% csrf_token %}
     {% for error in form.non_field_errors %}<p class="text-sm text-red-600">{{ error }}</p>{% endfor %}
 
@@ -16,7 +16,10 @@
       {% include "tasks/_field.html" with field=form.name %}
       {% include "tasks/_field.html" with field=form.phone %}
     </div>
-    <div class="sm:max-w-[calc(50%-0.625rem)]">{% include "tasks/_field.html" with field=form.email %}</div>
+    <div class="grid gap-5 sm:grid-cols-2">
+      {% include "tasks/_field.html" with field=form.email %}
+      {% include "tasks/_field.html" with field=form.address %}
+    </div>
 
     <fieldset>
       <legend class="mb-1.5 text-sm font-medium">Where did this number come from?</legend>

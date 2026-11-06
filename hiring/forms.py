@@ -118,6 +118,7 @@ class SourceForm(forms.Form):
     name = forms.CharField(max_length=200)
     phone = forms.CharField(max_length=30, widget=PhoneWidget)
     email = forms.EmailField(required=False)
+    address = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 2}))
     # A well-known portal, or "other" with the name typed below it.
     source = forms.ChoiceField(
         required=False,
