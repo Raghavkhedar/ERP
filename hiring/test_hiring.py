@@ -246,3 +246,58 @@ def test_only_job_posts_are_editable(client, boss, senken):
     client.post(reverse("hiring:post", args=[r.pk]), {"body": "hello"})
     url = reverse("hiring:edit_post", args=[r.pk, r.posts.get().pk])
     assert client.get(url).status_code == 404
+
+
+def test_reopen_brings_a_closed_requisition_back(client, boss, senken):
+    req = make(senken, boss)
+    client.post(reverse("hiring:close", args=[req.pk]))
+    client.post(reverse("hiring:reopen", args=[req.pk]))
+    req.refresh_from_db()
+    assert req.status == "open"
+
+
+def test_only_the_superadmin_can_reopen(client, boss, reader, senken):
+    req = make(senken, boss, status="closed")
+    assert client.post(reverse("hiring:reopen", args=[req.pk])).status_code == 403
+
+
+def test_close_and_reopen_go_back_to_a_safe_page_only(client, boss, senken):
+    req = make(senken, boss)
+    detail = reverse("hiring:detail", args=[req.pk])
+    r = client.post(reverse("hiring:close", args=[req.pk]), {"next": detail})
+    assert r["Location"] == detail
+    r = client.post(
+        reverse("hiring:reopen", args=[req.pk]), {"next": "https://evil.example/"}
+    )
+    assert r["Location"] == reverse("hiring:list")
+
+
+def test_requisition_timeline_tells_the_story(client, boss, senken):
+    req = make(senken, boss)
+    client.post(reverse("hiring:post", args=[req.pk]), {"body": "Need it by Friday"})
+    job = {
+        "portal": "Naukri",
+        "keyword": "x",
+        "posted_on": "2026-10-29",
+        "post_status": "active",
+        "payment": "free",
+    }
+    client.post(reverse("hiring:post", args=[req.pk]), job)
+    post = req.posts.get(portal="Naukri")
+    client.post(
+        reverse("hiring:edit_post", args=[req.pk, post.pk]),
+        job | {"post_status": "closed"},
+    )
+    client.post(reverse("hiring:close", args=[req.pk]))
+    client.post(reverse("hiring:reopen", args=[req.pk]))
+    page = client.get(reverse("hiring:detail", args=[req.pk])).content.decode()
+    for text in (
+        "Requisition released",
+        "Comment: Need it by Friday",
+        "Job post added on Naukri",
+        "Job post on Naukri: closed",
+        "Closed",
+        "Reopened",
+    ):
+        assert text in page
+    assert page.index("Reopened") < page.index("Requisition released")

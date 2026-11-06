@@ -62,6 +62,77 @@ def close(requisition):
     requisition.save(update_fields=["status", "version"])
 
 
+def reopen(requisition):
+    requisition.status = Requisition.Status.OPEN
+    requisition.version += 1
+    requisition.save(update_fields=["status", "version"])
+
+
+def requisition_timeline(r):
+    """Everything that has happened around a requisition, newest first, as
+    (when, who, text). Built from the records and their history, not stored."""
+    events = [(r.created_at, r.opened_by, "Requisition released")]
+
+    for rec in r.history.filter(history_type="~"):
+        prev = rec.prev_record
+        if not prev:
+            continue
+        fields = []
+        for c in rec.diff_against(prev).changes:
+            if c.field == "version":
+                continue
+            if c.field == "status":
+                text = "Closed" if rec.status == "closed" else "Reopened"
+                events.append((rec.history_date, rec.history_user, text))
+            elif c.field == "urgency":
+                text = f"Urgency changed to {rec.get_urgency_display().lower()}"
+                events.append((rec.history_date, rec.history_user, text))
+            else:
+                fields.append(c.field.replace("_", " "))
+        if fields:
+            events.append(
+                (rec.history_date, rec.history_user, "Edited " + ", ".join(fields))
+            )
+
+    for p in r.posts.select_related("author"):
+        if p.is_job_post:
+            events.append((p.created_at, p.author, f"Job post added on {p.portal}"))
+            for rec in p.history.filter(history_type="~"):
+                prev = rec.prev_record
+                if prev and rec.post_status != prev.post_status:
+                    status = rec.get_post_status_display().lower()
+                    text = f"Job post on {rec.portal}: {status}"
+                    events.append((rec.history_date, rec.history_user, text))
+                elif prev:
+                    events.append(
+                        (
+                            rec.history_date,
+                            rec.history_user,
+                            f"Job post on {rec.portal} edited",
+                        )
+                    )
+        else:
+            note = p.body if len(p.body) <= 80 else p.body[:77] + "..."
+            events.append((p.created_at, p.author, f"Comment: {note}"))
+
+    # One line per day, so a big sourcing day is one event, not a hundred.
+    days = {}
+    for s in r.sourced.select_related("sourced_by"):
+        day = timezone.localtime(s.created_at).date()
+        days.setdefault(day, []).append(s)
+    for rows in days.values():
+        n = len(rows)
+        events.append(
+            (
+                rows[0].created_at,
+                None,
+                f"{n} number{'s' if n != 1 else ''} received",
+            )
+        )
+
+    return sorted(events, key=lambda e: e[0], reverse=True)
+
+
 def source_number(requisition, name, phone, user, source="", email=""):
     """Log a number received for a requisition. A new number makes a card; a
     number already on a card (last 10 digits, same company) links to it instead."""

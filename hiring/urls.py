@@ -17,6 +17,7 @@ urlpatterns = [
     ),
     path("requisitions/<int:pk>/edit/", views.edit_requisition, name="edit"),
     path("requisitions/<int:pk>/close/", views.close_requisition, name="close"),
+    path("requisitions/<int:pk>/reopen/", views.reopen_requisition, name="reopen"),
     path("report/", views.report, name="report"),
     path("report/export/", views.export_report, name="report_export"),
     path("sourcing/", source_views.sourcing, name="sourcing"),

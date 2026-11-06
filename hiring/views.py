@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_GET, require_POST
 
 from core.access import require_section
@@ -12,6 +13,8 @@ from .services import (
     StaleRequisition,
     close,
     funnel,
+    reopen,
+    requisition_timeline,
     save_requisition,
     visible_requisitions,
 )
@@ -27,6 +30,13 @@ def _superadmin(request):
 
 def _requisition(request, pk):
     return get_object_or_404(visible_requisitions(request.companies), pk=pk)
+
+
+def _back(request):
+    # Back to the page the button was on (a safe, same-site path), else the list.
+    to = request.POST.get("next", "")
+    ok = url_has_allowed_host_and_scheme(to, allowed_hosts=None)
+    return redirect(to if to and ok else "hiring:list")
 
 
 @section
@@ -99,6 +109,7 @@ def requisition_detail(request, pk):
         "hiring/detail.html",
         {
             "r": requisition,
+            "events": requisition_timeline(requisition),
             "posts": requisition.posts.select_related("author"),
             "comment_form": CommentForm(),
             "job_form": JobPostForm(
@@ -124,6 +135,7 @@ def post_to_requisition(request, pk):
         "hiring/detail.html",
         {
             "r": requisition,
+            "events": requisition_timeline(requisition),
             "posts": requisition.posts.select_related("author"),
             "comment_form": form if isinstance(form, CommentForm) else CommentForm(),
             "job_form": form if isinstance(form, JobPostForm) else JobPostForm(),
@@ -152,7 +164,7 @@ def close_requisition(request, pk):
     _superadmin(request)
     close(_requisition(request, pk))
     messages.success(request, "Requisition closed.")
-    return redirect("hiring:list")
+    return _back(request)
 
 
 @section
@@ -169,3 +181,12 @@ def report(request):
 @require_GET
 def export_report(request):
     return funnel_workbook(funnel(request.companies))
+
+
+@section
+@require_POST
+def reopen_requisition(request, pk):
+    _superadmin(request)
+    reopen(_requisition(request, pk))
+    messages.success(request, "Requisition reopened.")
+    return _back(request)
