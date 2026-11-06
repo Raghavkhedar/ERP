@@ -153,7 +153,7 @@ def test_save_and_add_another_keeps_requisition_and_source(client, req):
     r = client.post(url, row | {"again": "1"})
     assert r.status_code == 302 and f"requisition={req.pk}" in r["Location"]
     page = client.get(r["Location"]).content.decode()
-    assert 'value="Naukri" x-model="source" checked' in page
+    assert '<option value="Naukri" selected>' in page
 
 
 def test_address_is_kept_on_a_new_card_only(client, req):
@@ -162,3 +162,12 @@ def test_address_is_kept_on_a_new_card_only(client, req):
     client.post(url, row | {"address": "12 MG Road, Pune"})
     client.post(url, row | {"address": "somewhere else"})
     assert Person.objects.get().address == "12 MG Road, Pune"
+
+
+def test_gender_is_kept_on_a_new_card(client, req):
+    row = {"requisition": req.pk, "name": "A", "phone": "9876543210", "gender": "F"}
+    client.post(reverse("hiring:source_new"), row)
+    person = Person.objects.get()
+    assert person.gender == "F"
+    page = client.get(reverse("people:detail", args=[person.pk])).content.decode()
+    assert "Female" in page

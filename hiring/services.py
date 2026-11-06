@@ -133,7 +133,9 @@ def requisition_timeline(r):
     return sorted(events, key=lambda e: e[0], reverse=True)
 
 
-def source_number(requisition, name, phone, user, source="", email="", address=""):
+def source_number(
+    requisition, name, phone, user, source="", email="", address="", gender=""
+):
     """Log a number received for a requisition. A new number makes a card; a
     number already on a card (last 10 digits, same company) links to it instead."""
     if len(phone_key(phone)) < 10:
@@ -154,6 +156,7 @@ def source_number(requisition, name, phone, user, source="", email="", address="
                 phone=phone,
                 email=email,
                 address=address,
+                gender=gender,
             )
         if not duplicate:
             # A new card goes straight into the sourcer's call queue.

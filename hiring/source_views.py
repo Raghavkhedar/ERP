@@ -94,6 +94,7 @@ def new_source(request):
             d["source"],
             d["email"],
             d["address"],
+            d["gender"],
         )
         if made.is_duplicate:
             messages.success(

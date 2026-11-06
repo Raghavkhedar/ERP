@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from core.models import Company
-from people.models import phone_key
+from people.models import Person, phone_key
 from people.widgets import PhoneWidget
 
 from .models import (
@@ -118,12 +118,16 @@ class SourceForm(forms.Form):
     name = forms.CharField(max_length=200)
     phone = forms.CharField(max_length=30, widget=PhoneWidget)
     email = forms.EmailField(required=False)
+    gender = forms.ChoiceField(
+        required=False, choices=Person.Gender.choices, widget=forms.RadioSelect
+    )
     address = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 2}))
     # A well-known portal, or "other" with the name typed below it.
     source = forms.ChoiceField(
         required=False,
-        choices=[(x, x) for x in PORTALS] + [("other", "Other")],
-        widget=forms.RadioSelect(attrs={"x-model": "source"}),
+        label="Where did this number come from?",
+        choices=[("", "---------")] + [(x, x) for x in PORTALS] + [("other", "Other")],
+        widget=forms.Select(attrs={"x-model": "source"}),
     )
     source_other = forms.CharField(label="Source name", max_length=120, required=False)
 

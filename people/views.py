@@ -65,6 +65,7 @@ def person_detail(request, pk):
             "rows": [
                 ("Phone", person.phone),
                 ("Email", person.email),
+                ("Gender", person.get_gender_display()),
                 ("Address", person.address),
                 ("Current employer", person.current_employer),
                 ("Current salary", person.current_salary),
