@@ -161,3 +161,27 @@ def test_reader_can_join_discussion(client, boss, reader, senken):
     url = reverse("hiring:post", args=[r.pk])
     assert client.post(url, {"body": "On it"}).status_code == 302
     assert r.posts.get().author == reader
+
+
+def test_by_when_days_sets_the_date_and_reopening_keeps_it(client, boss, senken):
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    url = reverse("hiring:new")
+    client.post(
+        url,
+        REQUIRED
+        | {"department": "bo", "profile": "Fitter", "headcount": 1, "days": 10},
+    )
+    r = Requisition.objects.get()
+    assert r.needed_by == timezone.localdate() + timedelta(days=10)
+    # Saving with the number the form showed leaves the date alone.
+    r.needed_by = timezone.localdate() + timedelta(days=4)
+    r.save()
+    data = REQUIRED | {"department": "bo", "profile": "Fitter", "headcount": 1}
+    client.post(
+        reverse("hiring:edit", args=[r.pk]), data | {"days": 4, "version": r.version}
+    )
+    r.refresh_from_db()
+    assert r.needed_by == timezone.localdate() + timedelta(days=4)

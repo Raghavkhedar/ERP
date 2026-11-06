@@ -1,0 +1,8 @@
+{# One row of the sheet: the question on the left, the answer on the right. #}
+<div class="grid gap-x-8 gap-y-2 py-4 md:grid-cols-[14rem_minmax(0,1fr)]">
+  <label for="{{ field.id_for_label }}" class="pt-2 font-medium">{{ label|default:field.label }}</label>
+  <div>
+    {{ field }}
+    {% for error in field.errors %}<p class="mt-1 text-sm text-red-600">{{ error }}</p>{% endfor %}
+  </div>
+</div>
