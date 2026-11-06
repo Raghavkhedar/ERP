@@ -262,7 +262,32 @@ class CommentForm(forms.ModelForm):
         fields = ["body"]
 
 
+PORTALS = [
+    "Naukri",
+    "LinkedIn",
+    "Indeed",
+    "Apna",
+    "WorkIndia",
+    "Foundit",
+    "Shine",
+    "Job Hai",
+    "Internshala",
+    "Freshersworld",
+    "TimesJobs",
+    "Glassdoor",
+]
+
+
 class JobPostForm(forms.ModelForm):
+    # A well-known portal, or "other" with the name typed below it.
+    portal = forms.ChoiceField(
+        label="Job portal",
+        choices=[("", "---------")] + [(x, x) for x in PORTALS] + [("other", "Other")],
+        widget=forms.Select(attrs={"x-model": "portal"}),
+    )
+    portal_other = forms.CharField(label="Portal name", max_length=120, required=False)
+    field_order = ["portal", "portal_other"]
+
     class Meta:
         model = RequisitionPost
         fields = [
@@ -276,7 +301,6 @@ class JobPostForm(forms.ModelForm):
             "body",
         ]
         labels = {
-            "portal": "Job portal",
             "keyword": "Source keyword",
             "posted_on": "Date posted",
             "post_status": "Status",
@@ -294,3 +318,12 @@ class JobPostForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         for name in ("portal", "keyword", "posted_on", "post_status", "payment"):
             self.fields[name].required = True
+
+    def clean(self):
+        data = super().clean()
+        if data.get("portal") == "other":
+            name = (data.get("portal_other") or "").strip()
+            if not name:
+                self.add_error("portal_other", "Write the portal's name.")
+            data["portal"] = name
+        return data

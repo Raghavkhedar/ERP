@@ -134,7 +134,7 @@ def test_discussion_comment_and_job_post(client, boss, senken):
     url = reverse("hiring:post", args=[r.pk])
     assert client.post(url, {"body": "Need it by Friday"}).status_code == 302
     job = {
-        "portal": "Job hai",
+        "portal": "Job Hai",
         "keyword": "Data Analyst Intern",
         "posted_on": "2026-10-29",
         "post_status": "active",
@@ -145,14 +145,14 @@ def test_discussion_comment_and_job_post(client, boss, senken):
     assert client.post(url, job).status_code == 302
     assert [p.is_job_post for p in r.posts.all()] == [False, True]
     page = client.get(reverse("hiring:detail", args=[r.pk]))
-    assert b"Job post on Job hai" in page.content
+    assert b"Job post on Job Hai" in page.content
 
 
 def test_discussion_rejects_empty_and_incomplete(client, boss, senken):
     r = _req(boss, senken)
     url = reverse("hiring:post", args=[r.pk])
     assert client.post(url, {"body": "  "}).status_code == 422
-    assert client.post(url, {"portal": "Job hai"}).status_code == 422
+    assert client.post(url, {"portal": "Job Hai"}).status_code == 422
     assert r.posts.count() == 0
 
 
@@ -185,3 +185,20 @@ def test_by_when_days_sets_the_date_and_reopening_keeps_it(client, boss, senken)
     )
     r.refresh_from_db()
     assert r.needed_by == timezone.localdate() + timedelta(days=4)
+
+
+def test_job_post_on_a_portal_not_in_the_list(client, boss, senken):
+    r = _req(boss, senken)
+    url = reverse("hiring:post", args=[r.pk])
+    job = {
+        "portal": "other",
+        "keyword": "Data Analyst",
+        "posted_on": "2026-10-29",
+        "post_status": "active",
+        "payment": "free",
+    }
+    assert client.post(url, job).status_code == 422  # name missing
+    assert (
+        client.post(url, job | {"portal_other": "Local Jobs Board"}).status_code == 302
+    )
+    assert r.posts.get().portal == "Local Jobs Board"
