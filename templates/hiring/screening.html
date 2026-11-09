@@ -55,6 +55,16 @@
   </details>
 
   <form method="get" class="mt-4 overflow-x-auto rounded-xl border border-ink bg-surface p-4 shadow-xl" x-data>
+    <div class="mb-3 flex flex-wrap items-center gap-2">
+      <div x-data="{ o: false }" class="relative" @click.outside="o = false"><button type="button" @click="o = !o" class="h-9 rounded-lg border border-ink px-3 text-sm {% if picked.department %}bg-pop{% endif %}">Department{% if picked.department %} ({{ picked.department|length }}){% endif %} ▾</button>
+      <div x-show="o" x-cloak class="absolute left-0 top-full z-10 mt-1 max-h-72 w-64 overflow-auto rounded-lg border border-ink bg-surface p-3 shadow-md">
+        {% for value, name in departments %}<label class="flex items-center gap-2 py-0.5"><input type="checkbox" name="department" value="{{ value }}" {% if value in picked.department %}checked{% endif %}> {{ name }}</label>{% endfor %}
+        <button type="submit" class="mt-2 h-9 w-full rounded-lg bg-blue-600 text-sm">Apply</button></div></div>
+      <div x-data="{ o: false }" class="relative" @click.outside="o = false"><button type="button" @click="o = !o" class="h-9 rounded-lg border border-ink px-3 text-sm {% if picked.sub %}bg-pop{% endif %}">Sub-department{% if picked.sub %} ({{ picked.sub|length }}){% endif %} ▾</button>
+      <div x-show="o" x-cloak class="absolute left-0 top-full z-10 mt-1 max-h-72 w-64 overflow-auto rounded-lg border border-ink bg-surface p-3 shadow-md">
+        {% for name in subs %}<label class="flex items-center gap-2 py-0.5"><input type="checkbox" name="sub" value="{{ name }}" {% if name in picked.sub %}checked{% endif %}> {{ name }}</label>{% empty %}<p class="text-sm text-gray-500">No sub-departments yet.</p>{% endfor %}
+        <button type="submit" class="mt-2 h-9 w-full rounded-lg bg-blue-600 text-sm">Apply</button></div></div>
+    </div>
     <p class="mb-2 text-sm text-gray-500">{{ rows|length }} candidate{{ rows|length|pluralize }}{% if filtered %} · <a href="{% url 'hiring:screening' %}" class="underline">Clear filters</a>{% endif %}</p>
     <table class="w-full min-w-[44rem] text-left text-sm">
       <thead>

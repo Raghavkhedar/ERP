@@ -10,7 +10,7 @@ from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_GET, require_POST
 
 from core.access import require_section
-from people.services import card_rows, visible_people
+from people.services import visible_people
 from tasks.services import can_assign
 
 from .export import followups_workbook
@@ -22,7 +22,7 @@ from .forms import (
     ScheduleCallForm,
     ShiftForm,
 )
-from .models import CallLog, FollowUp, Interview, Offer
+from .models import CallLog, FollowUp, Interview, Offer, Requisition
 from .services import (
     FollowUpError,
     cancel,
@@ -108,6 +108,10 @@ def _sheet(rows, get):
         if "none" in tags:
             match |= Q(last_tag__isnull=True)
         rows = rows.filter(match)
+    if departments := get.getlist("department"):
+        rows = rows.filter(requisition__department__in=departments)
+    if subs := get.getlist("sub"):
+        rows = rows.filter(requisition__sub_department__in=subs)
     if get.get("owner", "").isdigit():
         rows = rows.filter(owner_id=get["owner"])
     return rows
@@ -160,7 +164,18 @@ def screening(request):
             "tags": TAGS,
             "stages": STAGES,
             "get": request.GET,
-            "picked": {k: request.GET.getlist(k) for k in ("purpose", "tag", "stage")},
+            "picked": {
+                k: request.GET.getlist(k)
+                for k in ("purpose", "tag", "stage", "department", "sub")
+            },
+            "departments": Requisition.Department.choices,
+            "subs": sorted(
+                {
+                    s
+                    for s in base.values_list("requisition__sub_department", flat=True)
+                    if s
+                }
+            ),
             "filtered": any(request.GET.values()),
             "shift_form": ShiftForm(),
         },
@@ -218,10 +233,6 @@ def _detail(request, followup, **forms):
         {
             "f": followup,
             "call_action": reverse("hiring:followup_call", args=[followup.pk]),
-            "rows": card_rows(followup.person),
-            "calls": CallLog.objects.filter(person=followup.person).select_related(
-                "caller"
-            )[:10],
             "call_form": forms.get("call_form") or CallForm(),
             "reschedule_form": forms.get("reschedule_form") or RescheduleForm(),
             "reassign_form": (

@@ -247,3 +247,16 @@ def test_incoming_call_needs_a_candidate(client, todo):
 def test_incoming_call_form_defaults_to_inbound(client, todo):
     form = client.get(reverse("hiring:call_new")).context["call_form"]
     assert form["call_type"].value() == "inbound"
+
+
+def test_sheet_filters_by_department_and_sub_department(client, todo):
+    url = reverse("hiring:screening")
+    req = todo.requisition
+    req.sub_department = "Billing"
+    req.save()
+    assert len(client.get(url, {"department": "bo"}).context["rows"]) == 1
+    assert len(client.get(url, {"department": ["sales", "bo"]}).context["rows"]) == 1
+    assert len(client.get(url, {"department": "sales"}).context["rows"]) == 0
+    assert len(client.get(url, {"sub": "Billing"}).context["rows"]) == 1
+    assert len(client.get(url, {"sub": "Other"}).context["rows"]) == 0
+    assert client.get(url).context["subs"] == ["Billing"]

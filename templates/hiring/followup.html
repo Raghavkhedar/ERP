@@ -5,33 +5,21 @@
 {% block actions %}<a href="{% url 'people:detail' f.person_id %}" class="text-gray-500 hover:text-gray-900">Card</a><a href="{% url 'hiring:calling' %}" class="text-gray-500 hover:text-gray-900">Back</a>{% endblock %}
 
 {% block page %}
-  {# The candidate, packed into a strip: every fact the card shows. #}
-  <div class="flex flex-wrap items-start justify-between gap-x-8 gap-y-1">
-  <p class="text-sm"><span class="font-semibold">Candidate no. {{ f.person_id }}</span>
-    <span class="ml-3 text-gray-500">{{ f.intention }}, due {{ f.due|date:"j M" }}{% if f.original_due %}, first due {{ f.original_due|date:"j M" }}{% endif %}</span>
-    {% if f.requisition %}<span class="ml-3">{{ f.requisition }}, {{ f.requisition.get_department_display }}</span>{% endif %}</p>
-  <div class="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-    {% if calls %}
-      <details class="min-w-0"><summary class="cursor-pointer text-gray-500 hover:text-gray-900">Earlier calls ({{ calls|length }})</summary>
-        <ul class="mt-2 space-y-2">
-          {% for c in calls %}<li><span class="font-medium">{{ c.get_outcome_display }}</span> <span class="text-gray-500">{{ c.called_at|date:"j M" }}, {{ c.caller.display_name }}</span>{% if c.notes %}<br><span class="text-gray-500">{{ c.notes }}</span>{% endif %}</li>{% endfor %}
-        </ul>
-      </details>
-    {% endif %}
-    <details><summary class="cursor-pointer text-gray-500 hover:text-gray-900">Move this call to another day</summary>
+  {# Only what the caller needs to place the call. #}
+  <dl class="flex flex-wrap items-end justify-between gap-x-8 gap-y-2 border-y border-gray-100 py-2">
+    <div class="flex flex-wrap gap-x-8 gap-y-2">
+      <div><dt class="text-xs text-gray-500">Phone</dt><dd class="text-sm">{{ f.person.phone }}</dd></div>
+      <div><dt class="text-xs text-gray-500">Department</dt><dd class="text-sm">{{ f.requisition.get_department_display|default:"—" }}</dd></div>
+      <div><dt class="text-xs text-gray-500">Sub-department</dt><dd class="text-sm">{{ f.requisition.sub_department|default:"—" }}</dd></div>
+    </div>
+    <details class="text-sm"><summary class="cursor-pointer text-gray-500 hover:text-gray-900">Move this call to another day</summary>
       <form method="post" action="{% url 'hiring:followup_reschedule' f.pk %}" class="fields mt-2 flex flex-wrap items-end gap-3">
         {% csrf_token %}
         {% for field in reschedule_form %}{% include "tasks/_field.html" %}{% endfor %}
         <button type="submit" class="h-10 rounded-lg border border-ink px-4">Move</button>
       </form>
     </details>
-  </div>
-
-  </div>
-  <dl class="mt-2 grid grid-cols-2 gap-x-6 gap-y-2 border-y border-gray-100 py-2 sm:grid-cols-3 lg:grid-cols-6">
-    {% for label, value in rows %}
-      <div class="min-w-0"><dt class="text-xs text-gray-500">{{ label }}</dt><dd class="truncate text-sm">{{ value|default:"—" }}</dd></div>
-    {% endfor %}
   </dl>
+
   {% include "hiring/_call_form.html" with action=call_action %}
 {% endblock %}
