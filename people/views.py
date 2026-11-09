@@ -9,7 +9,7 @@ from hiring.services import stage, timeline
 from .export import people_workbook
 from .forms import PersonForm
 from .models import Person
-from .services import StaleCard, archive, save_person, visible_people
+from .services import StaleCard, archive, card_rows, save_person, visible_people
 
 section = require_section("recruitment", "candidates")
 
@@ -62,19 +62,7 @@ def person_detail(request, pk):
         "people/detail.html",
         {
             "person": person,
-            "rows": [
-                ("Phone", person.phone),
-                ("Email", person.email),
-                ("Gender", person.get_gender_display()),
-                ("Address", person.address),
-                ("Current employer", person.current_employer),
-                ("Current salary", person.current_salary),
-                ("Expected salary", person.expected_salary),
-                ("Experience (years)", person.experience_years),
-                ("Joining period", person.joining_period),
-                ("Contact status", person.get_contact_status_display()),
-                ("Priority", person.get_priority_display()),
-            ],
+            "rows": card_rows(person),
             "same_number": person.same_number().filter(archived_at=None),
             "stage": stage(person),
             "schedule_form": ScheduleCallForm(),

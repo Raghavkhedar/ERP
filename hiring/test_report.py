@@ -43,7 +43,13 @@ def walk(req, user, phone, name, to):
     """Take one candidate as far as `to`: call, interview, offer, join."""
     source_number(req, name, phone, user)
     todo = FollowUp.objects.get(person__phone=phone, status="pending")
-    log_call(todo, "interview", user, next_due=timezone.now() + timedelta(days=1))
+    log_call(
+        todo,
+        "reg_ff",
+        user,
+        next_due=timezone.now() + timedelta(days=1),
+        intention="interview",
+    )
     if to == "called":
         return
     record_interview(
@@ -97,7 +103,7 @@ def test_timeline_and_card(client, senken, boss):
     person = source_number(req, "Ravi", "99999 11111", boss, "Naukri").person
     log_call(
         person.followups.get(),
-        "no_answer",
+        "reg_not_attended",
         boss,
         notes="Keen",
         next_due=timezone.now() + timedelta(days=1),
@@ -110,7 +116,7 @@ def test_timeline_and_card(client, senken, boss):
     texts = [t for _, _, t in timeline(person)]
     assert "Card created" in texts
     assert any("via Naukri" in t for t in texts)
-    assert any(t.startswith("Call: no answer. Keen") for t in texts)
+    assert any(t.startswith("Call: Reg Call Not Attended. Keen") for t in texts)
     assert "Edited name" in texts
     page = client.get(reverse("people:detail", args=[person.pk]))
     assert page.status_code == 200 and b"Timeline" in page.content

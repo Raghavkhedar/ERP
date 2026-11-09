@@ -50,7 +50,9 @@ def test_stage_follows_the_candidate(req, user):
     person = source_number(req, "Ravi", "99999 11111", user).person
     assert stage(person) == "Screening"  # a call is already booked
     tomorrow = timezone.now() + timedelta(days=1)
-    log_call(person.followups.get(), "interview", user, next_due=tomorrow)
+    log_call(
+        person.followups.get(), "reg_ff", user, next_due=tomorrow, intention="interview"
+    )
     assert stage(person) == "Selecting"
     record_interview(person.followups.get(purpose="interview"), "selected", user)
     assert stage(person) == "Hiring"
@@ -87,9 +89,10 @@ def test_edit_interview_opens_the_offer_when_it_becomes_selected(req, user, clie
     person = source_number(req, "Ravi", "99999 11111", user).person
     log_call(
         person.followups.get(),
-        "interview",
+        "reg_ff",
         user,
         next_due=timezone.now() + timedelta(days=1),
+        intention="interview",
     )
     interview = record_interview(
         person.followups.get(purpose="interview"), "hold", user

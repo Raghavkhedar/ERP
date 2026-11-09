@@ -1,4 +1,5 @@
 from datetime import datetime, time, timedelta
+from types import SimpleNamespace
 
 from django.db import transaction
 from django.db.models import Case, Count, Q, When
@@ -213,49 +214,84 @@ def _pending(followup):
     return current
 
 
-def _open(after, purpose, due):
+def _open(after, purpose, due, other=""):
     """The next follow-up for the same person, unless one is already pending."""
     FollowUp.objects.get_or_create(
         person=after.person,
         purpose=purpose,
         status=FollowUp.Status.PENDING,
-        defaults=dict(requisition=after.requisition, due=due, owner=after.owner),
+        defaults=dict(
+            requisition=after.requisition,
+            due=due,
+            owner=after.owner,
+            purpose_other=other,
+        ),
     )
 
 
-# Outcomes that need a next date, and the follow-up they open.
-NEXT = {
-    CallLog.Outcome.INTERESTED: FollowUp.Purpose.CALL,
-    CallLog.Outcome.CALL_BACK: FollowUp.Purpose.CALL,
-    CallLog.Outcome.NO_ANSWER: FollowUp.Purpose.CALL,
-    CallLog.Outcome.INTERVIEW: FollowUp.Purpose.INTERVIEW,
-}
-
-
-def log_call(followup, outcome, user, notes="", next_due=None):
-    """Record a call: complete the follow-up, then open the next one if the
-    outcome calls for it (a date is required then)."""
-    purpose = NEXT.get(outcome)
-    if purpose and not next_due:
-        raise FollowUpError("Pick when to follow up next.")
+def log_call(
+    followup,
+    outcome,
+    user,
+    notes="",
+    next_due=None,
+    intention=FollowUp.Purpose.CALL,
+    intention_other="",
+    call_type=CallLog.Kind.OUTBOUND,
+    rescheduled=False,
+    reschedule_reason="",
+    department_changed=False,
+    discuss=False,
+    person=None,
+):
+    """Record a call: complete the follow-up and open the next one for `intention`.
+    With no follow-up (a call that came in) it is logged for `person` alone.
+    A department change or a discuss request sends the card to the caller's
+    supervisor."""
+    boss = user.supervisor if (discuss or department_changed) else None
+    if (discuss or department_changed) and not boss:
+        raise FollowUpError("You have no supervisor set to send this to.")
     with transaction.atomic():
-        current = _pending(followup)
+        current = _pending(followup) if followup else None
+        person = current.person if current else person
         call = CallLog.objects.create(
-            person=current.person,
+            person=person,
             followup=current,
             caller=user,
             outcome=outcome,
             notes=notes,
+            call_type=call_type,
+            rescheduled=rescheduled,
+            reschedule_reason=reschedule_reason,
+            department_changed=department_changed,
+            discussed=discuss,
         )
-        current.status = FollowUp.Status.COMPLETED
-        current.version += 1
-        current.save(update_fields=["status", "version"])
-        if purpose:
-            _open(current, purpose, next_due)
-        if outcome == CallLog.Outcome.DO_NOT_CALL:
-            current.person.contact_status = current.person.ContactStatus.DO_NOT_CALL
-            current.person.version += 1
-            current.person.save(update_fields=["contact_status", "version"])
+        if current:
+            current.status = FollowUp.Status.COMPLETED
+            current.version += 1
+            current.save(update_fields=["status", "version"])
+        if next_due:
+            # shortcut: an incoming call's next follow-up is filed under the
+            # candidate's latest requisition, and an already-pending follow-up
+            # of the same kind is kept as it is.
+            sourced = (
+                person.sourced.select_related("requisition")
+                .order_by("-created_at")
+                .first()
+            )
+            after = current or SimpleNamespace(
+                person=person,
+                requisition=sourced.requisition if sourced else None,
+                owner=user,
+            )
+            _open(after, intention, next_due, intention_other)
+        if boss:
+            why = "a department change" if department_changed else "a discussion"
+            notify(
+                boss,
+                f"{user.display_name} needs {why} with you: {person.name}",
+                reverse("people:detail", args=[person.pk]),
+            )
         return call
 
 
@@ -536,7 +572,7 @@ def timeline(person, with_hr=False):
                 )
 
     for c in person.calls.select_related("caller"):
-        text = f"Call: {c.get_outcome_display().lower()}"
+        text = f"Call: {c.get_outcome_display()}"
         events.append(
             (c.called_at, c.caller, f"{text}. {c.notes}" if c.notes else text)
         )

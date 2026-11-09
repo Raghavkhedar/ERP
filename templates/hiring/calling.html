@@ -1,0 +1,35 @@
+{% extends "people/base_people.html" %}
+
+{% block title %}Calling · Senken ERP{% endblock %}
+{% block heading %}Calling{% endblock %}
+{% block actions %}<a href="{% url 'hiring:call_new' %}" aria-label="Log an incoming call" title="Log an incoming call" class="inline-flex size-10 items-center justify-center rounded-lg bg-blue-600 text-2xl font-medium leading-none">+</a><a href="{% url 'hiring:calling_export' %}" class="text-gray-500 hover:text-gray-900">Export</a>{% endblock %}
+
+{% block page %}
+  <div class="overflow-x-auto rounded-xl border border-ink bg-surface p-4 shadow-xl">
+    <p class="mb-2 text-sm text-gray-500">{{ rows|length }} call{{ rows|length|pluralize }} to make</p>
+    <table class="w-full min-w-[52rem] text-left text-sm">
+      <thead>
+        <tr class="bg-ink text-white">
+          <th class="p-2">#</th><th class="p-2">Name</th><th class="p-2">Phone</th><th class="p-2">Department</th>
+          <th class="p-2">Call intention</th><th class="p-2">Last tag</th><th class="p-2">Status</th><th class="p-2"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in rows %}
+          <tr class="border-b border-gray-100">
+            <td class="p-2 tabular-nums text-gray-500">{{ forloop.counter }}</td>
+            <td class="p-2 font-medium">{{ f.person.name }}<br><span class="font-normal {% if f.overdue %}text-red-600{% else %}text-gray-500{% endif %}">{{ f.due|date:"j M" }}</span></td>
+            <td class="p-2">{{ f.person.phone }}</td>
+            <td class="p-2">{{ f.requisition.get_department_display|default:"—" }}</td>
+            <td class="p-2">{{ f.intention }}</td>
+            <td class="p-2">{{ f.tag_label }}</td>
+            <td class="p-2">{{ f.stage_label }}</td>
+            <td class="p-2 text-right"><a href="{% url 'hiring:followup' f.pk %}" class="inline-flex h-9 items-center rounded-lg bg-blue-600 px-3 font-medium">Call</a></td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="8" class="p-6 text-gray-500">No calls are assigned to you.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from django import forms
 from django.contrib.auth import get_user_model
@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from core.models import Company
 from people.models import Person, phone_key
+from people.services import visible_people
 from people.widgets import PhoneWidget
 
 from .models import (
@@ -183,15 +184,81 @@ def tomorrow_morning():
 
 class CallForm(forms.Form):
     outcome = forms.ChoiceField(
-        choices=CallLog.Outcome.choices, widget=forms.RadioSelect
+        label="Tagging", choices=CallLog.Outcome.choices, widget=forms.RadioSelect
     )
-    next_due = _when("Next follow-up", required=False)
-    notes = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
+    notes = forms.CharField(
+        label="Status", required=False, widget=forms.Textarea(attrs={"rows": 3})
+    )
+    next_due = forms.DateField(
+        label="Next follow-up date",
+        widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+    )
+    call_type = forms.ChoiceField(
+        choices=CallLog.Kind.choices,
+        initial=CallLog.Kind.OUTBOUND,
+        widget=forms.RadioSelect,
+    )
+    intention = forms.ChoiceField(
+        label="Next call intention", choices=FollowUp.Purpose.choices
+    )
+    intention_other = forms.CharField(
+        label="What is the intention?", required=False, max_length=200
+    )
+    rescheduled = forms.BooleanField(label="Candidate rescheduled", required=False)
+    reschedule_reason = forms.CharField(
+        label="Reason the candidate gave",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 2}),
+    )
+    department_changed = forms.BooleanField(required=False)
+    discuss = forms.BooleanField(required=False)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Pre-filled so the usual "try again tomorrow" is one tap.
-        self.fields["next_due"].initial = tomorrow_morning()
+        self.fields["next_due"].initial = tomorrow_morning().date()
+        self.fields["next_due"].widget.attrs["min"] = timezone.localdate().isoformat()
+
+    def clean_next_due(self):
+        day = self.cleaned_data["next_due"]
+        if day < timezone.localdate():
+            raise forms.ValidationError("The next follow-up can't be before today.")
+        # Only the day is asked for; the call alarm rings at the usual 10:00.
+        return timezone.make_aware(datetime.combine(day, tomorrow_morning().time()))
+
+    def clean(self):
+        data = super().clean()
+        for flag, text, message in (
+            (
+                "rescheduled",
+                "reschedule_reason",
+                "Write the reason the candidate gave.",
+            ),
+            ("intention", "intention_other", "Say what the intention is."),
+        ):
+            on = (
+                data.get(flag) == FollowUp.Purpose.OTHER
+                if flag == "intention"
+                else data.get(flag)
+            )
+            if on and not data.get(text, "").strip():
+                self.add_error(text, message)
+        return data
+
+
+class IncomingCallForm(CallForm):
+    """A call that came in: the same questions, for a candidate picked by hand."""
+
+    person = forms.ModelChoiceField(
+        Person.objects.none(),
+        widget=forms.HiddenInput,
+        error_messages={"required": "Pick the candidate."},
+    )
+
+    def __init__(self, *args, companies, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["person"].queryset = visible_people(companies)
+        self.fields["call_type"].initial = CallLog.Kind.INBOUND
 
 
 class RescheduleForm(forms.Form):

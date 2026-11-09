@@ -44,9 +44,10 @@ def booked(senken, caller):
     source_number(req, "Asha", "9876543210", caller)
     log_call(
         FollowUp.objects.get(),
-        "interview",
+        "reg_ff",
         caller,
         next_due=timezone.now() + timedelta(days=1),
+        intention="interview",
     )
     return FollowUp.objects.get(status="pending", purpose="interview")
 

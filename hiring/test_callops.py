@@ -80,7 +80,10 @@ def test_call_alarm_rings_until_snoozed_or_done(req, user, client):
     call.save()
     assert list(due_call_alarms(user)) == [call]
     ring = client.get(reverse("tasks:alarms")).json()["alarms"]
-    assert ring[0]["id"] == f"call-{call.pk}" and ring[0]["label"] == "Call alarm"
+    assert (
+        ring[0]["id"] == f"call-{call.pk}"
+        and ring[0]["label"] == "Normal follow-up alarm"
+    )
 
     client.post(
         reverse("hiring:followup_snooze", args=[call.pk]),

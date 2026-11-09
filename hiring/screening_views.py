@@ -1,23 +1,28 @@
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
-from django.http import JsonResponse
+from django.db.models import Case, Exists, F, OuterRef, Q, Subquery, Value, When
+from django.http import JsonResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_GET, require_POST
 
 from core.access import require_section
-from people.services import visible_people
+from people.services import card_rows, visible_people
 from tasks.services import can_assign
 
 from .export import followups_workbook
 from .forms import (
     CallForm,
+    IncomingCallForm,
     ReassignForm,
     RescheduleForm,
     ScheduleCallForm,
     ShiftForm,
 )
-from .models import CallLog
+from .models import CallLog, FollowUp, Interview, Offer
 from .services import (
     FollowUpError,
     cancel,
@@ -56,17 +61,131 @@ def _groups(request):
     }
 
 
+STAGES = [
+    ("screening", "Screening"),
+    ("interviewed", "Interviewed"),
+    ("offered", "Offered"),
+    ("accepted", "Accepted"),
+    ("declined", "Declined"),
+]
+TAGS = [*CallLog.Outcome.choices, ("none", "Not called yet")]
+
+
+def _sheet(rows, get):
+    """Every pending follow-up as a spreadsheet row, narrowed by the column filters."""
+    person = OuterRef("person")
+    rows = rows.annotate(
+        last_tag=Subquery(
+            CallLog.objects.filter(person=person, not_a_call=False).values("outcome")[
+                :1
+            ]
+        ),
+        offer_state=Subquery(
+            Offer.objects.filter(person=person)
+            .order_by("-created_at", "-id")
+            .values("state")[:1]
+        ),
+        interviewed=Exists(Interview.objects.filter(person=person)),
+    ).annotate(
+        stage=Case(
+            When(offer_state__isnull=False, then=F("offer_state")),
+            When(interviewed=True, then=Value("interviewed")),
+            default=Value("screening"),
+        )
+    )
+    if q := get.get("q", "").strip():
+        rows = rows.filter(person__name__icontains=q)
+    if day := parse_date(get.get("due_from", "")):
+        rows = rows.filter(due__date__gte=day)
+    if day := parse_date(get.get("due_to", "")):
+        rows = rows.filter(due__date__lte=day)
+    if purposes := get.getlist("purpose"):
+        rows = rows.filter(purpose__in=purposes)
+    if stages := get.getlist("stage"):
+        rows = rows.filter(stage__in=stages)
+    if tags := get.getlist("tag"):
+        match = Q(last_tag__in=tags)
+        if "none" in tags:
+            match |= Q(last_tag__isnull=True)
+        rows = rows.filter(match)
+    if get.get("owner", "").isdigit():
+        rows = rows.filter(owner_id=get["owner"])
+    return rows
+
+
+def _summary(rows, today):
+    """The numbers above the sheet: what is due today, and who holds it."""
+    due = list(rows.filter(due__date__lte=today))
+    mine = [f for f in due if _day(f) == today]
+    by_owner = {}
+    for f in due:
+        row = by_owner.setdefault(
+            f.owner, dict(owner=f.owner, today=0, interview=0, offer=0, overdue=0)
+        )
+        if _day(f) < today:
+            row["overdue"] += 1
+        else:
+            row["today"] += 1
+            if f.purpose in ("interview", "offer"):
+                row[f.purpose] += 1
+    return {
+        "today": len(mine),
+        "overdue": len(due) - len(mine),
+        "interview": sum(f.purpose == FollowUp.Purpose.INTERVIEW for f in mine),
+        "offer": sum(f.purpose == FollowUp.Purpose.OFFER for f in mine),
+        "people": len(by_owner),
+        "by_owner": sorted(
+            by_owner.values(), key=lambda r: -(r["today"] + r["overdue"])
+        ),
+    }
+
+
 @section
 def screening(request):
-    groups = _groups(request)
+    base = visible_followups(request.user, request.companies)
+    tags, stages = dict(TAGS), dict(STAGES)
+    rows = list(_sheet(base, request.GET))
+    for f in rows:
+        f.tag_label = tags.get(f.last_tag or "none")
+        f.stage_label = stages[f.stage]
+        f.overdue = _day(f) < timezone.localdate()
     return render(
         request,
         "hiring/screening.html",
         {
-            "groups": [(g.capitalize(), g, rows) for g, rows in groups.items()],
+            "summary": _summary(base, timezone.localdate()),
+            "rows": rows,
+            "owners": get_user_model().objects.filter(pk__in=base.values("owner")),
+            "purposes": FollowUp.Purpose.choices,
+            "tags": TAGS,
+            "stages": STAGES,
+            "get": request.GET,
+            "picked": {k: request.GET.getlist(k) for k in ("purpose", "tag", "stage")},
+            "filtered": any(request.GET.values()),
             "shift_form": ShiftForm(),
         },
     )
+
+
+def _mine(request):
+    return visible_followups(request.user, request.companies).filter(owner=request.user)
+
+
+@section
+def calling(request):
+    stages, tags = dict(STAGES), dict(TAGS)
+    rows = list(_sheet(_mine(request), QueryDict()))
+    for f in rows:
+        f.tag_label = tags.get(f.last_tag or "none")
+        f.stage_label = stages[f.stage]
+        f.overdue = _day(f) < timezone.localdate()
+    return render(request, "hiring/calling.html", {"rows": rows})
+
+
+@section
+@require_GET
+def export_calling(request):
+    return followups_workbook(_mine(request))
 
 
 @section
@@ -98,6 +217,8 @@ def _detail(request, followup, **forms):
         "hiring/followup.html",
         {
             "f": followup,
+            "call_action": reverse("hiring:followup_call", args=[followup.pk]),
+            "rows": card_rows(followup.person),
             "calls": CallLog.objects.filter(person=followup.person).select_related(
                 "caller"
             )[:10],
@@ -117,7 +238,9 @@ def followup_detail(request, pk):
     return _detail(request, _followup(request, pk))
 
 
-def _act(request, pk, form_class, form_key, run, done, **form_kwargs):
+def _act(
+    request, pk, form_class, form_key, run, done, back="hiring:calling", **form_kwargs
+):
     followup = _followup(request, pk)
     form = form_class(request.POST, **form_kwargs)
     if form.is_valid():
@@ -125,19 +248,81 @@ def _act(request, pk, form_class, form_key, run, done, **form_kwargs):
             run(followup, form.cleaned_data)
         except FollowUpError as exc:
             messages.error(request, str(exc))
-            return redirect("hiring:screening")
+            return redirect(back)
         messages.success(request, done)
-        return redirect("hiring:screening")
+        return redirect(back)
     return _detail(request, followup, **{form_key: form})
+
+
+def _call_args(d):
+    return dict(
+        outcome=d["outcome"],
+        notes=d["notes"],
+        next_due=d["next_due"],
+        intention=d["intention"],
+        intention_other=d["intention_other"].strip(),
+        call_type=d["call_type"],
+        rescheduled=d["rescheduled"],
+        reschedule_reason=d["reschedule_reason"].strip(),
+        department_changed=d["department_changed"],
+        discuss=d["discuss"],
+    )
 
 
 @section
 @require_POST
 def log_followup(request, pk):
     def run(f, d):
-        log_call(f, d["outcome"], request.user, d["notes"], d["next_due"])
+        log_call(f, user=request.user, **_call_args(d))
 
     return _act(request, pk, CallForm, "call_form", run, "Call logged.")
+
+
+@section
+def call_new(request):
+    """Log a call that came in, for a candidate picked by name or number."""
+    form = IncomingCallForm(request.POST or None, companies=request.companies)
+    if request.method == "POST" and form.is_valid():
+        try:
+            log_call(
+                None,
+                user=request.user,
+                person=form.cleaned_data["person"],
+                **_call_args(form.cleaned_data),
+            )
+        except FollowUpError as exc:
+            messages.error(request, str(exc))
+        else:
+            messages.success(request, "Call logged.")
+            return redirect("hiring:calling")
+    person = form.cleaned_data.get("person") if form.is_bound else None
+    return render(
+        request,
+        "hiring/call_new.html",
+        {
+            "call_form": form,
+            "call_action": reverse("hiring:call_new"),
+            "picked": person
+            and {"id": person.pk, "name": person.name, "phone": person.phone},
+        },
+    )
+
+
+@section
+@require_GET
+def calling_people(request):
+    q = request.GET.get("q", "").strip()
+    found = visible_people(request.companies, q)
+    if q.isdigit():
+        found = found | visible_people(request.companies).filter(pk=int(q))
+    return JsonResponse(
+        {
+            "people": [
+                {"id": p.pk, "name": p.name, "phone": p.phone}
+                for p in found.order_by("name")[:15]
+            ]
+        }
+    )
 
 
 @section
@@ -165,6 +350,7 @@ def reassign_followup(request, pk):
         "reassign_form",
         run,
         "Follow-up reassigned.",
+        back="hiring:screening",
         companies=request.companies,
     )
 

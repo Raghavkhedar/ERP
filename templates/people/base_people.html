@@ -1,14 +1,15 @@
 {% extends "base.html" %}
 
-{% block main_class %}mx-auto w-full max-w-5xl px-4 pb-28 pt-8 sm:px-8{% endblock %}
+{% block main_class %}mx-auto w-full max-w-7xl px-4 pb-28 pt-8 sm:px-6{% endblock %}
 
 {% block content %}
   <div class="rounded-2xl border border-ink bg-surface p-5 shadow-xl sm:p-8">
     <nav class="mb-6 flex flex-wrap gap-2 text-sm" aria-label="Empanelment sections">
-      {% url 'hiring:list' as preparing %}{% url 'hiring:sourcing' as sourcing %}{% url 'hiring:screening' as screening %}{% url 'hiring:selecting' as selecting %}{% url 'hiring:offers' as offers %}{% url 'hiring:onboarding' as onboarding %}{% url 'hiring:report' as report %}{% url 'people:list' as candidates %}
+      {% url 'hiring:list' as preparing %}{% url 'hiring:sourcing' as sourcing %}{% url 'hiring:screening' as screening %}{% url 'hiring:selecting' as selecting %}{% url 'hiring:calling' as calling %}{% url 'hiring:offers' as offers %}{% url 'hiring:onboarding' as onboarding %}{% url 'hiring:report' as report %}{% url 'people:list' as candidates %}
       <a href="{{ preparing }}" class="rounded-full border border-ink px-3 py-1 {% if '/requisitions/' in request.path %}bg-pop{% endif %}">Preparing</a>
       <a href="{{ sourcing }}" class="rounded-full border border-ink px-3 py-1 {% if '/sourcing/' in request.path %}bg-pop{% endif %}">Sourcing</a>
-      <a href="{{ screening }}" class="rounded-full border border-ink px-3 py-1 {% if '/screening/' in request.path %}bg-pop{% endif %}">Screening</a>
+      <a href="{{ screening }}" class="rounded-full border border-ink px-3 py-1 {% if request.resolver_match.url_name == 'screening' %}bg-pop{% endif %}">Screening</a>
+      <a href="{{ calling }}" class="rounded-full border border-ink px-3 py-1 {% if '/calling/' in request.path or request.resolver_match.url_name == 'followup' %}bg-pop{% endif %}">Calling</a>
       <a href="{{ selecting }}" class="rounded-full border border-ink px-3 py-1 {% if '/selecting/' in request.path %}bg-pop{% endif %}">Selecting</a>
       <a href="{{ offers }}" class="rounded-full border border-ink px-3 py-1 {% if '/hiring/' in request.path %}bg-pop{% endif %}">Hiring</a>
       <a href="{{ onboarding }}" class="rounded-full border border-ink px-3 py-1 {% if '/onboarding/' in request.path %}bg-pop{% endif %}">On-Boarding</a>

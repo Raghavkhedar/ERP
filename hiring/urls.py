@@ -25,6 +25,10 @@ urlpatterns = [
     path("sourcing/new/", source_views.new_source, name="source_new"),
     path("sourcing/import/", source_views.import_source, name="source_import"),
     path("screening/", screening_views.screening, name="screening"),
+    path("calling/", screening_views.calling, name="calling"),
+    path("calling/new/", screening_views.call_new, name="call_new"),
+    path("calling/people/", screening_views.calling_people, name="calling_people"),
+    path("calling/export/", screening_views.export_calling, name="calling_export"),
     path(
         "screening/<int:pk>/snooze/",
         screening_views.snooze_followup,

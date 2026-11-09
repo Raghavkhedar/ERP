@@ -159,7 +159,18 @@ def followups_workbook(followups):
                 ],
             ),
             "Call log": (
-                ("Candidate", "When", "Caller", "Outcome", "Notes"),
+                (
+                    "Candidate",
+                    "When",
+                    "Caller",
+                    "Tag",
+                    "Status",
+                    "Call type",
+                    "Rescheduled",
+                    "Reschedule reason",
+                    "Department change",
+                    "Discuss with manager",
+                ),
                 [
                     (
                         c.person.name,
@@ -167,6 +178,11 @@ def followups_workbook(followups):
                         c.caller.get_full_name() or c.caller.get_username(),
                         c.get_outcome_display(),
                         c.notes,
+                        c.get_call_type_display(),
+                        c.rescheduled,
+                        c.reschedule_reason,
+                        c.department_changed,
+                        c.discussed,
                     )
                     for c in CallLog.objects.filter(person_id__in=people)
                     .exclude(not_a_call=True)

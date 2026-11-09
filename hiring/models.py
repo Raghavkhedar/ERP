@@ -181,12 +181,14 @@ class FollowUp(models.Model):
     completes it and can open the next. Rescheduling keeps the original date."""
 
     class Purpose(models.TextChoices):
-        CALL = "call", "Call"
+        CALL = "call", "Normal follow-up"
         INTERVIEW = "interview", "Interview"
         OFFER = "offer", "Offer"
         JOINING = "joining", "Joining"
-        ASSESSMENT = "assessment", "Assessment"
         UPDATE = "update", "Update"
+        RESCHEDULE = "reschedule", "Reschedule"
+        ASSESSMENT = "assessment", "Assessment update"
+        OTHER = "other", "Other"
 
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
@@ -213,6 +215,8 @@ class FollowUp(models.Model):
         related_name="followups",
     )
     purpose = models.CharField(max_length=20, choices=Purpose, default=Purpose.CALL)
+    # What the caller typed when the intention is "Other".
+    purpose_other = models.CharField(max_length=200, blank=True)
     due = models.DateTimeField()
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="followups"
@@ -249,17 +253,35 @@ class FollowUp(models.Model):
     def __str__(self):
         return f"{self.get_purpose_display()} {self.person}"
 
+    @property
+    def intention(self):
+        return self.purpose_other or self.get_purpose_display()
+
 
 class CallLog(models.Model):
     """One per call, written by the caller's outcome action."""
 
+    # The tags the recruiters use; they only label the call.
     class Outcome(models.TextChoices):
-        INTERESTED = "interested", "Reached, interested"
-        CALL_BACK = "call_back", "Asked to call back"
-        NO_ANSWER = "no_answer", "No answer"
-        INTERVIEW = "interview", "Interview booked"
-        NOT_INTERESTED = "not_interested", "Not interested"
-        DO_NOT_CALL = "do_not_call", "Do not call"
+        REG_TOUCH = "reg_touch", "Reg Call Touch"
+        REG_NOT_TOUCH = "reg_not_touch", "Reg Call Not Touch"
+        REG_NOT_ATTENDED = "reg_not_attended", "Reg Call Not Attended"
+        REG_FF = "reg_ff", "Reg F-F Interview"
+        REG_T = "reg_t", "Reg T Interview"
+        WA_TOUCH = "wa_touch", "WA Call Touch"
+        WA_TOUCH_DR = "wa_touch_dr", "WA Call Touch - DR"
+        WA_NOT_TOUCH = "wa_not_touch", "WA Call Not Touch"
+        WA_NOT_ATTENDED = "wa_not_attended", "WA Call Not Attended"
+        WA_FF = "wa_ff", "WA F-F Interview"
+        WA_T = "wa_t", "WA T Interview"
+        UPDATE_TOUCH = "update_touch", "Update Touch"
+        UPDATE_NOT_TOUCH = "update_not_touch", "Update Not Touch"
+        BLANK = "blank", "Blank"
+        CALL = "call", "call"
+
+    class Kind(models.TextChoices):
+        OUTBOUND = "outbound", "Outbound"
+        INBOUND = "inbound", "Inbound"
 
     person = models.ForeignKey(
         "people.Person", on_delete=models.PROTECT, related_name="calls"
@@ -272,7 +294,14 @@ class CallLog(models.Model):
     )
     called_at = models.DateTimeField(auto_now_add=True)
     outcome = models.CharField(max_length=20, choices=Outcome)
+    # The caller's written status of the call.
     notes = models.TextField(blank=True)
+    call_type = models.CharField(max_length=10, choices=Kind, default=Kind.OUTBOUND)
+    # The candidate moved their interview; kept apart from normal calls to track it.
+    rescheduled = models.BooleanField(default=False)
+    reschedule_reason = models.TextField(blank=True)
+    department_changed = models.BooleanField(default=False)
+    discussed = models.BooleanField(default=False)
     # Bulk shifts and on-demand moves migrated from Zoho aren't real calls.
     not_a_call = models.BooleanField(default=False)
 
