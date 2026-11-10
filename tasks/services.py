@@ -352,6 +352,17 @@ def snooze_alarm(task, user, length):
     return task
 
 
+def dismiss_all_alarms(user):
+    """Stop every ring this user has now: each task as dismiss_alarm would, and
+    each call or interview alarm quiet for an hour."""
+    # Imported here: hiring already imports from tasks.
+    from hiring.services import quiet_call_alarms
+
+    for task in due_alarms(user):
+        dismiss_alarm(task, user)
+    quiet_call_alarms(user)
+
+
 @transaction.atomic
 def dismiss_alarm(task, user):
     """Stop this ring: a repeating alarm moves to its next time, a one-off ends."""

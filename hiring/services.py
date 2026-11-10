@@ -586,6 +586,11 @@ def due_call_alarms(user):
     )
 
 
+def quiet_call_alarms(user):
+    """Silence every ringing call and interview alarm of the user's for an hour."""
+    due_call_alarms(user).update(snoozed_until=timezone.now() + timedelta(hours=1))
+
+
 def next_call_alarm_in(user):
     """Seconds until the user's next call alarm, or None."""
     now = timezone.now()

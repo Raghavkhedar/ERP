@@ -107,6 +107,7 @@ document.addEventListener("alpine:init", () => {
 
   Alpine.store("alarms", {
     ringing: [],
+    total: 0,
     locked: false,
     permission: supported ? Notification.permission : "denied",
 
@@ -134,6 +135,7 @@ document.addEventListener("alpine:init", () => {
       }
       const wasQuiet = !this.ringing.length;
       this.ringing = data.alarms;
+      this.total = data.total ?? data.alarms.length;
       // Wake right when the next alarm is due, so it rings on the minute
       // instead of waiting for the next poll.
       clearTimeout(wake);
@@ -161,6 +163,19 @@ document.addEventListener("alpine:init", () => {
           document.title = on ? "⏰ Task alarm" : baseTitle;
         }, 1000);
       }
+    },
+
+    async dismissAll() {
+      this.ringing = [];
+      this.total = 0;
+      this.titleFlash();
+      try {
+        await fetch(el.dataset.dismissAll, {
+          method: "POST",
+          headers: { Accept: "application/json", "X-CSRFToken": csrf() },
+        });
+      } catch {}
+      this.check();
     },
 
     async act(alarm, body) {

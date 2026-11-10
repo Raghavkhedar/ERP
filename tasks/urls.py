@@ -15,6 +15,7 @@ urlpatterns = [
     path("<int:pk>/date/", views.change_date, name="date"),
     path("<int:pk>/nudge/", views.nudge_task, name="nudge"),
     path("alarms/", views.alarms, name="alarms"),
+    path("alarms/dismiss-all/", views.dismiss_all, name="alarms_dismiss_all"),
     path("<int:pk>/alarm/", views.task_alarm, name="alarm"),
     path("updates/new/", views.new_update, name="update_new"),
     path("files/<int:pk>/", views.attachment, name="attachment"),
