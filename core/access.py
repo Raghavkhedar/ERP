@@ -1,8 +1,8 @@
 """Which modules exist, and who may open which part of them.
 
 A module is split into sections. Superusers can open everything; anyone else
-needs an AccessGrant for the section, for a company they belong to. Office
-admins hand out grants, except for modules marked superadmin_only.
+needs an AccessGrant for the section, for a company they belong to. Grants are
+handed out on the access matrix (core.matrix), by the superadmin or a manager.
 """
 
 from dataclasses import dataclass
@@ -22,7 +22,6 @@ SESSION_KEY = "company"
 class Module:
     label: str
     sections: dict
-    superadmin_only: bool = False
     in_matrix: bool = True  # False for placeholders that have no pages yet
 
 
@@ -35,7 +34,6 @@ MODULES = {
     "finance": Module(
         "Finance",
         {"ledger": "Ledger", "invoices": "Invoices", "reports": "Reports"},
-        superadmin_only=True,
         in_matrix=False,
     ),
     "sales": Module(
@@ -79,12 +77,6 @@ def user_companies(user):
     if user.is_superuser:
         return Company.objects.all()
     return Company.objects.filter(memberships__user=user)
-
-
-def can_grant(actor, module):
-    if actor.is_superuser:
-        return True
-    return actor.is_office_admin and not MODULES[module].superadmin_only
 
 
 def _grants(user, module, section=None):
