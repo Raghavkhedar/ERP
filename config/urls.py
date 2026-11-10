@@ -67,6 +67,17 @@ urlpatterns = [
     path("access/matrix/", matrix_views.matrix_page, name="access_matrix"),
     path("access/matrix/cell/", matrix_views.cell, name="access_matrix_cell"),
     path("access/matrix/module/", matrix_views.module, name="access_matrix_module"),
+    path(
+        "access/matrix/managers/", matrix_views.managers, name="access_matrix_managers"
+    ),
+    path(
+        "access/matrix/export/", matrix_views.export_matrix, name="access_matrix_export"
+    ),
+    path(
+        "access/matrix/history/export/",
+        matrix_views.export_history,
+        name="access_matrix_history_export",
+    ),
     path("access/<int:pk>/", access_views.person, name="access_person"),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("chat/", include("chat.urls")),

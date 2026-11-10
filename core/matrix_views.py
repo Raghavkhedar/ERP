@@ -3,13 +3,16 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.core.paginator import Paginator
 from django.http import HttpResponseBadRequest
-from django.shortcuts import get_object_or_404, render
-from django.views.decorators.http import require_POST
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.views.decorators.http import require_GET, require_POST
 
 from core import matrix
 from core.access import MODULES
-from core.models import AccessGrant, Company
+from core.matrix_export import history_workbook, matrix_workbook
+from core.models import AccessGrant, AccessLog, AccessManager, Company
 
 
 def _modules():
@@ -58,12 +61,19 @@ def _context(company, row, is_super):
 def matrix_page(request):
     company, allowed = _company(request)
     q = request.GET.get("q", "").strip().lower()
+    everyone = matrix.rows(company)
     rows = [
-        r
-        for r in matrix.rows(company)
+        {**r, "cells": _cells(r["held"])}
+        for r in everyone
         if q in r["user"].display_name.lower() or q in r["user"].username.lower()
     ]
-    rows = [{**r, "cells": _cells(r["held"])} for r in rows]
+    history = Paginator(AccessLog.objects.filter(company=company), 25).get_page(
+        request.GET.get("page")
+    )
+    is_super = request.user.is_superuser
+    current = AccessManager.objects.filter(company=company).select_related("user")
+    taken = {m.user_id for m in current}
+    choosable = [r["user"] for r in everyone if r["user"].pk not in taken]
     return render(
         request,
         "core/access_matrix.html",
@@ -73,7 +83,10 @@ def matrix_page(request):
             "rows": rows,
             "q": request.GET.get("q", ""),
             "modules": [m for _, m in _modules()],
-            "is_super": request.user.is_superuser,
+            "is_super": is_super,
+            "history": history,
+            "managers": current if is_super else [],
+            "choosable": choosable if is_super else [],
         },
     )
 
@@ -146,3 +159,36 @@ def module(request):
     except matrix.MatrixError as error:
         return HttpResponseBadRequest(str(error))
     return _reply(request, company, subject)
+
+
+@login_required
+@require_POST
+def managers(request):
+    """Superadmin only: name or remove the people who look after a company's matrix."""
+    company = get_object_or_404(Company, slug=request.POST.get("company", ""))
+    if not request.user.is_superuser:
+        raise PermissionDenied
+    subject = get_object_or_404(get_user_model(), pk=_pk(request.POST.get("user")))
+    action = request.POST.get("action")
+    change = {"add": matrix.add_manager, "remove": matrix.remove_manager}.get(action)
+    if change is None:
+        return HttpResponseBadRequest("Bad action")
+    try:
+        change(request.user, subject, company)
+    except matrix.MatrixError as error:
+        return HttpResponseBadRequest(str(error))
+    return redirect(f"{reverse('access_matrix')}?company={company.slug}")
+
+
+@login_required
+@require_GET
+def export_matrix(request):
+    company, _ = _company(request)
+    return matrix_workbook(company, matrix.rows(company))
+
+
+@login_required
+@require_GET
+def export_history(request):
+    company, _ = _company(request)
+    return history_workbook(company, AccessLog.objects.filter(company=company))

@@ -6,7 +6,10 @@
 {% block content %}
   <div class="flex flex-wrap items-center justify-between gap-4">
     <h1 class="title text-3xl">Access matrix</h1>
-    <a href="{% url 'access_people' %}" class="text-sm text-gray-500 hover:text-gray-900">{% if user.is_office_admin %}Companies and people{% endif %}</a>
+    <div class="flex items-center gap-4 text-sm text-gray-500">
+      {% if user.is_office_admin %}<a href="{% url 'access_people' %}" class="hover:text-gray-900">Companies and people</a>{% endif %}
+      <a href="{% url 'access_matrix_export' %}?company={{ company.slug }}" class="hover:text-gray-900">Export</a>
+    </div>
   </div>
   <p class="mt-2 text-sm text-gray-500">Tap a box to give or take a tab. Home, Chat, Tasks, Schedule and Daily plan are always open to everyone.</p>
 
@@ -50,4 +53,62 @@
       </tbody>
     </table>
   </div>
+
+  {% if is_super %}
+    <section class="mt-8 rounded-2xl border border-ink bg-surface p-5 shadow-xl" aria-labelledby="managers-h">
+      <h2 id="managers-h" class="title text-xl">Matrix managers at {{ company.name }}</h2>
+      <p class="mt-1 text-sm text-gray-500">They can give and take single tabs for others here. They cannot use the whole-module buttons, edit their own row or name other managers.</p>
+      <ul class="mt-4 flex flex-wrap gap-2">
+        {% for m in managers %}
+          <li>
+            <form method="post" action="{% url 'access_matrix_managers' %}" class="inline-flex items-center gap-2 rounded-full border border-ink bg-pop py-1 pl-3 pr-1 text-sm">
+              {% csrf_token %}
+              <input type="hidden" name="user" value="{{ m.user.pk }}">
+              <input type="hidden" name="company" value="{{ company.slug }}">
+              <input type="hidden" name="action" value="remove">
+              {{ m.user.display_name }}
+              <button class="rounded-full border border-ink bg-surface px-2 text-xs font-bold hover:bg-red-100" aria-label="Remove {{ m.user.display_name }} as manager">✕</button>
+            </form>
+          </li>
+        {% empty %}
+          <li class="text-sm text-gray-500">Nobody yet. Only you can edit this matrix.</li>
+        {% endfor %}
+      </ul>
+      {% if choosable %}
+        <form method="post" action="{% url 'access_matrix_managers' %}" class="mt-4 flex gap-2">
+          {% csrf_token %}
+          <input type="hidden" name="company" value="{{ company.slug }}">
+          <input type="hidden" name="action" value="add">
+          <select name="user" aria-label="Person to make a manager" class="h-10 rounded-lg border border-ink bg-surface px-3 text-sm">
+            {% for p in choosable %}<option value="{{ p.pk }}">{{ p.display_name }} ({{ p.username }})</option>{% endfor %}
+          </select>
+          <button class="h-10 rounded-lg bg-blue-600 px-4 text-sm font-medium">Make manager</button>
+        </form>
+      {% endif %}
+    </section>
+  {% endif %}
+
+  <section class="mt-8 rounded-2xl border border-ink bg-surface p-5 shadow-xl" aria-labelledby="history-h">
+    <div class="flex items-center justify-between gap-4">
+      <h2 id="history-h" class="title text-xl">History</h2>
+      <a href="{% url 'access_matrix_history_export' %}?company={{ company.slug }}" class="text-sm text-gray-500 hover:text-gray-900">Export</a>
+    </div>
+    <ul class="mt-3 divide-y divide-gray-100 text-sm">
+      {% for e in history %}
+        <li class="flex flex-wrap justify-between gap-x-4 gap-y-1 py-2">
+          <span><b>{{ e.actor_name|default:"System" }}</b> · {{ e.get_action_display }}{% if e.section %} <b>{{ e.section }}</b>{% endif %} · {{ e.subject_name }}{% if e.note %} <span class="text-gray-500">({{ e.note }})</span>{% endif %}</span>
+          <time datetime="{{ e.created_at|date:'c' }}" class="text-gray-500">{{ e.created_at|date:"j M, H:i" }}</time>
+        </li>
+      {% empty %}
+        <li class="py-3 text-gray-500">Nothing has changed yet.</li>
+      {% endfor %}
+    </ul>
+    {% if history.has_previous or history.has_next %}
+      <nav class="mt-4 flex items-center justify-between text-sm" aria-label="History pages">
+        {% if history.has_previous %}<a href="?company={{ company.slug }}&q={{ q|urlencode }}&page={{ history.previous_page_number }}" class="rounded-lg border border-ink px-3 py-1 hover:bg-pop">Newer</a>{% else %}<span></span>{% endif %}
+        <span class="text-gray-500">Page {{ history.number }} of {{ history.paginator.num_pages }}</span>
+        {% if history.has_next %}<a href="?company={{ company.slug }}&q={{ q|urlencode }}&page={{ history.next_page_number }}" class="rounded-lg border border-ink px-3 py-1 hover:bg-pop">Older</a>{% else %}<span></span>{% endif %}
+      </nav>
+    {% endif %}
+  </section>
 {% endblock %}
