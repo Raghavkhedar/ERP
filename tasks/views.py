@@ -107,6 +107,17 @@ def _due_filter(tasks, request):
     return tasks, ""
 
 
+STATUS_CHOICES = [("", "All statuses"), *Status.choices]
+
+
+def _status_filter(tasks, request):
+    """?status=open|ongoing|done|closed; anything else means all."""
+    status = request.GET.get("status", "")
+    if status in Status.values:
+        return tasks.filter(status=status), status
+    return tasks, ""
+
+
 @login_required
 def task_list(request):
     filtering = _person_filter(request)
@@ -114,7 +125,10 @@ def task_list(request):
     if filtering.get("person"):
         tasks = tasks.filter(assigned_to=filtering["person"])
     tasks, due = _due_filter(tasks, request)
+    tasks, status = _status_filter(tasks, request)
     context = {
+        "status": status,
+        "status_choices": STATUS_CHOICES,
         "due": due,
         "due_choices": DUE_CHOICES,
         "tasks": list(tasks.exclude(status=Status.CLOSED)),
@@ -133,7 +147,8 @@ def export_tasks(request):
     person = _person_filter(request).get("person")
     if person:
         tasks = tasks.filter(assigned_to=person)
-    return tasks_workbook(_due_filter(tasks, request)[0])
+    tasks = _due_filter(tasks, request)[0]
+    return tasks_workbook(_status_filter(tasks, request)[0])
 
 
 @login_required
