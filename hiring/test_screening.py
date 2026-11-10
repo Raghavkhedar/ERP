@@ -6,6 +6,7 @@ from django.urls import reverse
 from django.utils import timezone
 from openpyxl import load_workbook
 
+from core.access import MODULES
 from core.models import AccessGrant, Company
 from notifications.models import Notification
 from people.models import Person
@@ -24,9 +25,10 @@ def senken():
 def member(django_user_model, senken, name):
     user = django_user_model.objects.create_user(username=name, password="pw")
     senken.memberships.create(user=user)
-    AccessGrant.objects.create(
-        user=user, company=senken, module="recruitment", section="candidates"
-    )
+    for tab in MODULES["recruitment"].sections:
+        AccessGrant.objects.create(
+            user=user, company=senken, module="recruitment", section=tab
+        )
     return user
 
 

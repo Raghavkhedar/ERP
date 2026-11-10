@@ -23,7 +23,7 @@ def senken():
 def caller(client, django_user_model, senken):
     user = django_user_model.objects.create_user(username="S9", password="pw")
     senken.memberships.create(user=user)
-    for name in ("candidates", "openings"):
+    for name in ("sourcing", "people", "openings"):
         AccessGrant.objects.create(
             user=user, company=senken, module="recruitment", section=name
         )

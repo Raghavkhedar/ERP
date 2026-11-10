@@ -16,7 +16,7 @@ from .services import (
     visible_interviews,
 )
 
-section = require_section("recruitment", "candidates")
+section = require_section("recruitment", "selecting")
 hr_section = require_section("recruitment", "assessments")
 
 

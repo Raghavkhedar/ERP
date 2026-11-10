@@ -19,7 +19,7 @@ from .services import (
     visible_sourced,
 )
 
-section = require_section("recruitment", "candidates")
+section = require_section("recruitment", "sourcing")
 
 
 def _open(request):

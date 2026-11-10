@@ -7,6 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 from openpyxl import load_workbook
 
+from core.access import MODULES
 from core.models import AccessGrant, Company
 
 from .models import FollowUp, Requisition
@@ -97,9 +98,10 @@ def test_timeline_and_card(client, senken, boss):
     req = Requisition.objects.create(
         company=senken, department="sales", profile="Rep", headcount=1, opened_by=boss
     )
-    AccessGrant.objects.create(
-        user=boss, company=senken, module="recruitment", section="candidates"
-    )
+    for tab in MODULES["recruitment"].sections:
+        AccessGrant.objects.get_or_create(
+            user=boss, company=senken, module="recruitment", section=tab
+        )
     person = source_number(req, "Ravi", "99999 11111", boss, "Naukri").person
     log_call(
         person.followups.get(),

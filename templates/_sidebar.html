@@ -15,10 +15,11 @@
         {% url 'chat:conversation_list' as u %}{% include "_sidebar_link.html" with url=u label="Chat" name="chat" icon="chat" %}
         {% url 'plans:today' as u %}{% include "_sidebar_link.html" with url=u label="Daily plan" name="plans" icon="plan" %}
       </div>
-      {% if user|can_open:"recruitment" %}
+      {% empanelment_url as emp %}
+      {% if emp %}
         <div class="space-y-1 border-t border-gray-100 pt-3">
           <p class="nav-label whitespace-nowrap px-3 pb-1 text-xs text-gray-500">Modules</p>
-          {% url 'people:list' as u %}{% include "_sidebar_link.html" with url=u label="Empanelment" name="people" also="hiring" icon="people" %}
+          {% include "_sidebar_link.html" with url=emp label="Empanelment" name="people" also="hiring" icon="people" %}
         </div>
       {% endif %}
     {% endwith %}

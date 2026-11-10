@@ -11,7 +11,7 @@ from .forms import PersonForm
 from .models import Person
 from .services import StaleCard, archive, card_rows, save_person, visible_people
 
-section = require_section("recruitment", "candidates")
+section = require_section("recruitment", "people")
 
 
 def _shown(request):

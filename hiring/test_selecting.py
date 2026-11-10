@@ -31,7 +31,7 @@ def member(django_user_model, senken, name, *sections):
 
 @pytest.fixture
 def caller(client, django_user_model, senken):
-    user = member(django_user_model, senken, "S9", "candidates")
+    user = member(django_user_model, senken, "S9", "selecting")
     client.force_login(user)
     return user
 
@@ -92,7 +92,7 @@ def test_hr_notes_only_for_those_granted_the_section(
     record_interview(booked, "selected", caller)
     pk = Interview.objects.get().pk
     assert client.get(reverse("hiring:assess", args=[pk])).status_code == 403
-    hr = member(django_user_model, senken, "S5", "candidates", "assessments")
+    hr = member(django_user_model, senken, "S5", "selecting", "assessments")
     client.force_login(hr)
     assert b"Add HR notes" in client.get(reverse("hiring:selecting")).content
     r = client.post(

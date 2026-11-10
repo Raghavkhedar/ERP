@@ -1,6 +1,6 @@
 from django import template
 
-from core.access import has_module
+from core.access import first_tab_url, has_module, held_tabs
 
 register = template.Library()
 
@@ -9,3 +9,14 @@ register = template.Library()
 def can_open(user, module):
     """{% if user|can_open:"hr" %} shows a navbar link only to people in the module."""
     return has_module(user, module)
+
+
+@register.simple_tag(takes_context=True, name="held_tabs")
+def held_tabs_tag(context):
+    return held_tabs(context["user"])
+
+
+@register.simple_tag(takes_context=True)
+def empanelment_url(context):
+    """Where the sidebar's Empanelment link goes: the first tab they hold."""
+    return first_tab_url(context["user"])

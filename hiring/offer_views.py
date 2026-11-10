@@ -18,7 +18,8 @@ from .services import (
     visible_offers,
 )
 
-section = require_section("recruitment", "candidates")
+section = require_section("recruitment", "hiring")
+onboarding_section = require_section("recruitment", "onboarding")
 
 
 @section
@@ -127,7 +128,7 @@ def decline_offer(request, pk):
     return _act(request, pk, DeclineForm, "decline_form", run, "Offer declined.")
 
 
-@section
+@onboarding_section
 def onboarding_page(request):
     expecting, joined = onboarding(request.companies)
     return render(
@@ -137,7 +138,7 @@ def onboarding_page(request):
     )
 
 
-@section
+@onboarding_section
 @require_POST
 def joined(request, pk):
     form = JoinedForm(request.POST)
@@ -151,7 +152,7 @@ def joined(request, pk):
     return redirect("hiring:onboarding")
 
 
-@section
+@onboarding_section
 @require_GET
 def export_onboarding(request):
     return onboarding_workbook(*onboarding(request.companies))

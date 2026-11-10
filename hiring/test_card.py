@@ -5,6 +5,7 @@ import pytest
 from django.urls import reverse
 from django.utils import timezone
 
+from core.access import MODULES
 from core.models import AccessGrant, Company
 
 from .models import FollowUp, Requisition
@@ -32,9 +33,10 @@ def senken():
 def user(client, django_user_model, senken):
     u = django_user_model.objects.create_user("card", password="x")
     senken.memberships.create(user=u)
-    AccessGrant.objects.create(
-        user=u, company=senken, module="recruitment", section="candidates"
-    )
+    for tab in MODULES["recruitment"].sections:
+        AccessGrant.objects.create(
+            user=u, company=senken, module="recruitment", section=tab
+        )
     client.force_login(u)
     return u
 

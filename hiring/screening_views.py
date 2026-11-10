@@ -35,7 +35,10 @@ from .services import (
     visible_followups,
 )
 
-section = require_section("recruitment", "candidates")
+section = require_section("recruitment", "screening")
+calling_section = require_section("recruitment", "calling")
+# Working one follow-up (the Call button on Calling, the actions on Screening).
+followup_section = require_section("recruitment", "screening", "calling")
 
 
 def _followup(request, pk):
@@ -186,7 +189,7 @@ def _mine(request):
     return visible_followups(request.user, request.companies).filter(owner=request.user)
 
 
-@section
+@calling_section
 def calling(request):
     stages, tags = dict(STAGES), dict(TAGS)
     rows = list(_sheet(_mine(request), QueryDict()))
@@ -197,7 +200,7 @@ def calling(request):
     return render(request, "hiring/calling.html", {"rows": rows})
 
 
-@section
+@calling_section
 @require_GET
 def export_calling(request):
     return followups_workbook(_mine(request))
@@ -244,7 +247,7 @@ def _detail(request, followup, **forms):
     )
 
 
-@section
+@followup_section
 def followup_detail(request, pk):
     return _detail(request, _followup(request, pk))
 
@@ -280,7 +283,7 @@ def _call_args(d):
     )
 
 
-@section
+@followup_section
 @require_POST
 def log_followup(request, pk):
     def run(f, d):
@@ -289,7 +292,7 @@ def log_followup(request, pk):
     return _act(request, pk, CallForm, "call_form", run, "Call logged.")
 
 
-@section
+@calling_section
 def call_new(request):
     """Log a call that came in, for a candidate picked by name or number."""
     form = IncomingCallForm(request.POST or None, companies=request.companies)
@@ -319,7 +322,7 @@ def call_new(request):
     )
 
 
-@section
+@calling_section
 @require_GET
 def calling_people(request):
     q = request.GET.get("q", "").strip()
@@ -336,7 +339,7 @@ def calling_people(request):
     )
 
 
-@section
+@followup_section
 @require_POST
 def reschedule_followup(request, pk):
     def run(f, d):
@@ -345,7 +348,7 @@ def reschedule_followup(request, pk):
     return _act(request, pk, RescheduleForm, "reschedule_form", run, "Follow-up moved.")
 
 
-@section
+@followup_section
 @require_POST
 def reassign_followup(request, pk):
     if not _can_reassign(request.user):
@@ -366,7 +369,7 @@ def reassign_followup(request, pk):
     )
 
 
-@section
+@followup_section
 @require_POST
 def cancel_followup(request, pk):
     try:
@@ -378,7 +381,7 @@ def cancel_followup(request, pk):
     return redirect("hiring:screening")
 
 
-@section
+@followup_section
 @require_POST
 def schedule_for_person(request, pk):
     person = get_object_or_404(visible_people(request.companies), pk=pk)
@@ -395,7 +398,7 @@ def schedule_for_person(request, pk):
     return redirect("people:detail", pk=person.pk)
 
 
-@section
+@followup_section
 @require_POST
 def snooze_followup(request, pk):
     """The alarm popup's snooze and dismiss. Dismiss is an hour's quiet."""
