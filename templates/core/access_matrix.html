@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Access matrix · Senken ERP{% endblock %}
+{% block main_class %}mx-auto w-full max-w-7xl px-4 pb-16 pt-8 sm:px-6{% endblock %}
+
+{% block content %}
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <h1 class="title text-3xl">Access matrix</h1>
+    <a href="{% url 'access_people' %}" class="text-sm text-gray-500 hover:text-gray-900">{% if user.is_office_admin %}Companies and people{% endif %}</a>
+  </div>
+  <p class="mt-2 text-sm text-gray-500">Tap a box to give or take a tab. Home, Chat, Tasks, Schedule and Daily plan are always open to everyone.</p>
+
+  <div class="mt-6 flex flex-wrap items-center gap-3">
+    <nav class="flex gap-2 text-sm" aria-label="Company">
+      {% for c in companies %}
+        <a href="?company={{ c.slug }}" {% if c == company %}aria-current="page"{% endif %} class="rounded-full border border-ink px-4 py-1.5 font-medium {% if c == company %}bg-pop{% else %}bg-surface hover:bg-pop{% endif %}">{{ c.name }}</a>
+      {% endfor %}
+    </nav>
+    <form method="get" class="ml-auto flex gap-2">
+      <input type="hidden" name="company" value="{{ company.slug }}">
+      <input type="search" name="q" value="{{ q }}" placeholder="Find a person" aria-label="Find a person" class="h-10 rounded-lg border border-ink bg-surface px-3 text-sm">
+      <button class="h-10 rounded-lg bg-blue-600 px-4 text-sm font-medium">Find</button>
+    </form>
+  </div>
+
+  <div class="mt-6 overflow-x-auto rounded-2xl border border-ink bg-surface shadow-xl">
+    <table class="w-full border-collapse text-sm">
+      <thead>
+        <tr>
+          <th rowspan="2" class="sticky left-0 z-10 bg-surface px-3 py-2 text-left font-bold">Person</th>
+          {% for m in modules %}
+            <th colspan="{% if is_super %}{{ m.sections|length|add:1 }}{% else %}{{ m.sections|length }}{% endif %}" class="border-l border-ink bg-ink px-3 py-2 text-left font-bold text-pop">{{ m.label }}</th>
+          {% endfor %}
+        </tr>
+        <tr class="border-b border-ink">
+          {% for m in modules %}
+            {% for key, label in m.sections.items %}
+              <th class="px-1 py-2 text-center text-xs font-medium {% if forloop.first %}border-l border-ink{% endif %}">{{ label }}</th>
+            {% endfor %}
+            {% if is_super %}<th class="px-2 py-2 text-center text-xs font-medium">Whole module</th>{% endif %}
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          {% include "core/_matrix_row.html" %}
+        {% empty %}
+          <tr><td colspan="40" class="p-6 text-gray-500">{% if q %}Nobody here matches that.{% else %}No one works in {{ company.name }} yet. Add people on the Access page first.{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

@@ -211,3 +211,10 @@ def test_rows_lists_eligible_members_with_what_they_hold(
     assert gone not in members and sam not in members
     ravi_row = next(r for r in rows if r["user"] == ravi)
     assert ravi_row["held"] == {("recruitment", TAB)}
+
+
+def test_placeholder_modules_are_not_in_the_matrix(boss, ravi, senken):
+    with pytest.raises(matrix.MatrixError):
+        matrix.set_tab(boss, ravi, senken, "hr", "payroll", True)
+    with pytest.raises(matrix.MatrixError):
+        matrix.set_module(boss, ravi, senken, "finance", True)

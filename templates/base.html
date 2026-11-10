@@ -1,4 +1,4 @@
-{% load static %}
+{% load static access_tags %}
 <!doctype html>
 <html lang="en">
 <head>
@@ -41,6 +41,7 @@
         </button>
         {% include "core/_company_switcher.html" %}
         {% if user.is_office_admin %}<a href="{% url 'access_people' %}" class="transition-colors hover:text-gray-900">Access</a>{% endif %}
+        {% can_matrix as matrix_manager %}{% if matrix_manager %}<a href="{% url 'access_matrix' %}" class="transition-colors hover:text-gray-900">Access matrix</a>{% endif %}
         {% include "feedback/_button.html" %}
         {% include "notifications/_bell.html" %}
       <form method="post" action="{% url 'logout' %}" class="flex items-center gap-4">

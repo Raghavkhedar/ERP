@@ -9,7 +9,7 @@ from django.core.exceptions import PermissionDenied
 from django.db import transaction
 
 from core.access import MODULES
-from core.models import AccessGrant, AccessLog, AccessManager
+from core.models import AccessGrant, AccessLog, AccessManager, Company
 
 Action = AccessLog.Action
 
@@ -52,8 +52,11 @@ def _log(actor, subject, company, action, module="", section="", note=""):
 
 
 def _check_target(subject, company, module, tab=None):
-    if module not in MODULES or (
-        tab is not None and tab not in MODULES[module].sections
+    known = MODULES.get(module)
+    if (
+        not known
+        or not known.in_matrix
+        or (tab is not None and tab not in known.sections)
     ):
         raise MatrixError("Unknown module or tab")
     if not eligible(subject, company):
@@ -183,3 +186,14 @@ def rows(company):
     ).values_list("user_id", "module", "section"):
         held.setdefault(user_id, set()).add((module, section))
     return [{"user": u, "held": held.get(u.pk, set())} for u in users]
+
+
+def managed_companies(user):
+    """The companies whose matrix this person may open."""
+    if not (user.is_authenticated and user.is_active):
+        return Company.objects.none()
+    if user.is_superuser:
+        return Company.objects.all()
+    return Company.objects.filter(
+        access_managers__user=user, memberships__user=user
+    ).distinct()

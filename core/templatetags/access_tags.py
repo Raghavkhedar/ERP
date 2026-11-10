@@ -1,6 +1,7 @@
 from django import template
 
 from core.access import first_tab_url, has_module, held_tabs
+from core.matrix import managed_companies
 
 register = template.Library()
 
@@ -20,3 +21,9 @@ def held_tabs_tag(context):
 def empanelment_url(context):
     """Where the sidebar's Empanelment link goes: the first tab they hold."""
     return first_tab_url(context["user"])
+
+
+@register.simple_tag(takes_context=True)
+def can_matrix(context):
+    """Whether to show the Access matrix link: superadmins and named managers."""
+    return managed_companies(context["user"]).exists()

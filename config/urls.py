@@ -19,7 +19,7 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
-from core import access_views, command, views
+from core import access_views, command, matrix_views, views
 from core.forms import ChangePasswordForm, LoginForm, ResetPasswordForm
 
 urlpatterns = [
@@ -64,6 +64,9 @@ urlpatterns = [
     path("company/", access_views.switch_company, name="switch_company"),
     path("access/", access_views.people, name="access_people"),
     path("access/export/", access_views.export_access, name="access_export"),
+    path("access/matrix/", matrix_views.matrix_page, name="access_matrix"),
+    path("access/matrix/cell/", matrix_views.cell, name="access_matrix_cell"),
+    path("access/matrix/module/", matrix_views.module, name="access_matrix_module"),
     path("access/<int:pk>/", access_views.person, name="access_person"),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("chat/", include("chat.urls")),
