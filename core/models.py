@@ -198,3 +198,85 @@ class AccessGrant(models.Model):
 
     def __str__(self):
         return f"{self.user.username}: {self.module}/{self.section} at {self.company}"
+
+
+class AccessManager(models.Model):
+    """Someone the superadmin lets edit the access matrix for one company."""
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="access_managerships"
+    )
+    company = models.ForeignKey(
+        Company, on_delete=models.CASCADE, related_name="access_managers"
+    )
+    granted_by = models.ForeignKey(
+        User, null=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "company"], name="core_accessmanager_unique"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} manages {self.company}"
+
+
+class _AppendOnly(models.QuerySet):
+    def update(self, **kwargs):
+        raise PermissionError("The access history cannot be changed.")
+
+    def delete(self):
+        raise PermissionError("The access history cannot be deleted.")
+
+
+class AccessLog(models.Model):
+    """One change to who can open what. Written with the change, never edited.
+
+    Names are copied in so a row still reads right after a rename or delete.
+    """
+
+    class Action(models.TextChoices):
+        GRANT = "grant", "Gave a tab"
+        REVOKE = "revoke", "Took a tab"
+        GRANT_MODULE = "grant_module", "Gave a whole module"
+        REVOKE_MODULE = "revoke_module", "Took a whole module"
+        MANAGER_ADD = "manager_add", "Made a matrix manager"
+        MANAGER_REMOVE = "manager_remove", "Removed a matrix manager"
+        MEMBERSHIP_REMOVED = "membership_removed", "Removed from the company"
+
+    actor = models.ForeignKey(
+        User, null=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    actor_name = models.CharField(max_length=150, blank=True)
+    subject = models.ForeignKey(
+        User, null=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    subject_name = models.CharField(max_length=150, blank=True)
+    company = models.ForeignKey(
+        Company, null=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    module = models.CharField(max_length=30, blank=True)
+    section = models.CharField(max_length=30, blank=True)
+    action = models.CharField(max_length=30, choices=Action.choices)
+    note = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    objects = _AppendOnly.as_manager()
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return f"{self.actor_name} {self.action} {self.subject_name}"
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            raise PermissionError("The access history cannot be changed.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise PermissionError("The access history cannot be deleted.")

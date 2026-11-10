@@ -18,14 +18,15 @@ PAGES = [
     ("Chat", "chat:conversation_list", None),
     ("Daily plan", "plans:today", None),
     ("Preparing", "hiring:list", "openings"),
-    ("Sourcing", "hiring:sourcing", "candidates"),
-    ("Screening", "hiring:screening", "candidates"),
-    ("Selecting", "hiring:selecting", "candidates"),
-    ("Hiring", "hiring:offers", "candidates"),
-    ("On-Boarding", "hiring:onboarding", "candidates"),
+    ("Sourcing", "hiring:sourcing", "sourcing"),
+    ("Screening", "hiring:screening", "screening"),
+    ("Calling", "hiring:calling", "calling"),
+    ("Selecting", "hiring:selecting", "selecting"),
+    ("Hiring", "hiring:offers", "hiring"),
+    ("On-Boarding", "hiring:onboarding", "onboarding"),
     ("Report", "hiring:report", "openings"),
-    ("Candidates", "people:list", "candidates"),
-    ("New candidate", "people:new", "candidates"),
+    ("Candidates", "people:list", "people"),
+    ("New candidate", "people:new", "people"),
 ]
 LIMIT = 5
 
@@ -46,7 +47,7 @@ def command(request):
         if q.lower() in label.lower() and _can(request.user, section)
     ]
     if len(q) >= 2:
-        people = scope(request, "recruitment", "candidates")
+        people = scope(request, "recruitment", "people")
         if people:
             results += [
                 {

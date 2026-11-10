@@ -3,6 +3,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET
 
 from core.access import companies_with_access, require_section
+from core.pagination import paginate
 
 from .export import interviews_workbook
 from .forms import AssessmentForm, InterviewForm
@@ -16,7 +17,7 @@ from .services import (
     visible_interviews,
 )
 
-section = require_section("recruitment", "candidates")
+section = require_section("recruitment", "selecting")
 hr_section = require_section("recruitment", "assessments")
 
 
@@ -34,7 +35,11 @@ def selecting(request):
         request,
         "hiring/selecting.html",
         {
-            "waiting": interviews_waiting(request.user, request.companies),
+            "waiting": paginate(
+                request,
+                interviews_waiting(request.user, request.companies),
+                param="wpage",
+            ),
             "done": visible_interviews(request.companies)[:100],
             "has_hr": _has_hr(request),
         },

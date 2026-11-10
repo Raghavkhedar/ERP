@@ -9,6 +9,23 @@ class StaleCard(Exception):
     """Someone saved the card after this form was opened."""
 
 
+def card_rows(person):
+    """The labelled facts the candidate card shows."""
+    return [
+        ("Phone", person.phone),
+        ("Email", person.email),
+        ("Gender", person.get_gender_display()),
+        ("Address", person.address),
+        ("Current employer", person.current_employer),
+        ("Current salary", person.current_salary),
+        ("Expected salary", person.expected_salary),
+        ("Experience (years)", person.experience_years),
+        ("Joining period", person.joining_period),
+        ("Contact status", person.get_contact_status_display()),
+        ("Priority", person.get_priority_display()),
+    ]
+
+
 def visible_people(companies, search="", status=""):
     people = Person.objects.filter(company__in=companies, archived_at__isnull=True)
     if status:

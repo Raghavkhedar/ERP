@@ -5,7 +5,7 @@
 {% block actions %}<a href="{% url 'hiring:offers_export' %}" class="text-gray-500 hover:text-gray-900">Export</a>{% endblock %}
 
 {% block page %}
-  <h2 class="font-semibold">To offer <span class="font-normal text-gray-500">({{ waiting|length }})</span></h2>
+  <h2 class="font-semibold">To offer <span class="font-normal text-gray-500">({{ waiting.paginator.count }})</span></h2>
   {% if waiting %}
     <ul class="mt-1 divide-y divide-gray-100 border-y border-gray-100">
       {% for f in waiting %}
@@ -18,11 +18,12 @@
         </li>
       {% endfor %}
     </ul>
+    {% include "_pager.html" with page=waiting %}
   {% else %}
     <p class="mt-1 border-y border-gray-100 py-4 text-sm text-gray-500">No one waiting. Selected candidates from Selecting land here.</p>
   {% endif %}
 
-  <h2 class="mt-8 font-semibold">Negotiating <span class="font-normal text-gray-500">({{ open|length }})</span></h2>
+  <h2 class="mt-8 font-semibold">Negotiating <span class="font-normal text-gray-500">({{ open.paginator.count }})</span></h2>
   <ul class="mt-1 divide-y divide-gray-100 border-y border-gray-100">
     {% for o in open %}
       <li>
@@ -35,6 +36,7 @@
       </li>
     {% empty %}<li class="py-4 text-sm text-gray-500">None.</li>{% endfor %}
   </ul>
+  {% include "_pager.html" with page=open %}
 
   {% if closed %}
     <h2 class="mt-8 font-semibold">Decided</h2>

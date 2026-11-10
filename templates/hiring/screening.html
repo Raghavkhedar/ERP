@@ -1,38 +1,173 @@
 {% extends "people/base_people.html" %}
+{% load static %}
 
 {% block title %}Screening · Senken ERP{% endblock %}
 {% block heading %}Follow-ups{% endblock %}
 {% block actions %}<a href="{% url 'hiring:screening_export' %}" class="text-gray-500 hover:text-gray-900">Export</a>{% endblock %}
 
 {% block page %}
-  {% for label, key, rows in groups %}
-    {% if rows %}
-      <h2 class="mb-1 mt-6 font-semibold first:mt-0 {% if label == 'Overdue' %}text-red-600{% endif %}">{{ label }} <span class="font-normal text-gray-500">({{ rows|length }})</span></h2>
-      <details class="mb-2 text-sm">
-        <summary class="cursor-pointer text-gray-500 hover:text-gray-900">Move all calls</summary>
-        <form method="post" action="{% url 'hiring:shift' %}" class="fields mt-2 flex flex-wrap items-end gap-3">
-          {% csrf_token %}
-          <input type="hidden" name="group" value="{{ key }}">
-          <div><label for="day-{{ key }}" class="mb-1.5 block font-medium">Move to</label><input type="date" name="day" id="day-{{ key }}" required></div>
-          <div><label for="why-{{ key }}" class="mb-1.5 block font-medium">Why</label><select name="reason" id="why-{{ key }}">{% for value, name in shift_form.fields.reason.choices %}<option value="{{ value }}">{{ name }}</option>{% endfor %}</select></div>
-          <button type="submit" class="h-10 rounded-lg border border-ink px-4">Move</button>
-        </form>
-      </details>
-      <ul class="divide-y divide-gray-100 border-y border-gray-100">
-        {% for f in rows %}
-          <li class="flex items-center gap-4 py-3">
-            <div class="min-w-0 flex-1">
-              <p class="truncate font-medium">{{ f.person.name }} <span class="text-sm font-normal text-gray-500">· {{ f.get_purpose_display }}</span></p>
-              <p class="truncate text-sm text-gray-500">{{ f.person.phone }} · {{ f.due|date:"j M, g:i a" }}{% if f.requisition %} · {{ f.requisition }}{% endif %}{% if f.owner != user %} · {{ f.owner }}{% endif %}{% if f.reschedule_count %} · moved {{ f.reschedule_count }}×{% endif %}</p>
-            </div>
-            <a href="tel:{{ f.person.phone }}" class="shrink-0 text-sm text-gray-500 hover:text-gray-900">Call</a>
-            <a href="{% url 'hiring:followup' f.pk %}" class="inline-flex h-9 shrink-0 items-center rounded-lg bg-blue-600 px-3 text-sm font-medium">Log</a>
-          </li>
-        {% endfor %}
-      </ul>
-    {% endif %}
-  {% empty %}{% endfor %}
-  {% if not groups.0.2 and not groups.1.2 and not groups.2.2 %}
-    <p class="border-y border-gray-100 py-6 text-sm text-gray-500">Nothing to call. New numbers from Sourcing land here.</p>
+  <script src="{% static 'js/filter_panel.js' %}"></script>
+  <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div class="rounded-lg border border-ink bg-surface p-3 shadow-lg">
+      <p class="text-sm">Calls due today</p>
+      <p class="title text-3xl">{{ summary.today }}</p>
+      <p class="text-sm {% if summary.overdue %}text-red-600{% else %}text-gray-500{% endif %}">{{ summary.overdue }} overdue</p>
+    </div>
+    <div class="rounded-lg border border-ink bg-surface p-3 shadow-lg">
+      <p class="text-sm">Interview calls</p>
+      <p class="title text-3xl">{{ summary.interview }}</p>
+    </div>
+    <div class="rounded-lg border border-ink bg-surface p-3 shadow-lg">
+      <p class="text-sm">Offer calls</p>
+      <p class="title text-3xl">{{ summary.offer }}</p>
+    </div>
+    <div class="rounded-lg border border-ink bg-pop p-3 shadow-lg">
+      <p class="text-sm">Held by</p>
+      <p class="title text-3xl">{{ summary.people }}</p>
+      <p class="text-sm">{{ summary.people|pluralize:"person,people" }}</p>
+    </div>
+  </div>
+
+  {% if summary.by_owner %}
+    <div class="mt-6 overflow-x-auto rounded-xl border border-ink bg-surface p-4 shadow-xl">
+      <h2 class="title mb-2">Who has what</h2>
+      <table class="w-full text-left text-sm">
+        <thead><tr class="border-b border-ink"><th class="py-1 pr-3">Person</th><th class="pr-3">Today</th><th class="pr-3">Interview</th><th class="pr-3">Offer</th><th>Overdue</th></tr></thead>
+        <tbody>
+          {% for r in summary.by_owner %}
+            <tr class="border-b border-gray-100 last:border-0">
+              <td class="py-1 pr-3">{{ r.owner.display_name }}</td><td class="pr-3">{{ r.today }}</td><td class="pr-3">{{ r.interview }}</td><td class="pr-3">{{ r.offer }}</td>
+              <td class="{% if r.overdue %}text-red-600{% endif %}">{{ r.overdue }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   {% endif %}
+
+  <details class="mt-6 text-sm">
+    <summary class="cursor-pointer text-gray-500 hover:text-gray-900">Move all calls</summary>
+    <form method="post" action="{% url 'hiring:shift' %}" class="fields mt-2 flex flex-wrap items-end gap-3">
+      {% csrf_token %}
+      <div><label for="group" class="mb-1.5 block font-medium">Calls that are</label><select name="group" id="group"><option value="overdue">Overdue</option><option value="today">Due today</option><option value="later">Later</option></select></div>
+      <div><label for="day" class="mb-1.5 block font-medium">Move to</label><input type="date" name="day" id="day" required></div>
+      <div><label for="why" class="mb-1.5 block font-medium">Why</label><select name="reason" id="why">{% for value, name in shift_form.fields.reason.choices %}<option value="{{ value }}">{{ name }}</option>{% endfor %}</select></div>
+      <button type="submit" class="h-10 rounded-lg border border-ink px-4">Move</button>
+    </form>
+  </details>
+
+  <div class="mt-4" @htmx:after:swap.window="sync()"
+       x-data="{ picked: [], all: false, total: 0, ids: [], qs: location.search.slice(1),
+                 sync() { this.ids = [...document.querySelectorAll('#rows input[name=ids]')].map(i => i.value); this.total = +document.getElementById('count').dataset.total; this.picked = []; this.all = false; this.qs = location.search.slice(1) } }"
+       x-init="sync(); $watch('picked', () => { if (picked.length < ids.length) all = false })">
+  {% if can_bulk %}
+    <form id="bulk-form" method="post" action="{% url 'hiring:bulk' %}" x-show="picked.length || all" x-cloak
+          @submit="if (all && !confirm('Apply this to all ' + total + ' matching follow-ups?')) $event.preventDefault()"
+          class="fields sticky top-16 z-20 mb-3 rounded-xl border border-ink bg-surface p-3 text-sm shadow-lg">
+      {% csrf_token %}
+      <input type="hidden" name="scope" :value="all ? 'all' : 'ticked'">
+      <input type="hidden" name="filters" :value="qs">
+      <p class="mb-2 font-medium">
+        <span x-text="all ? total : picked.length"></span> selected
+        <button type="button" x-show="!all && picked.length === ids.length && total > ids.length" @click="all = true" class="ml-2 font-normal underline">Select all <span x-text="total"></span> matching the filter</button>
+        <button type="button" x-show="all || picked.length" @click="all = false; picked = []" class="ml-2 font-normal text-gray-500 underline">Clear</button>
+      </p>
+      <div class="flex flex-wrap items-end gap-x-6 gap-y-3">
+        <div class="flex items-end gap-2">
+          <label class="block">Give to<select name="owner" class="mt-1 block"><option value="">Pick a person</option>{% for u in assignees %}<option value="{{ u.pk }}">{{ u.display_name }}</option>{% endfor %}</select></label>
+          <button type="submit" name="do" value="assign" class="h-10 rounded-lg bg-blue-600 px-4 font-medium">Assign</button>
+        </div>
+        <div class="flex flex-wrap items-end gap-2">
+          <label class="block">Move to<input type="date" name="day" min="{{ today }}" class="mt-1 block"></label>
+          <label class="block">Why<select name="reason" class="mt-1 block">{% for value, name in reasons %}<option value="{{ value }}">{{ name }}</option>{% endfor %}</select></label>
+          <button type="submit" name="do" value="move" class="h-10 rounded-lg border border-ink px-4 font-medium">Move date</button>
+        </div>
+      </div>
+    </form>
+  {% endif %}
+  <form method="get" x-data="{ v: 0, has(...n) { this.v; const f = new FormData(this.$el.closest('form')); return n.some(k => f.getAll(k).some(x => x)) } }"
+        @change="v++; if (['department', 'sub', 'purpose', 'tag', 'stage', 'owner'].includes($event.target.name)) $dispatch('filter')" @submit="v++"
+        hx-get="{% url 'hiring:screening' %}" hx-push-url="true" hx-target="#rows" hx-select="#rows" hx-swap="outerHTML"
+        hx-select-oob="#count,#pager" hx-sync="this:replace"
+        hx-trigger="submit, filter delay:150ms"
+        class="group mt-4 overflow-x-auto rounded-xl lg:overflow-visible border border-ink bg-surface p-4 shadow-xl">
+    {{ dept_data|json_script:"dept-data" }}
+    <div class="mb-3 flex flex-wrap items-center gap-2"
+         x-data="{ data: JSON.parse(document.getElementById('dept-data').textContent), deps: [], subs: [],
+                   name(v) { return this.data.departments.find(d => d[0] === v)[1] },
+                   shown(g) { return !this.deps.length || this.deps.includes(g.value) } }"
+         x-init="deps = data.deps; subs = data.subs;
+                 $watch('deps', now => { const ok = new Set(data.groups.filter(g => now.includes(g.value)).flatMap(g => g.subs)); subs = subs.filter(s => ok.has(s)) })">
+      <div x-data="filterPanel" class="relative" @click.outside="o = false" @scroll.window="o = false" @resize.window="o = false">
+        <button type="button" x-ref="btn" @click="toggle()" :class="deps.length && 'bg-pop'" class="h-9 rounded-lg border border-ink px-3 text-sm">Department<span x-show="deps.length" x-text="' (' + deps.length + ')'"></span> ▾</button>
+        <div x-ref="panel" x-show="o" x-cloak class="fixed z-20 max-h-72 w-64 overflow-auto rounded-lg border border-ink bg-surface p-3 shadow-md">
+          <template x-for="d in data.departments" :key="d[0]"><label class="flex items-center gap-2 py-0.5"><input type="checkbox" name="department" :value="d[0]" x-model="deps"> <span x-text="d[1]"></span></label></template>
+        </div>
+      </div>
+      <template x-for="v in deps" :key="'d' + v"><span class="rounded-full border border-ink bg-pop px-2.5 py-0.5 text-sm" x-text="name(v)"></span></template>
+      <div x-data="filterPanel" class="relative" @click.outside="o = false" @scroll.window="o = false" @resize.window="o = false">
+        <button type="button" x-ref="btn" @click="toggle()" :class="subs.length && 'bg-pop'" class="h-9 rounded-lg border border-ink px-3 text-sm">Sub-department<span x-show="subs.length" x-text="' (' + subs.length + ')'"></span> ▾</button>
+        <div x-ref="panel" x-show="o" x-cloak class="fixed z-20 max-h-80 w-72 overflow-auto rounded-lg border border-ink bg-surface p-3 shadow-md">
+          <template x-for="g in data.groups" :key="g.value">
+            <div x-show="shown(g) && g.subs.length" class="mb-2">
+              <p class="text-xs text-gray-500" x-text="g.label"></p>
+              <template x-for="s in g.subs" :key="g.value + s"><label class="flex items-center gap-2 py-0.5"><input type="checkbox" name="sub" :value="s" x-model="subs"> <span x-text="s"></span></label></template>
+            </div>
+          </template>
+        </div>
+      </div>
+      <template x-for="s in subs" :key="'s' + s"><span class="rounded-full border border-ink px-2.5 py-0.5 text-sm" x-text="s"></span></template>
+    </div>
+    <p id="count" data-total="{{ page.paginator.count }}" class="mb-2 text-sm text-gray-500">{{ page.paginator.count }} candidate{{ page.paginator.count|pluralize }}{% if filtered %} · <a href="{% url 'hiring:screening' %}" class="underline">Clear filters</a>{% endif %}</p>
+    <table class="w-full min-w-[44rem] text-left text-sm">
+      <thead>
+        <tr class="bg-ink text-white">
+          {% if can_bulk %}<th class="p-2"><input type="checkbox" aria-label="Select this page" form="bulk-form" :checked="picked.length === ids.length && ids.length" @change="picked = $event.target.checked ? [...ids] : []; all = false"></th>{% endif %}
+          {% comment %}Each heading carries its own filter; all inputs belong to this one GET form.{% endcomment %}
+          <th class="p-2"><div x-data="filterPanel" class="relative" @click.outside="o = false" @scroll.window="o = false" @resize.window="o = false">Name <button type="button" x-ref="btn" @click="toggle()" class="rounded px-1 text-pop" :class="has('q') && 'bg-pop! text-ink!'" aria-label="Filter by name">▾</button>
+            <div x-ref="panel" x-show="o" x-cloak class="fixed z-20 w-56 rounded-lg border border-ink bg-surface p-3 text-ink shadow-md fields">
+              <input type="search" name="q" value="{{ get.q }}" placeholder="Search name" class="w-full">
+              <button type="submit" class="mt-2 h-9 w-full rounded-lg bg-blue-600 text-sm">Apply</button></div></div></th>
+          <th class="p-2"><div x-data="filterPanel" class="relative" @click.outside="o = false" @scroll.window="o = false" @resize.window="o = false">Follow-up date <button type="button" x-ref="btn" @click="toggle()" class="rounded px-1 text-pop" :class="has('due_from', 'due_to') && 'bg-pop! text-ink!'" aria-label="Filter by date">▾</button>
+            <div x-ref="panel" x-show="o" x-cloak class="fixed z-20 w-56 rounded-lg border border-ink bg-surface p-3 text-ink shadow-md fields">
+              <label class="block text-sm">From <input type="date" name="due_from" value="{{ get.due_from }}" class="w-full"></label>
+              <label class="mt-2 block text-sm">To <input type="date" name="due_to" value="{{ get.due_to }}" class="w-full"></label>
+              <button type="submit" class="mt-2 h-9 w-full rounded-lg bg-blue-600 text-sm">Apply</button></div></div></th>
+          <th class="p-2"><div x-data="filterPanel" class="relative" @click.outside="o = false" @scroll.window="o = false" @resize.window="o = false">Call intention <button type="button" x-ref="btn" @click="toggle()" class="rounded px-1 text-pop" :class="has('purpose') && 'bg-pop! text-ink!'" aria-label="Filter by intention">▾</button>
+            <div x-ref="panel" x-show="o" x-cloak class="fixed z-20 w-48 rounded-lg border border-ink bg-surface p-3 text-ink shadow-md">
+              {% for value, name in purposes %}<label class="flex items-center gap-2 py-0.5"><input type="checkbox" name="purpose" value="{{ value }}" {% if value in get.purpose %}checked{% endif %}> {{ name }}</label>{% endfor %}
+              </div></div></th>
+          <th class="p-2"><div x-data="filterPanel" class="relative" @click.outside="o = false" @scroll.window="o = false" @resize.window="o = false">Last tag <button type="button" x-ref="btn" @click="toggle()" class="rounded px-1 text-pop" :class="has('tag') && 'bg-pop! text-ink!'" aria-label="Filter by last tag">▾</button>
+            <div x-ref="panel" x-show="o" x-cloak class="fixed z-20 w-56 rounded-lg border border-ink bg-surface p-3 text-ink shadow-md">
+              {% for value, name in tags %}<label class="flex items-center gap-2 py-0.5"><input type="checkbox" name="tag" value="{{ value }}" {% if value in get.tag %}checked{% endif %}> {{ name }}</label>{% endfor %}
+              </div></div></th>
+          <th class="p-2"><div x-data="filterPanel" class="relative" @click.outside="o = false" @scroll.window="o = false" @resize.window="o = false">Status <button type="button" x-ref="btn" @click="toggle()" class="rounded px-1 text-pop" :class="has('stage') && 'bg-pop! text-ink!'" aria-label="Filter by status">▾</button>
+            <div x-ref="panel" x-show="o" x-cloak class="fixed z-20 w-48 rounded-lg border border-ink bg-surface p-3 text-ink shadow-md">
+              {% for value, name in stages %}<label class="flex items-center gap-2 py-0.5"><input type="checkbox" name="stage" value="{{ value }}" {% if value in get.stage %}checked{% endif %}> {{ name }}</label>{% endfor %}
+              </div></div></th>
+          <th class="p-2"><div x-data="filterPanel" class="relative" @click.outside="o = false" @scroll.window="o = false" @resize.window="o = false">Assigned to <button type="button" x-ref="btn" @click="toggle()" class="rounded px-1 text-pop" :class="has('owner') && 'bg-pop! text-ink!'" aria-label="Filter by person">▾</button>
+            <div x-ref="panel" x-show="o" x-cloak class="fixed z-20 w-56 rounded-lg border border-ink bg-surface p-3 text-ink shadow-md fields">
+              <select name="owner" class="w-full"><option value="">Everyone</option>{% for o in owners %}<option value="{{ o.pk }}" {% if get.owner == o.pk|stringformat:"s" %}selected{% endif %}>{{ o.display_name }}</option>{% endfor %}</select>
+              </div></div></th>
+        </tr>
+      </thead>
+      <tbody id="rows" class="transition-opacity group-[.htmx-request]:opacity-50">
+        {% for f in rows %}
+          <tr class="border-b border-gray-100">
+            {% if can_bulk %}<td class="p-2"><input type="checkbox" name="ids" value="{{ f.pk }}" form="bulk-form" x-model="picked" aria-label="Select {{ f.person.name }}"></td>{% endif %}
+            <td class="p-2"><span class="font-medium">{{ f.person.name }}</span><br><span class="text-gray-500">{{ f.person.phone }}</span></td>
+            <td class="p-2 whitespace-nowrap {% if f.overdue %}text-red-600{% endif %}">{{ f.due|date:"j M" }}</td>
+            <td class="p-2">{{ f.intention }}</td>
+            <td class="p-2">{{ f.tag_label }}</td>
+            <td class="p-2">{{ f.stage_label }}</td>
+            <td class="p-2">{{ f.owner.display_name }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="{% if can_bulk %}7{% else %}6{% endif %}" class="p-6 text-gray-500">{% if filtered %}No candidates match those filters.{% else %}Nothing to call. New numbers from Sourcing land here.{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div id="pager">{% include "_pager.html" with hx=True %}</div>
+  </form>
+  </div>
 {% endblock %}

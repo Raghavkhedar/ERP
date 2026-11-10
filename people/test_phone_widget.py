@@ -1,6 +1,7 @@
 import pytest
 from django.urls import reverse
 
+from core.access import MODULES
 from core.models import AccessGrant, Company
 
 from .models import Person
@@ -32,9 +33,10 @@ def test_candidate_form_saves_with_country_code(client, django_user_model):
     senken = Company.objects.get(slug="senken")
     user = django_user_model.objects.create_user("c1", password="x")
     senken.memberships.create(user=user)
-    AccessGrant.objects.create(
-        user=user, company=senken, module="recruitment", section="candidates"
-    )
+    for tab in MODULES["recruitment"].sections:
+        AccessGrant.objects.create(
+            user=user, company=senken, module="recruitment", section=tab
+        )
     client.force_login(user)
     page = client.get(reverse("people:new"))
     assert b'name="phone_code"' in page.content

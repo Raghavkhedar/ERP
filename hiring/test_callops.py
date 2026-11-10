@@ -4,6 +4,7 @@ import pytest
 from django.urls import reverse
 from django.utils import timezone
 
+from core.access import MODULES
 from core.models import AccessGrant, Company
 
 from .models import FollowUp, Requisition
@@ -21,9 +22,10 @@ def senken():
 def user(client, django_user_model, senken):
     u = django_user_model.objects.create_user("ops", password="x")
     senken.memberships.create(user=u)
-    AccessGrant.objects.create(
-        user=u, company=senken, module="recruitment", section="candidates"
-    )
+    for tab in MODULES["recruitment"].sections:
+        AccessGrant.objects.create(
+            user=u, company=senken, module="recruitment", section=tab
+        )
     client.force_login(u)
     return u
 
@@ -80,7 +82,10 @@ def test_call_alarm_rings_until_snoozed_or_done(req, user, client):
     call.save()
     assert list(due_call_alarms(user)) == [call]
     ring = client.get(reverse("tasks:alarms")).json()["alarms"]
-    assert ring[0]["id"] == f"call-{call.pk}" and ring[0]["label"] == "Call alarm"
+    assert (
+        ring[0]["id"] == f"call-{call.pk}"
+        and ring[0]["label"] == "Normal follow-up alarm"
+    )
 
     client.post(
         reverse("hiring:followup_snooze", args=[call.pk]),
@@ -98,9 +103,10 @@ def test_only_the_owner_can_snooze(req, user, client, django_user_model, senken)
     call = FollowUp.objects.get()
     other = django_user_model.objects.create_user("o", password="x")
     senken.memberships.create(user=other)
-    AccessGrant.objects.create(
-        user=other, company=senken, module="recruitment", section="candidates"
-    )
+    for tab in MODULES["recruitment"].sections:
+        AccessGrant.objects.create(
+            user=other, company=senken, module="recruitment", section=tab
+        )
     from .services import FollowUpError, snooze_call
 
     with pytest.raises(FollowUpError):
