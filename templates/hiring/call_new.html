@@ -1,0 +1,29 @@
+{% extends "people/base_people.html" %}
+
+{% block title %}Log a call · Senken ERP{% endblock %}
+{% block heading %}Log a call{% endblock %}
+{% block actions %}<a href="{% url 'hiring:calling' %}" class="text-gray-500 hover:text-gray-900">Back</a>{% endblock %}
+
+{% block page %}
+  {{ picked|json_script:"picked" }}
+  <div x-data="{ q: '', hits: [], picked: JSON.parse(document.getElementById('picked').textContent),
+                 async find() { const q = this.q.trim(); if (!q) { this.hits = []; return } const r = await fetch('{% url 'hiring:calling_people' %}?q=' + encodeURIComponent(q)); this.hits = (await r.json()).people } }"
+       class="fields max-w-xl">
+    <input type="hidden" name="person" form="call-form" :value="picked ? picked.id : ''">
+    <label for="who" class="mb-1.5 block font-medium">Candidate</label>
+    <div x-show="picked" x-cloak class="flex items-center justify-between gap-3 rounded-lg border border-ink px-3 py-2">
+      <span><span class="font-medium" x-text="picked.name"></span> <span class="text-gray-500" x-text="picked.phone + ', no. ' + picked.id"></span></span>
+      <button type="button" @click="picked = null; q = ''; hits = []" class="text-sm text-gray-500 hover:text-gray-900">Change</button>
+    </div>
+    <div x-show="!picked" class="relative">
+      <input id="who" type="search" x-model="q" @input.debounce.250ms="find()" autocomplete="off" placeholder="Search by name, phone or candidate number" class="w-full">
+      <ul x-show="hits.length" x-cloak class="absolute z-10 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-ink bg-surface shadow-md">
+        <template x-for="h in hits" :key="h.id">
+          <li><button type="button" @click="picked = h; hits = []" class="block w-full px-3 py-2 text-left text-sm hover:bg-pop/40"><span class="font-medium" x-text="h.name"></span> <span class="text-gray-500" x-text="h.phone + ', no. ' + h.id"></span></button></li>
+        </template>
+      </ul>
+    </div>
+    {% for error in call_form.person.errors %}<p role="alert" class="mt-1 text-sm text-red-600">{{ error }}</p>{% endfor %}
+  </div>
+  {% include "hiring/_call_form.html" with action=call_action %}
+{% endblock %}

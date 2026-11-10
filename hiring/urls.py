@@ -10,8 +10,14 @@ urlpatterns = [
     path("requisitions/new/", views.new_requisition, name="new"),
     path("requisitions/<int:pk>/", views.requisition_detail, name="detail"),
     path("requisitions/<int:pk>/post/", views.post_to_requisition, name="post"),
+    path(
+        "requisitions/<int:pk>/post/<int:post_pk>/edit/",
+        views.edit_job_post,
+        name="edit_post",
+    ),
     path("requisitions/<int:pk>/edit/", views.edit_requisition, name="edit"),
     path("requisitions/<int:pk>/close/", views.close_requisition, name="close"),
+    path("requisitions/<int:pk>/reopen/", views.reopen_requisition, name="reopen"),
     path("report/", views.report, name="report"),
     path("report/export/", views.export_report, name="report_export"),
     path("sourcing/", source_views.sourcing, name="sourcing"),
@@ -19,11 +25,16 @@ urlpatterns = [
     path("sourcing/new/", source_views.new_source, name="source_new"),
     path("sourcing/import/", source_views.import_source, name="source_import"),
     path("screening/", screening_views.screening, name="screening"),
+    path("calling/", screening_views.calling, name="calling"),
+    path("calling/new/", screening_views.call_new, name="call_new"),
+    path("calling/people/", screening_views.calling_people, name="calling_people"),
+    path("calling/export/", screening_views.export_calling, name="calling_export"),
     path(
         "screening/<int:pk>/snooze/",
         screening_views.snooze_followup,
         name="followup_snooze",
     ),
+    path("screening/bulk/", screening_views.bulk, name="bulk"),
     path("screening/shift/", screening_views.shift, name="shift"),
     path(
         "screening/export/", screening_views.export_followups, name="screening_export"

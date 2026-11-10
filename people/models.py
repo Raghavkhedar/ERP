@@ -22,6 +22,11 @@ class Person(models.Model):
         ON_DEMAND = "on_demand", "On-demand base"
         HOLD_FF = "hold_ff", "Hold - FF"
 
+    class Gender(models.TextChoices):
+        MALE = "M", "Male"
+        FEMALE = "F", "Female"
+        OTHER = "O", "Other"
+
     class Priority(models.TextChoices):
         PREFERRED = "preferred", "Preferred"
         SEMI = "semi", "Semi-preferred"
@@ -34,6 +39,7 @@ class Person(models.Model):
     phone = models.CharField(max_length=30)
     phone_key = models.CharField(max_length=10, db_index=True, editable=False)
     email = models.EmailField(blank=True)
+    gender = models.CharField(max_length=1, choices=Gender, blank=True)
     address = models.TextField(blank=True)
     current_employer = models.CharField(max_length=200, blank=True)
     current_salary = models.DecimalField(

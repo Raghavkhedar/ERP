@@ -4,57 +4,39 @@
 {% block heading %}{% if requisition %}Edit requisition{% else %}Release requisition{% endif %}{% endblock %}
 
 {% block page %}
-  <form method="post" class="fields max-w-4xl [&_textarea]:w-full [&_input:not([type=checkbox],[type=radio])]:w-full [&_select]:w-full">
+  {# One sheet in the order of the paper form: the question, then its answer. #}
+  <form method="post" class="fields mx-auto max-w-3xl [&_textarea]:w-full [&_input:not([type=checkbox],[type=radio])]:w-full [&_select]:w-full">
     {% csrf_token %}
     {{ form.version }}
     {% for error in form.non_field_errors %}<p class="mb-4 text-sm text-red-600">{{ error }}</p>{% endfor %}
 
-    {# Each block: what it is on the left, its fields on the right. #}
-    <section class="grid gap-x-10 gap-y-4 border-b border-gray-100 pb-8 md:grid-cols-[13rem_minmax(0,1fr)]">
-      <div>
-        <h2 class="title text-lg">The role</h2>
-        <p class="mt-1 text-sm text-gray-500">What we are hiring for.</p>
-      </div>
-      <div class="space-y-5">
-        {% include "hiring/_choice.html" with field=form.kind cols=2 %}
-        <div class="grid gap-5 sm:grid-cols-2">
-          {% include "tasks/_field.html" with field=form.profile %}
-          {% include "tasks/_field.html" with field=form.headcount %}
-          {% include "tasks/_field.html" with field=form.department %}
-          {% include "tasks/_field.html" with field=form.sub_department %}
-          {% include "tasks/_field.html" with field=form.site %}
-          {% include "tasks/_field.html" with field=form.employment %}
-        </div>
-      </div>
-    </section>
+    <div class="border-y border-gray-100 py-5">
+      {% include "hiring/_choice.html" with field=form.kind cols=2 %}
+    </div>
 
-    <section class="grid gap-x-10 gap-y-4 border-b border-gray-100 py-8 md:grid-cols-[13rem_minmax(0,1fr)]">
-      <div>
-        <h2 class="title text-lg">How soon</h2>
-        <p class="mt-1 text-sm text-gray-500">Sourcing goes to fire fighting first, then urgent.</p>
-      </div>
-      <div class="space-y-5">
-        {% include "hiring/_choice.html" with field=form.urgency %}
-        <div class="max-w-xs">{% include "tasks/_field.html" with field=form.needed_by %}</div>
-      </div>
-    </section>
+    <div class="divide-y divide-gray-100">
+        {% include "hiring/_row.html" with field=form.profile %}
+        {% include "hiring/_row.html" with field=form.department %}
+        {% include "hiring/_row.html" with field=form.sub_department %}
+        {% include "hiring/_row.html" with field=form.headcount %}
+        {% include "hiring/_row.html" with field=form.experience_years %}
+        {% include "hiring/_row.html" with field=form.employment %}
 
-    <section class="grid gap-x-10 gap-y-4 border-b border-gray-100 py-8 md:grid-cols-[13rem_minmax(0,1fr)]">
-      <div>
-        <h2 class="title text-lg">The person</h2>
-        <p class="mt-1 text-sm text-gray-500">Who fits the role.</p>
-      </div>
-      <div class="space-y-5">
-        <div class="grid gap-5 sm:grid-cols-2">
-          {% include "tasks/_field.html" with field=form.experience_years %}
-          {% include "tasks/_field.html" with field=form.education %}
-          {% include "tasks/_field.html" with field=form.industry %}
-          {% include "tasks/_field.html" with field=form.budget %}
+        <div class="grid gap-x-8 gap-y-3 py-4 md:grid-cols-[14rem_minmax(0,1fr)]">
+          <label for="{{ form.days.id_for_label }}" class="pt-2 font-medium">{{ form.days.label }}</label>
+          <div class="space-y-3">
+            <div class="max-w-40">{{ form.days }}</div>
+            {% for error in form.days.errors %}<p class="text-sm text-red-600">{{ error }}</p>{% endfor %}
+            {% include "hiring/_choice.html" with field=form.urgency %}
+            <p class="text-xs text-gray-500">Sourcing goes to fire fighting first, then urgent.</p>
+          </div>
         </div>
-        {% include "tasks/_field.html" with field=form.requirements %}
-        {% include "hiring/_choice.html" with field=form.exposure %}
-        <fieldset>
-          <legend class="mb-1.5 text-sm font-medium">{{ form.languages.label }}</legend>
+
+        {% include "hiring/_row.html" with field=form.gender %}
+        {% include "hiring/_row.html" with field=form.requirements %}
+
+        <div class="grid gap-x-8 gap-y-2 py-4 md:grid-cols-[14rem_minmax(0,1fr)]">
+          <span class="pt-2 font-medium">{{ form.languages.label }}</span>
           <div class="flex flex-wrap gap-2">
             {% for box in form.languages %}
               <label class="flex min-h-10 cursor-pointer items-center rounded-full border border-ink bg-white px-3.5 has-[:checked]:bg-pop has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-blue-600">
@@ -63,44 +45,45 @@
               </label>
             {% endfor %}
           </div>
-        </fieldset>
-      </div>
-    </section>
-
-    <section class="grid gap-x-10 gap-y-4 border-b border-gray-100 py-8 md:grid-cols-[13rem_minmax(0,1fr)]">
-      <div>
-        <h2 class="title text-lg">Limits</h2>
-        <p class="mt-1 text-sm text-gray-500">Leave blank where there is none.</p>
-      </div>
-      <div class="space-y-5">
-        <div class="grid gap-5 sm:grid-cols-2">
-          {% include "tasks/_field.html" with field=form.gender %}
-          {% include "tasks/_field.html" with field=form.age_restriction %}
-          {% include "tasks/_field.html" with field=form.domicile_restriction %}
-          {% include "tasks/_field.html" with field=form.physical_restriction %}
-          {% include "tasks/_field.html" with field=form.previous_employment_restriction %}
         </div>
-        <label class="flex min-h-11 w-fit cursor-pointer items-center gap-3 rounded-lg border border-ink bg-white px-4 py-2 has-[:checked]:bg-pop has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-blue-600">
-          {{ form.reputed_company_must }}
-          {{ form.reputed_company_must.label }}
-        </label>
-      </div>
-    </section>
 
-    <section class="grid gap-x-10 gap-y-4 py-8 md:grid-cols-[13rem_minmax(0,1fr)]">
-      <div>
-        <h2 class="title text-lg">Anything else</h2>
-      </div>
-      <div class="space-y-5">
-        {% include "tasks/_field.html" with field=form.other_details %}
-        <p class="rounded-lg bg-ink px-4 py-3 text-sm text-white">
-          Signed off by <span class="text-pop">{% firstof requisition.opened_by.get_full_name requisition.opened_by.get_username user.get_full_name user.get_username %}</span>
-          on {% now "j M Y" %}. Filled in automatically.
-        </p>
-      </div>
-    </section>
+        {% include "hiring/_row.html" with field=form.industry %}
+        {% include "hiring/_row.html" with field=form.education %}
+        {% include "hiring/_row.html" with field=form.previous_employment_restriction %}
 
-    <div class="sticky bottom-0 -mx-5 flex items-center gap-4 border-t border-ink bg-surface px-5 py-3 sm:-mx-8 sm:px-8">
+        <div class="grid gap-x-8 gap-y-2 py-4 md:grid-cols-[14rem_minmax(0,1fr)]">
+          <span class="pt-2 font-medium">Past experience in a reputed company</span>
+          <label class="flex min-h-11 w-fit cursor-pointer items-center gap-3 rounded-lg border border-ink bg-white px-4 py-2 has-[:checked]:bg-pop has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-blue-600">
+            {{ form.reputed_company_must }}
+            It is a must
+          </label>
+        </div>
+
+        <div class="grid gap-x-8 gap-y-2 py-4 md:grid-cols-[14rem_minmax(0,1fr)]">
+          <span class="pt-2 font-medium">{{ form.exposure.label }}</span>
+          <div>{% include "hiring/_choice.html" with field=form.exposure bare=True %}</div>
+        </div>
+
+        {% include "hiring/_row.html" with field=form.budget %}
+        {% include "hiring/_row.html" with field=form.physical_restriction %}
+        {% include "hiring/_row.html" with field=form.domicile_restriction %}
+        {% include "hiring/_row.html" with field=form.age_restriction %}
+        {% include "hiring/_row.html" with field=form.site %}
+      </div>
+
+    <div class="mt-4 rounded-lg bg-ink px-5 py-4 text-white">
+        <p class="font-medium text-pop">Superadmin details</p>
+        <dl class="mt-3 grid gap-4 sm:grid-cols-3">
+          <div><dt class="text-sm text-white/70">Name and signature</dt><dd class="title">{% firstof requisition.opened_by.get_full_name requisition.opened_by.get_username user.get_full_name user.get_username %}</dd></div>
+          <div><dt class="text-sm text-white/70">Date</dt><dd class="title">{% if requisition %}{{ requisition.created_at|date:"j M Y" }}{% else %}{% now "j M Y" %}{% endif %}</dd></div>
+          <div><dt class="text-sm text-white/70">Requested by</dt><dd class="title">{% firstof requisition.opened_by.get_full_name requisition.opened_by.get_username user.get_full_name user.get_username %}</dd></div>
+        </dl>
+        <p class="mt-2 text-xs text-white/70">Filled in automatically.</p>
+    </div>
+
+    {% include "hiring/_row.html" with field=form.other_details label="Other details" %}
+
+    <div class="sticky bottom-0 mt-6 flex items-center gap-4 border-t border-ink bg-surface py-3">
       <button type="submit" class="h-11 rounded-lg bg-blue-600 px-6 font-medium">Save requisition</button>
       <a href="{% url 'hiring:list' %}" class="text-sm text-gray-500 hover:text-gray-900">Cancel</a>
     </div>

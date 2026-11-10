@@ -3,6 +3,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
 from core.access import require_section
+from core.pagination import paginate
 
 from .export import offers_workbook, onboarding_workbook
 from .forms import AcceptForm, DeclineForm, JoinedForm, RoundForm, StartOfferForm
@@ -18,7 +19,8 @@ from .services import (
     visible_offers,
 )
 
-section = require_section("recruitment", "candidates")
+section = require_section("recruitment", "hiring")
+onboarding_section = require_section("recruitment", "onboarding")
 
 
 @section
@@ -28,8 +30,12 @@ def hiring(request):
         request,
         "hiring/offers.html",
         {
-            "waiting": offers_waiting(request.user, request.companies),
-            "open": offers.filter(state="offered"),
+            "waiting": paginate(
+                request,
+                offers_waiting(request.user, request.companies),
+                param="wpage",
+            ),
+            "open": paginate(request, offers.filter(state="offered"), param="opage"),
             "closed": offers.exclude(state="offered")[:100],
         },
     )
@@ -127,7 +133,7 @@ def decline_offer(request, pk):
     return _act(request, pk, DeclineForm, "decline_form", run, "Offer declined.")
 
 
-@section
+@onboarding_section
 def onboarding_page(request):
     expecting, joined = onboarding(request.companies)
     return render(
@@ -137,7 +143,7 @@ def onboarding_page(request):
     )
 
 
-@section
+@onboarding_section
 @require_POST
 def joined(request, pk):
     form = JoinedForm(request.POST)
@@ -151,7 +157,7 @@ def joined(request, pk):
     return redirect("hiring:onboarding")
 
 
-@section
+@onboarding_section
 @require_GET
 def export_onboarding(request):
     return onboarding_workbook(*onboarding(request.companies))

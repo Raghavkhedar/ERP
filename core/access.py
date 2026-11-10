@@ -1,8 +1,8 @@
 """Which modules exist, and who may open which part of them.
 
 A module is split into sections. Superusers can open everything; anyone else
-needs an AccessGrant for the section, for a company they belong to. Office
-admins hand out grants, except for modules marked superadmin_only.
+needs an AccessGrant for the section, for a company they belong to. Grants are
+handed out on the access matrix (core.matrix), by the superadmin or a manager.
 """
 
 from dataclasses import dataclass
@@ -10,6 +10,7 @@ from functools import wraps
 
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.urls import reverse
 
 from core.models import AccessGrant, Company
 
@@ -21,32 +22,53 @@ SESSION_KEY = "company"
 class Module:
     label: str
     sections: dict
-    superadmin_only: bool = False
+    in_matrix: bool = True  # False for placeholders that have no pages yet
 
 
 MODULES = {
     "hr": Module(
         "HR",
         {"employees": "Employees", "leave": "Leave", "payroll": "Payroll"},
+        in_matrix=False,
     ),
     "finance": Module(
         "Finance",
         {"ledger": "Ledger", "invoices": "Invoices", "reports": "Reports"},
-        superadmin_only=True,
+        in_matrix=False,
     ),
     "sales": Module(
         "Sales",
         {"leads": "Leads", "deals": "Deals", "customers": "Customers"},
+        in_matrix=False,
     ),
     "recruitment": Module(
         "Empanelment",
         {
-            "openings": "Openings",
-            "candidates": "Candidates",
-            "interviews": "Interviews",
+            "openings": "Preparing",
+            "people": "People",
+            "sourcing": "Sourcing",
+            "screening": "Screening",
+            "calling": "Calling",
+            "selecting": "Selecting",
             "assessments": "HR assessments",
+            "hiring": "Hiring",
+            "onboarding": "On-Boarding",
         },
     ),
+}
+
+
+# Where each Empanelment tab lands. Assessments has no page of its own: it is
+# a form reached from Selecting.
+TAB_URLS = {
+    "openings": "hiring:list",
+    "people": "people:list",
+    "sourcing": "hiring:sourcing",
+    "screening": "hiring:screening",
+    "calling": "hiring:calling",
+    "selecting": "hiring:selecting",
+    "hiring": "hiring:offers",
+    "onboarding": "hiring:onboarding",
 }
 
 
@@ -55,12 +77,6 @@ def user_companies(user):
     if user.is_superuser:
         return Company.objects.all()
     return Company.objects.filter(memberships__user=user)
-
-
-def can_grant(actor, module):
-    if actor.is_superuser:
-        return True
-    return actor.is_office_admin and not MODULES[module].superadmin_only
 
 
 def _grants(user, module, section=None):
@@ -109,8 +125,8 @@ def scope(request, module, section):
     return allowed.filter(pk=company.pk) if company else allowed
 
 
-def require_section(module, section):
-    """Open a view only to people granted this section. Others get 403.
+def require_section(module, *sections):
+    """Open a view only to people granted a section (any of them). Others get 403.
 
     Sets request.companies to the companies to read for the current switcher
     selection. In all-companies view that's every company they hold access to.
@@ -120,7 +136,10 @@ def require_section(module, section):
         @wraps(view)
         @login_required
         def wrapped(request, *args, **kwargs):
-            request.companies = list(scope(request, module, section))
+            found = {
+                c.pk: c for section in sections for c in scope(request, module, section)
+            }
+            request.companies = list(found.values())
             if not request.companies:
                 raise PermissionDenied
             return view(request, *args, **kwargs)
@@ -128,3 +147,19 @@ def require_section(module, section):
         return wrapped
 
     return decorator
+
+
+def held_tabs(user):
+    """The Empanelment tabs this person may open in any of their companies."""
+    if not (user.is_authenticated and user.is_active):
+        return set()
+    if user.is_superuser:
+        return set(MODULES["recruitment"].sections)
+    return set(_grants(user, "recruitment").values_list("section", flat=True))
+
+
+def first_tab_url(user):
+    """The first Empanelment page this person may open, or None."""
+    held = held_tabs(user)
+    name = next((n for tab, n in TAB_URLS.items() if tab in held), None)
+    return reverse(name) if name else None

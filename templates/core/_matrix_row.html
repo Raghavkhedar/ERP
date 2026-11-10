@@ -1,0 +1,34 @@
+<tr id="row-{{ row.user.pk }}" class="border-t border-gray-100">
+  <th scope="row" class="sticky left-0 z-10 whitespace-nowrap bg-surface px-3 py-2 text-left font-medium">
+    {{ row.user.display_name }}
+    <span class="block text-xs font-normal text-gray-500">{{ row.user.username }}</span>
+  </th>
+  {% for m in row.cells %}
+    {% for t in m.tabs %}
+      <td class="px-1 py-2 text-center">
+        <form hx-post="{% url 'access_matrix_cell' %}" hx-target="closest tr" hx-swap="outerHTML">
+          {% csrf_token %}
+          <input type="hidden" name="user" value="{{ row.user.pk }}">
+          <input type="hidden" name="company" value="{{ company.slug }}">
+          <input type="hidden" name="module" value="{{ m.key }}">
+          <input type="hidden" name="tab" value="{{ t.key }}">
+          <input type="hidden" name="on" value="{% if t.on %}0{% else %}1{% endif %}">
+          <button type="submit" aria-pressed="{{ t.on|yesno:'true,false' }}" aria-label="{% if t.on %}Take {{ t.label }} from{% else %}Give {{ t.label }} to{% endif %} {{ row.user.display_name }}"
+                  class="size-8 rounded-md border border-ink text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pop {% if t.on %}bg-blue-600 text-ink{% else %}bg-surface text-gray-400 hover:bg-pop hover:text-ink{% endif %}">{% if t.on %}✓{% else %}–{% endif %}</button>
+        </form>
+      </td>
+    {% endfor %}
+    {% if is_super %}
+      <td class="px-2 py-2 text-center">
+        <form hx-post="{% url 'access_matrix_module' %}" hx-target="closest tr" hx-swap="outerHTML">
+          {% csrf_token %}
+          <input type="hidden" name="user" value="{{ row.user.pk }}">
+          <input type="hidden" name="company" value="{{ company.slug }}">
+          <input type="hidden" name="module" value="{{ m.key }}">
+          <input type="hidden" name="on" value="{% if m.all_on %}0{% else %}1{% endif %}">
+          <button type="submit" class="h-8 whitespace-nowrap rounded-md border border-ink bg-pop px-2 text-xs font-bold text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600">{% if m.all_on %}Remove all{% else %}Give all{% endif %}</button>
+        </form>
+      </td>
+    {% endif %}
+  {% endfor %}
+</tr>

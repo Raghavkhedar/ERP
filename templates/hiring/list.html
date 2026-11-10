@@ -30,6 +30,8 @@
             <a href="{% url 'hiring:edit' r.pk %}" class="shrink-0 text-sm text-gray-500 hover:text-gray-900">Edit</a>
             {% if r.status == "open" %}
               <form method="post" action="{% url 'hiring:close' r.pk %}" class="shrink-0">{% csrf_token %}<button type="submit" class="text-sm text-gray-500 hover:text-gray-900">Close</button></form>
+            {% else %}
+              <form method="post" action="{% url 'hiring:reopen' r.pk %}" class="shrink-0">{% csrf_token %}<button type="submit" class="text-sm text-gray-500 hover:text-gray-900">Reopen</button></form>
             {% endif %}
           {% endif %}
         </li>

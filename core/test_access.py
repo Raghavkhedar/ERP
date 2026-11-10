@@ -6,7 +6,6 @@ from django.test import RequestFactory
 from django.urls import reverse
 
 from core.access import (
-    can_grant,
     companies_with_access,
     has_module,
     require_section,
@@ -90,12 +89,6 @@ def test_superuser_opens_everything(boss):
     assert companies_with_access(boss, "finance", "ledger").count() == 2
 
 
-def test_only_superadmin_hands_out_finance(boss, admin):
-    assert can_grant(boss, "finance")
-    assert not can_grant(admin, "finance")
-    assert can_grant(admin, "hr")
-
-
 def test_require_section_returns_403_without_access(make, senken):
     user = make("e1")
     request = RequestFactory().get("/")
@@ -144,9 +137,7 @@ def test_access_pages_are_for_office_admins(client, make):
     assert client.get(reverse("access_person", args=[user.pk])).status_code == 403
 
 
-def test_admin_adds_a_company_and_grants_hr_but_not_finance(
-    client, admin, make, senken
-):
+def test_admin_adds_a_company(client, admin, make, senken):
     target = make("e1")
     client.force_login(admin)
     url = reverse("access_person", args=[target.pk])
@@ -154,56 +145,33 @@ def test_admin_adds_a_company_and_grants_hr_but_not_finance(
         url, {"action": "companies", "company": ["senken"], "paid_by": "senken"}
     )
     assert target.memberships.get().pays_salary
-    client.post(
-        url,
-        {"action": "access", "grant": ["hr:employees:senken", "finance:ledger:senken"]},
-    )
-    held = set(target.access_grants.values_list("module", "section"))
-    assert held == {("hr", "employees")}
-
-
-def test_superuser_can_grant_finance_and_admin_cannot_remove_it(
-    client, boss, admin, make, senken
-):
-    target = make("e1")
-    client.force_login(boss)
-    url = reverse("access_person", args=[target.pk])
-    client.post(url, {"action": "companies", "company": ["senken"]})
-    client.post(url, {"action": "access", "grant": ["finance:reports:senken"]})
-    assert target.access_grants.filter(module="finance").count() == 1
-    client.force_login(admin)
-    client.post(url, {"action": "access", "grant": []})
-    assert target.access_grants.filter(module="finance").count() == 1
 
 
 def test_dropping_a_company_drops_its_grants(client, admin, make, senken, avris):
     target = make("e1")
+    grant(target, senken, "hr", "leave")
+    grant(target, avris, "hr", "leave")
     client.force_login(admin)
     url = reverse("access_person", args=[target.pk])
-    client.post(url, {"action": "companies", "company": ["senken", "avris"]})
-    client.post(
-        url, {"action": "access", "grant": ["hr:leave:avris", "hr:leave:senken"]}
-    )
     client.post(url, {"action": "companies", "company": ["senken"]})
     assert list(target.access_grants.values_list("company__slug", flat=True)) == [
         "senken"
     ]
 
 
-def test_admin_dropping_a_company_keeps_finance_grants(
-    client, boss, admin, make, senken, avris
+def test_admin_dropping_a_company_drops_every_grant_there(
+    client, admin, make, senken, avris
 ):
     target = make("e1")
-    client.force_login(boss)
-    url = reverse("access_person", args=[target.pk])
-    client.post(url, {"action": "companies", "company": ["senken", "avris"]})
-    client.post(
-        url, {"action": "access", "grant": ["finance:ledger:avris", "hr:leave:avris"]}
-    )
+    grant(target, senken, "hr", "leave")
+    grant(target, avris, "finance", "ledger")
+    grant(target, avris, "hr", "leave")
     client.force_login(admin)
+    url = reverse("access_person", args=[target.pk])
     client.post(url, {"action": "companies", "company": ["senken"]})
-    held = set(target.access_grants.values_list("module", flat=True))
-    assert held == {"finance"}
+    assert set(target.access_grants.values_list("module", "company__slug")) == {
+        ("hr", "senken")
+    }
 
 
 def test_admin_cannot_edit_their_own_access(client, admin, senken):
