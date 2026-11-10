@@ -261,4 +261,132 @@ def test_sheet_filters_by_department_and_sub_department(client, todo):
     assert len(client.get(url, {"department": "sales"}).context["rows"]) == 0
     assert len(client.get(url, {"sub": "Billing"}).context["rows"]) == 1
     assert len(client.get(url, {"sub": "Other"}).context["rows"]) == 0
-    assert client.get(url).context["subs"] == ["Billing"]
+    groups = {
+        g["value"]: g["subs"] for g in client.get(url).context["dept_data"]["groups"]
+    }
+    assert "Telecaller" in groups["sales"] and "Billing" in groups["bo"]
+    assert groups["others"] == []
+
+
+def test_sheet_filters_by_date_range_and_assignee(client, todo, caller):
+    url = reverse("hiring:screening")
+    day = timezone.localdate(todo.due).isoformat()
+    assert len(client.get(url, {"due_from": day, "due_to": day}).context["rows"]) == 1
+    assert len(client.get(url, {"due_to": "2000-01-01"}).context["rows"]) == 0
+    assert len(client.get(url, {"owner": caller.pk}).context["rows"]) == 1
+    assert len(client.get(url, {"owner": caller.pk + 999}).context["rows"]) == 0
+    assert len(client.get(url, {"purpose": "interview"}).context["rows"]) == 0
+    assert (
+        len(client.get(url, {"stage": ["screening", "offered"]}).context["rows"]) == 1
+    )
+    assert (
+        len(client.get(url, {"q": "", "due_from": "not a date"}).context["rows"]) == 1
+    )
+
+
+def test_sheet_and_calling_are_paged_and_keep_filters(client, todo, caller):
+    for i in range(54):
+        source_number(todo.requisition, f"Person {i}", f"90000{i:05d}", caller)
+    url = reverse("hiring:screening")
+    first = client.get(url, {"purpose": "call"})
+    assert (len(first.context["rows"]), first.context["page"].paginator.count) == (
+        50,
+        55,
+    )
+    second = client.get(url, {"purpose": "call", "page": 2})
+    assert len(second.context["rows"]) == 5
+    assert "purpose=call&page=1" in second.content.decode()
+    assert len(client.get(reverse("hiring:calling"), {"page": 2}).context["rows"]) == 5
+
+
+@pytest.fixture
+def boss(django_user_model, senken, todo):
+    boss = member(django_user_model, senken, "S1")
+    todo.owner.supervisor = boss
+    todo.owner.save()
+    return boss
+
+
+def many(todo, caller, n=4):
+    for i in range(n):
+        source_number(todo.requisition, f"Bulk {i}", f"91111{i:05d}", caller)
+    return FollowUp.objects.filter(status="pending")
+
+
+def test_supervisor_assigns_the_ticked_follow_ups(client, todo, caller, boss):
+    rows = many(todo, caller)
+    client.force_login(boss)
+    ticked = list(rows.values_list("pk", flat=True))[:2]
+    r = client.post(
+        reverse("hiring:bulk"),
+        {"scope": "ticked", "do": "assign", "owner": boss.pk, "ids": ticked},
+    )
+    assert r.status_code == 302
+    assert set(rows.filter(owner=boss).values_list("pk", flat=True)) == set(ticked)
+    moved = FollowUp.objects.get(pk=ticked[0])
+    assert moved.reassigned_from == caller and moved.history.count() == 2
+    assert Notification.objects.get(user=boss).text.endswith("2 follow-ups")
+
+
+def test_assign_everything_a_filter_matches_across_pages(client, todo, caller, boss):
+    many(todo, caller, 54)  # 55 in all: more than one page
+    client.force_login(boss)
+    client.post(
+        reverse("hiring:bulk"),
+        {"scope": "all", "do": "assign", "owner": boss.pk, "filters": "purpose=call"},
+    )
+    assert FollowUp.objects.filter(owner=boss).count() == 55
+    assert FollowUp.objects.exclude(owner=boss).count() == 0
+
+
+def test_filter_limits_what_all_matching_touches(client, todo, caller, boss):
+    many(todo, caller)
+    client.force_login(boss)
+    client.post(
+        reverse("hiring:bulk"),
+        {"scope": "all", "do": "assign", "owner": boss.pk, "filters": "q=Bulk 1"},
+    )
+    assert list(
+        FollowUp.objects.filter(owner=boss).values_list("person__name", flat=True)
+    ) == ["Bulk 1"]
+
+
+def test_bulk_move_keeps_time_and_first_date(client, todo, caller, boss):
+    due = todo.due
+    client.force_login(boss)
+    client.post(
+        reverse("hiring:bulk"),
+        {
+            "scope": "ticked",
+            "do": "move",
+            "ids": [todo.pk],
+            "day": "2031-05-01",
+            "reason": "holiday",
+        },
+    )
+    todo.refresh_from_db()
+    assert timezone.localtime(todo.due).date().isoformat() == "2031-05-01"
+    assert timezone.localtime(todo.due).time() == timezone.localtime(due).time()
+    assert (todo.original_due, todo.reschedule_count) == (due, 1)
+
+
+def test_bulk_needs_what_the_action_needs_and_a_supervisor(client, todo, caller, boss):
+    client.force_login(boss)
+    base = {"scope": "ticked", "ids": [todo.pk]}
+    client.post(reverse("hiring:bulk"), {**base, "do": "assign"})
+    client.post(
+        reverse("hiring:bulk"),
+        {**base, "do": "move", "day": "2001-01-01", "reason": "holiday"},
+    )
+    assert (
+        FollowUp.objects.get().owner == caller
+        and FollowUp.objects.get().reschedule_count == 0
+    )
+    client.force_login(caller)  # an ordinary caller may not
+    r = client.post(
+        reverse("hiring:bulk"), {**base, "do": "assign", "owner": caller.pk}
+    )
+    assert r.status_code == 403
+    assert b"bulk-form" not in client.get(reverse("hiring:screening")).content
+    client.force_login(boss)
+    assert b"bulk-form" in client.get(reverse("hiring:screening")).content

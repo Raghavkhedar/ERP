@@ -242,6 +242,11 @@ class FollowUp(models.Model):
 
     class Meta:
         ordering = ["due", "id"]
+        indexes = [
+            models.Index(
+                fields=["owner", "status", "due"], name="followup_owner_status_due"
+            )
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=["person", "purpose"],
@@ -437,7 +442,8 @@ class Offer(models.Model):
 
     @property
     def latest(self):
-        return self.rounds.order_by("-id").first()
+        # Reads the prefetched rounds when the list was loaded with them.
+        return max(self.rounds.all(), key=lambda r: r.id, default=None)
 
 
 class OfferRound(models.Model):

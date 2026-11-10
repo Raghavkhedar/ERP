@@ -2,9 +2,21 @@ from datetime import datetime, time, timedelta
 from types import SimpleNamespace
 
 from django.db import transaction
-from django.db.models import Case, Count, Q, When
+from django.db.models import (
+    Case,
+    Count,
+    F,
+    IntegerField,
+    Min,
+    OuterRef,
+    Q,
+    Subquery,
+    When,
+)
+from django.db.models.functions import Coalesce
 from django.urls import reverse
 from django.utils import timezone
+from simple_history.utils import bulk_update_with_history
 
 from notifications.services import notify
 from people.models import Person, phone_key
@@ -316,6 +328,61 @@ def cancel(followup):
         current.save(update_fields=["status", "version"])
 
 
+def bulk_reassign(followups, owner, by):
+    """Give many pending follow-ups to `owner` at once; they get one notice."""
+    with transaction.atomic():
+        rows = list(
+            followups.select_related(None).exclude(owner=owner).select_for_update()
+        )
+        for f in rows:
+            f.reassigned_from_id = f.owner_id
+            f.owner = owner
+            f.version += 1
+        bulk_update_with_history(
+            rows,
+            FollowUp,
+            ["owner", "reassigned_from", "version"],
+            batch_size=1000,
+            default_user=by,
+        )
+        if rows:
+            notify(
+                owner,
+                f"{by.display_name} gave you {len(rows)} follow-ups",
+                reverse("hiring:calling"),
+            )
+    return len(rows)
+
+
+def bulk_move(followups, day, reason):
+    """Move many pending follow-ups to `day`, each keeping its time of day and
+    its first date, and counting the move."""
+    with transaction.atomic():
+        rows = list(followups.select_related(None).select_for_update())
+        for f in rows:
+            at = timezone.localtime(f.due).time()
+            f.original_due = f.original_due or f.due
+            f.snoozed_until = None
+            f.due = timezone.make_aware(datetime.combine(day, at))
+            f.reschedule_reason = reason
+            f.reschedule_count += 1
+            f.version += 1
+        bulk_update_with_history(
+            rows,
+            FollowUp,
+            [
+                "original_due",
+                "snoozed_until",
+                "due",
+                "reschedule_reason",
+                "reschedule_count",
+                "version",
+            ],
+            batch_size=1000,
+        )
+    return len(rows)
+
+
 def reassign(followup, owner, by):
     with transaction.atomic():
         current = _pending(followup)
@@ -392,8 +459,10 @@ def offers_waiting(user, companies):
 
 
 def visible_offers(companies):
-    return Offer.objects.filter(person__company__in=companies).select_related(
-        "person", "requisition"
+    return (
+        Offer.objects.filter(person__company__in=companies)
+        .select_related("person", "requisition")
+        .prefetch_related("rounds")
     )
 
 
@@ -485,18 +554,30 @@ def mark_joined(offer, on):
 def funnel(companies):
     """Requisitions with how many people reached each step. People are counted
     once per step, so a candidate called five times is still one call."""
-    done = lambda path, **kw: Count(path, distinct=True, filter=Q(**kw) if kw else None)  # noqa: E731
+
+    def reached(model, group="requisition", person="person", **kw):
+        # A count of its own per step: joining every step at once multiplies the
+        # rows and takes minutes at ten thousand candidates.
+        rows = (
+            model.objects.filter(**{group: OuterRef("pk")}, **kw)
+            .order_by()
+            .values(group)
+            .annotate(n=Count(person, distinct=True))
+            .values("n")
+        )
+        return Coalesce(Subquery(rows, output_field=IntegerField()), 0)
+
     return (
         Requisition.objects.filter(company__in=companies, archived_at__isnull=True)
         .annotate(
-            sourced_n=done("sourced"),
-            duplicate_n=done("sourced", sourced__is_duplicate=True),
-            called_n=done("followups__calls__person"),
-            interviewed_n=done("interviews__person"),
-            selected_n=done("interviews__person", interviews__result="selected"),
-            offered_n=done("offers__person"),
-            accepted_n=done("offers__person", offers__state="accepted"),
-            joined_n=done("offers__person", offers__joined_on__isnull=False),
+            sourced_n=reached(SourcedNumber, person="pk"),
+            duplicate_n=reached(SourcedNumber, person="pk", is_duplicate=True),
+            called_n=reached(CallLog, group="followup__requisition"),
+            interviewed_n=reached(Interview),
+            selected_n=reached(Interview, result="selected"),
+            offered_n=reached(Offer),
+            accepted_n=reached(Offer, state="accepted"),
+            joined_n=reached(Offer, joined_on__isnull=False),
         )
         .order_by("status", "needed_by", "-created_at")
     )
@@ -700,14 +781,25 @@ def due_call_alarms(user):
     )
 
 
+def quiet_call_alarms(user):
+    """Silence every ringing call and interview alarm of the user's for an hour."""
+    due_call_alarms(user).update(snoozed_until=timezone.now() + timedelta(hours=1))
+
+
 def next_call_alarm_in(user):
     """Seconds until the user's next call alarm, or None."""
     now = timezone.now()
-    times = [
-        f.snoozed_until if f.snoozed_until and f.snoozed_until > now else f.due
-        for f in _alarmed(user).filter(Q(due__gt=now) | Q(snoozed_until__gt=now))
-    ]
-    return max((min(times) - now).total_seconds(), 0) if times else None
+    soonest = (
+        _alarmed(user)
+        .filter(Q(due__gt=now) | Q(snoozed_until__gt=now))
+        .annotate(
+            rings=Case(
+                When(snoozed_until__gt=now, then=F("snoozed_until")), default=F("due")
+            )
+        )
+        .aggregate(at=Min("rings"))["at"]
+    )
+    return max((soonest - now).total_seconds(), 0) if soonest else None
 
 
 def snooze_call(followup, user, length):

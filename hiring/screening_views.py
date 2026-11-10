@@ -1,7 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
-from django.db.models import Case, Exists, F, OuterRef, Q, Subquery, Value, When
+from django.db.models import Case, Count, Exists, F, OuterRef, Q, Subquery, Value, When
 from django.http import JsonResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -10,11 +10,14 @@ from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_GET, require_POST
 
 from core.access import require_section
+from core.pagination import paginate
 from people.services import visible_people
 from tasks.services import can_assign
 
+from .departments import SUB_DEPARTMENTS
 from .export import followups_workbook
 from .forms import (
+    BulkForm,
     CallForm,
     IncomingCallForm,
     ReassignForm,
@@ -25,6 +28,8 @@ from .forms import (
 from .models import CallLog, FollowUp, Interview, Offer, Requisition
 from .services import (
     FollowUpError,
+    bulk_move,
+    bulk_reassign,
     cancel,
     log_call,
     reassign,
@@ -120,30 +125,54 @@ def _sheet(rows, get):
     return rows
 
 
+def _dept_data(base, get):
+    """What the department filters offer: each department with its sub-departments
+    (the fixed list plus any other value typed on a requisition), and what is ticked."""
+    typed = {}
+    for dept, name in base.values_list(
+        "requisition__department", "requisition__sub_department"
+    ).distinct():
+        if name:
+            typed.setdefault(dept, set()).add(name)
+    groups = []
+    for value, label in Requisition.Department.choices:
+        subs = list(SUB_DEPARTMENTS.get(value, []))
+        subs += sorted(typed.get(value, set()) - set(subs))
+        groups.append({"value": value, "label": label, "subs": subs})
+    return {
+        "departments": Requisition.Department.choices,
+        "groups": groups,
+        "deps": get.getlist("department"),
+        "subs": get.getlist("sub"),
+    }
+
+
 def _summary(rows, today):
     """The numbers above the sheet: what is due today, and who holds it."""
-    due = list(rows.filter(due__date__lte=today))
-    mine = [f for f in due if _day(f) == today]
-    by_owner = {}
-    for f in due:
-        row = by_owner.setdefault(
-            f.owner, dict(owner=f.owner, today=0, interview=0, offer=0, overdue=0)
+    today_q = Q(due__date=today)
+    per_owner = (
+        rows.filter(due__date__lte=today)
+        .order_by()
+        .values("owner")
+        .annotate(
+            today=Count("id", filter=today_q),
+            overdue=Count("id", filter=Q(due__date__lt=today)),
+            interview=Count("id", filter=today_q & Q(purpose="interview")),
+            offer=Count("id", filter=today_q & Q(purpose="offer")),
         )
-        if _day(f) < today:
-            row["overdue"] += 1
-        else:
-            row["today"] += 1
-            if f.purpose in ("interview", "offer"):
-                row[f.purpose] += 1
+    )
+    owners = get_user_model().objects.in_bulk([r["owner"] for r in per_owner])
+    by_owner = sorted(
+        ({**r, "owner": owners[r["owner"]]} for r in per_owner),
+        key=lambda r: -(r["today"] + r["overdue"]),
+    )
     return {
-        "today": len(mine),
-        "overdue": len(due) - len(mine),
-        "interview": sum(f.purpose == FollowUp.Purpose.INTERVIEW for f in mine),
-        "offer": sum(f.purpose == FollowUp.Purpose.OFFER for f in mine),
+        "today": sum(r["today"] for r in by_owner),
+        "overdue": sum(r["overdue"] for r in by_owner),
+        "interview": sum(r["interview"] for r in by_owner),
+        "offer": sum(r["offer"] for r in by_owner),
         "people": len(by_owner),
-        "by_owner": sorted(
-            by_owner.values(), key=lambda r: -(r["today"] + r["overdue"])
-        ),
+        "by_owner": by_owner,
     }
 
 
@@ -151,7 +180,8 @@ def _summary(rows, today):
 def screening(request):
     base = visible_followups(request.user, request.companies)
     tags, stages = dict(TAGS), dict(STAGES)
-    rows = list(_sheet(base, request.GET))
+    page = paginate(request, _sheet(base, request.GET))
+    rows = list(page)
     for f in rows:
         f.tag_label = tags.get(f.last_tag or "none")
         f.stage_label = stages[f.stage]
@@ -162,23 +192,22 @@ def screening(request):
         {
             "summary": _summary(base, timezone.localdate()),
             "rows": rows,
+            "page": page,
             "owners": get_user_model().objects.filter(pk__in=base.values("owner")),
             "purposes": FollowUp.Purpose.choices,
             "tags": TAGS,
             "stages": STAGES,
             "get": request.GET,
-            "picked": {
-                k: request.GET.getlist(k)
-                for k in ("purpose", "tag", "stage", "department", "sub")
-            },
-            "departments": Requisition.Department.choices,
-            "subs": sorted(
-                {
-                    s
-                    for s in base.values_list("requisition__sub_department", flat=True)
-                    if s
-                }
-            ),
+            "picked": {k: request.GET.getlist(k) for k in ("purpose", "tag", "stage")},
+            "dept_data": _dept_data(base, request.GET),
+            "can_bulk": _can_reassign(request.user),
+            "page_ids": [str(f.pk) for f in rows],
+            "filters": request.GET.urlencode(),
+            "assignees": ReassignForm(companies=request.companies)
+            .fields["owner"]
+            .queryset,
+            "reasons": FollowUp.Reason.choices,
+            "today": timezone.localdate().isoformat(),
             "filtered": any(request.GET.values()),
             "shift_form": ShiftForm(),
         },
@@ -192,18 +221,57 @@ def _mine(request):
 @calling_section
 def calling(request):
     stages, tags = dict(STAGES), dict(TAGS)
-    rows = list(_sheet(_mine(request), QueryDict()))
+    page = paginate(request, _sheet(_mine(request), QueryDict()))
+    rows = list(page)
     for f in rows:
         f.tag_label = tags.get(f.last_tag or "none")
         f.stage_label = stages[f.stage]
         f.overdue = _day(f) < timezone.localdate()
-    return render(request, "hiring/calling.html", {"rows": rows})
+    return render(request, "hiring/calling.html", {"rows": rows, "page": page})
 
 
 @calling_section
 @require_GET
 def export_calling(request):
     return followups_workbook(_mine(request))
+
+
+@section
+@require_POST
+def bulk(request):
+    """Assign, or move the date of, the ticked follow-ups or all a filter matches."""
+    if not _can_reassign(request.user):
+        raise PermissionDenied
+    filters = QueryDict(request.POST.get("filters", ""))
+    back = reverse("hiring:screening") + (f"?{filters.urlencode()}" if filters else "")
+    form = BulkForm(request.POST, companies=request.companies)
+    if not form.is_valid():
+        messages.error(request, next(iter(form.errors.values()))[0])
+        return redirect(back)
+    d = form.cleaned_data
+    seen = visible_followups(request.user, request.companies)
+    if d["scope"] == "all":
+        seen = _sheet(seen, filters)
+    else:
+        ids = [int(i) for i in request.POST.getlist("ids") if i.isdigit()]
+        seen = seen.filter(pk__in=ids)
+    pks = list(seen.order_by().values_list("pk", flat=True))
+    if not pks:
+        messages.error(request, "Nothing is selected.")
+        return redirect(back)
+    rows = FollowUp.objects.filter(pk__in=pks, status=FollowUp.Status.PENDING)
+    if d["do"] == "assign":
+        n = bulk_reassign(rows, d["owner"], request.user)
+        messages.success(
+            request,
+            f"Gave {n} follow-up{'s' if n != 1 else ''} to {d['owner'].display_name}.",
+        )
+    else:
+        n = bulk_move(rows, d["day"], d["reason"])
+        messages.success(
+            request, f"Moved {n} follow-up{'s' if n != 1 else ''} to {d['day']:%-d %b}."
+        )
+    return redirect(back)
 
 
 @section

@@ -3,6 +3,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
 from core.access import require_section
+from core.pagination import paginate
 
 from .export import offers_workbook, onboarding_workbook
 from .forms import AcceptForm, DeclineForm, JoinedForm, RoundForm, StartOfferForm
@@ -29,8 +30,12 @@ def hiring(request):
         request,
         "hiring/offers.html",
         {
-            "waiting": offers_waiting(request.user, request.companies),
-            "open": offers.filter(state="offered"),
+            "waiting": paginate(
+                request,
+                offers_waiting(request.user, request.companies),
+                param="wpage",
+            ),
+            "open": paginate(request, offers.filter(state="offered"), param="opage"),
             "closed": offers.exclude(state="offered")[:100],
         },
     )

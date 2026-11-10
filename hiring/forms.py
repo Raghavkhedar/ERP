@@ -295,6 +295,30 @@ class ReassignForm(forms.Form):
         )
 
 
+class BulkForm(ReassignForm):
+    """Assign or move many follow-ups: the ticked ones, or all a filter matches."""
+
+    scope = forms.ChoiceField(choices=[("ticked", "Ticked"), ("all", "All matching")])
+    do = forms.ChoiceField(choices=[("assign", "Assign"), ("move", "Move")])
+    day = forms.DateField(required=False)
+    reason = forms.ChoiceField(choices=FollowUp.Reason.choices, required=False)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["owner"].required = False
+
+    def clean(self):
+        data = super().clean()
+        if data.get("do") == "assign" and not data.get("owner"):
+            self.add_error("owner", "Pick who to give them to.")
+        if data.get("do") == "move":
+            if not data.get("day") or data["day"] < timezone.localdate():
+                self.add_error("day", "Pick a day that is not before today.")
+            if not data.get("reason"):
+                self.add_error("reason", "Pick a reason for the move.")
+        return data
+
+
 class InterviewForm(forms.Form):
     result = forms.ChoiceField(
         choices=Interview.Result.choices, widget=forms.RadioSelect

@@ -1,8 +1,12 @@
 {% load static %}
 {# Task alarms on every page: static/js/alarms.js polls tasks:alarms and rings what's due. #}
 <script src="{% static 'js/alarms.js' %}"></script>
-<div id="alarms" data-url="{% url 'tasks:alarms' %}" x-data
+<div id="alarms" data-url="{% url 'tasks:alarms' %}" data-dismiss-all="{% url 'tasks:alarms_dismiss_all' %}" x-data
      class="pointer-events-none fixed inset-x-0 top-0 z-50 mx-auto flex w-[34rem] max-w-full flex-col gap-2" role="alert">
+  <div x-show="$store.alarms.total > 1" x-cloak class="pointer-events-auto flex items-center justify-between gap-3 rounded-b-2xl border border-t-0 border-ink bg-ink px-4 py-2 text-sm text-white">
+    <span><span x-text="$store.alarms.total"></span> alarms ringing</span>
+    <button type="button" @click="$store.alarms.dismissAll()" class="h-8 rounded-lg bg-pop px-3 font-medium text-ink">Dismiss all</button>
+  </div>
   <template x-for="alarm in $store.alarms.ringing" :key="alarm.id">
     <div x-transition:enter="transition duration-300 ease-out" x-transition:enter-start="-translate-y-full opacity-0" x-transition:enter-end="translate-y-0 opacity-100"
          x-transition:leave="transition duration-150 ease-in" x-transition:leave-start="translate-y-0 opacity-100" x-transition:leave-end="-translate-y-full opacity-0"
