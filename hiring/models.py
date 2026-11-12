@@ -307,6 +307,9 @@ class CallLog(models.Model):
     reschedule_reason = models.TextField(blank=True)
     department_changed = models.BooleanField(default=False)
     discussed = models.BooleanField(default=False)
+    # Answers of the whereabout forms (see whereabouts.py); empty when not filled.
+    mini_whereabout = models.JSONField(default=dict, blank=True)
+    major_whereabout = models.JSONField(default=dict, blank=True)
     # Bulk shifts and on-demand moves migrated from Zoho aren't real calls.
     not_a_call = models.BooleanField(default=False)
 

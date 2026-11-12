@@ -390,3 +390,41 @@ def test_bulk_needs_what_the_action_needs_and_a_supervisor(client, todo, caller,
     assert b"bulk-form" not in client.get(reverse("hiring:screening")).content
     client.force_login(boss)
     assert b"bulk-form" in client.get(reverse("hiring:screening")).content
+
+
+def test_whereabouts_are_saved_with_the_call_and_sent_to_the_supervisor(
+    client, todo, caller, django_user_model
+):
+    boss = django_user_model.objects.create_user(username="BOSS2", password="pw")
+    form = {
+        "mini_on": "on",
+        "mini-current_company": "Acme",
+        "mini-total_experience_months": "18",
+        "major_on": "on",
+        "major-department": "hhe",
+        "major-designation": "Fitter",
+        "hhe-multimeter": "Yes",
+        "bo-graduation": "No",  # another department's block is ignored
+    }
+    post_call(client, todo, **form)
+    assert not CallLog.objects.exists()  # no supervisor yet
+    caller.supervisor = boss
+    caller.save()
+    post_call(client, todo, **form)
+    call = CallLog.objects.get()
+    assert call.mini_whereabout == {
+        "current_company": "Acme",
+        "total_experience_months": 18,
+    }
+    assert call.major_whereabout == {
+        "department": "hhe",
+        "designation": "Fitter",
+        "multimeter": "Yes",
+    }
+    assert Notification.objects.filter(user=boss).exists()
+
+
+def test_a_major_whereabout_needs_its_department(client, todo):
+    r = post_call(client, todo, major_on="on")
+    assert r.status_code == 200 and not CallLog.objects.exists()
+    assert "Pick the department." in r.content.decode()

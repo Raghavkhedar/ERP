@@ -22,6 +22,7 @@ from notifications.services import notify
 from people.models import Person, phone_key
 from tasks.services import can_assign
 
+from . import whereabouts
 from .models import (
     CallLog,
     FollowUp,
@@ -254,14 +255,18 @@ def log_call(
     reschedule_reason="",
     department_changed=False,
     discuss=False,
+    mini_whereabout=None,
+    major_whereabout=None,
     person=None,
 ):
     """Record a call: complete the follow-up and open the next one for `intention`.
     With no follow-up (a call that came in) it is logged for `person` alone.
-    A department change or a discuss request sends the card to the caller's
-    supervisor."""
-    boss = user.supervisor if (discuss or department_changed) else None
-    if (discuss or department_changed) and not boss:
+    A department change, a discuss request or a whereabout form sends the card
+    to the caller's supervisor."""
+    mini_whereabout, major_whereabout = mini_whereabout or {}, major_whereabout or {}
+    send = discuss or department_changed or mini_whereabout or major_whereabout
+    boss = user.supervisor if send else None
+    if send and not boss:
         raise FollowUpError("You have no supervisor set to send this to.")
     with transaction.atomic():
         current = _pending(followup) if followup else None
@@ -277,6 +282,8 @@ def log_call(
             reschedule_reason=reschedule_reason,
             department_changed=department_changed,
             discussed=discuss,
+            mini_whereabout=mini_whereabout,
+            major_whereabout=major_whereabout,
         )
         if current:
             current.status = FollowUp.Status.COMPLETED
@@ -298,7 +305,13 @@ def log_call(
             )
             _open(after, intention, next_due, intention_other)
         if boss:
-            why = "a department change" if department_changed else "a discussion"
+            why = (
+                "a department change"
+                if department_changed
+                else "a discussion"
+                if discuss
+                else "a look at a whereabout form"
+            )
             notify(
                 boss,
                 f"{user.display_name} needs {why} with you: {person.name}",
@@ -654,9 +667,15 @@ def timeline(person, with_hr=False):
 
     for c in person.calls.select_related("caller"):
         text = f"Call: {c.get_outcome_display()}"
-        events.append(
-            (c.called_at, c.caller, f"{text}. {c.notes}" if c.notes else text)
-        )
+        if c.notes:
+            text += f". {c.notes}"
+        for name, answers in (
+            ("Mini whereabout", c.mini_whereabout),
+            ("Major whereabout", c.major_whereabout),
+        ):
+            if answers:
+                text += f" {name}: {whereabouts.summary(answers)}."
+        events.append((c.called_at, c.caller, text))
 
     for i in person.interviews.select_related("interviewer"):
         text = f"Interview: {i.get_result_display().lower()}"

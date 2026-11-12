@@ -348,6 +348,8 @@ def _call_args(d):
         reschedule_reason=d["reschedule_reason"].strip(),
         department_changed=d["department_changed"],
         discuss=d["discuss"],
+        mini_whereabout=d["mini_whereabout"],
+        major_whereabout=d["major_whereabout"],
     )
 
 

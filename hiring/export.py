@@ -1,5 +1,6 @@
 from core.export import stamp, workbook_response
 
+from . import whereabouts
 from .models import CallLog, OfferRound, RequisitionPost
 from .services import by_source
 
@@ -170,6 +171,8 @@ def followups_workbook(followups):
                     "Reschedule reason",
                     "Department change",
                     "Discuss with manager",
+                    "Mini whereabout",
+                    "Major whereabout",
                 ),
                 [
                     (
@@ -183,6 +186,8 @@ def followups_workbook(followups):
                         c.reschedule_reason,
                         c.department_changed,
                         c.discussed,
+                        whereabouts.summary(c.mini_whereabout),
+                        whereabouts.summary(c.major_whereabout),
                     )
                     for c in CallLog.objects.filter(person_id__in=people)
                     .exclude(not_a_call=True)

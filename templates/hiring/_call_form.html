@@ -1,5 +1,5 @@
   <form id="call-form" method="post" action="{{ action }}"
-        x-data="{ moved: {{ call_form.rescheduled.value|yesno:'true,false' }}, other: '{{ call_form.intention.value|default:'' }}' === 'other' }"
+        x-data="{ mini: {{ call_form.mini_on.value|yesno:'true,false' }}, major: {{ call_form.major_on.value|yesno:'true,false' }}, dept: '{{ call_form.major.department.value|default:'' }}', moved: {{ call_form.rescheduled.value|yesno:'true,false' }}, other: '{{ call_form.intention.value|default:'' }}' === 'other' }"
         class="fields mt-4 grid gap-x-10 gap-y-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] [&_input[type=date]]:w-full [&_input[type=text]]:w-full [&_select]:w-full [&_textarea]:w-full">
     {% csrf_token %}
     {% for error in call_form.non_field_errors %}<p role="alert" class="text-sm text-red-600 lg:col-span-2">{{ error }}</p>{% endfor %}
@@ -33,10 +33,28 @@
       <div class="flex flex-wrap gap-1 text-sm">
         <label class="cursor-pointer rounded-lg border border-ink px-2.5 py-0.5 text-sm has-[:checked]:bg-pop has-[:checked]:shadow-md has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-blue-600"><input type="checkbox" name="discuss" class="sr-only" {% if call_form.discuss.value %}checked{% endif %}> Discuss with manager</label>
         <label class="cursor-pointer rounded-lg border border-ink px-2.5 py-0.5 text-sm has-[:checked]:bg-pop has-[:checked]:shadow-md has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-blue-600"><input type="checkbox" name="department_changed" class="sr-only" {% if call_form.department_changed.value %}checked{% endif %}> Department change</label>
-        <button type="button" disabled title="Form coming soon" class="cursor-not-allowed rounded-lg border border-ink px-2.5 py-0.5 opacity-50">Mini whereabout</button>
-        <button type="button" disabled title="Form coming soon" class="cursor-not-allowed rounded-lg border border-ink px-2.5 py-0.5 opacity-50">Major whereabout</button>
+        <label class="cursor-pointer rounded-lg border border-ink px-2.5 py-0.5 text-sm has-[:checked]:bg-pop has-[:checked]:shadow-md has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-blue-600"><input type="checkbox" name="mini_on" x-model="mini" class="sr-only"> Mini whereabout</label>
+        <label class="cursor-pointer rounded-lg border border-ink px-2.5 py-0.5 text-sm has-[:checked]:bg-pop has-[:checked]:shadow-md has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-blue-600"><input type="checkbox" name="major_on" x-model="major" class="sr-only"> Major whereabout</label>
       </div>
       <p class="text-xs text-gray-500">Both manager buttons send this card to your supervisor on save.</p>
       <button type="submit" class="h-11 w-full rounded-lg bg-blue-600 px-6 font-medium">Save call</button>
     </div>
+
+    <section x-show="mini" x-cloak class="min-w-0 rounded-xl border border-ink p-4 shadow-md lg:col-span-2">
+      <h2 class="title text-lg">Mini whereabout</h2>
+      {% include "hiring/_whereabout_fields.html" with form=call_form.mini %}
+    </section>
+
+    <section x-show="major" x-cloak class="min-w-0 rounded-xl border border-ink p-4 shadow-md lg:col-span-2">
+      <h2 class="title text-lg">Major whereabout</h2>
+      <div class="mt-2 grid gap-3 sm:grid-cols-[minmax(0,16rem)_minmax(0,1fr)]">
+        <div @change="dept = $event.target.value">{% include "tasks/_field.html" with field=call_form.major.department %}</div>
+      </div>
+      {% include "hiring/_whereabout_fields.html" with form=call_form.major skip="department" %}
+      {% for key, group in call_form.groups.items %}
+        <div x-show="dept === '{{ key }}'" x-cloak class="mt-4 border-t border-gray-100 pt-3">
+          {% include "hiring/_whereabout_fields.html" with form=group %}
+        </div>
+      {% endfor %}
+    </section>
   </form>
