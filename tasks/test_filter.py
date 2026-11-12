@@ -97,3 +97,21 @@ def test_status_filter_narrows_the_task_list(client, boss, alice, next_week):
     assert titles(client.get(LIST_URL, {"status": "open"})) == ["Fresh job"]
     assert titles(client.get(LIST_URL, {"status": "ongoing"})) == ["Finished job"]
     assert len(titles(client.get(LIST_URL))) == 2
+
+
+def test_closed_status_opens_the_closed_section(client, boss, alice, next_week):
+    from django.utils import timezone
+
+    from .models import Status
+
+    task = assign(boss, alice, 1, "Old job", next_week)
+    task.status = Status.CLOSED
+    task.closed_at = timezone.now()
+    task.save()
+    client.force_login(boss)
+
+    html = client.get(LIST_URL, {"status": "closed"}).content.decode()
+
+    assert "Closed tasks are listed below." in html
+    assert '<details class="group mt-10" open>' in html
+    assert "Old job" in html
