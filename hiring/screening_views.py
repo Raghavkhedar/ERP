@@ -268,8 +268,9 @@ def bulk(request):
         )
     else:
         n = bulk_move(rows, d["day"], d["reason"])
+        day = f"{d['day'].day} {d['day']:%b}"
         messages.success(
-            request, f"Moved {n} follow-up{'s' if n != 1 else ''} to {d['day']:%-d %b}."
+            request, f"Moved {n} follow-up{'s' if n != 1 else ''} to {day}."
         )
     return redirect(back)
 
