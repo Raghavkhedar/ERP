@@ -2,14 +2,15 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.http import Http404
+from django.http import Http404, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_GET, require_POST
 
-from core.access import ALL, MODULES, SESSION_KEY, can_grant, user_companies
+from core import matrix
+from core.access import ALL, SESSION_KEY, user_companies
 from core.access_export import access_workbook
-from core.models import AccessGrant, Company, Membership, User
+from core.models import Company, Membership, User
 
 
 def _office_admin(user):
@@ -63,39 +64,15 @@ def person(request, pk):
     if request.method == "POST":
         if subject.pk == actor.pk and not actor.is_superuser:
             raise PermissionDenied  # nobody widens their own access
+        if request.POST.get("action") != "companies":
+            # Tabs are handed out on the access matrix, not here.
+            return HttpResponseBadRequest("Nothing to save")
         with transaction.atomic():
-            if request.POST.get("action") == "companies":
-                _save_memberships(request, subject)
-            else:
-                _save_grants(request, subject)
+            _save_memberships(request, subject)
         messages.success(request, "Saved")
         return redirect("access_person", pk=subject.pk)
 
     memberships = list(subject.memberships.select_related("company"))
-    held = set(subject.access_grants.values_list("module", "section", "company__slug"))
-    modules = [
-        {
-            "key": key,
-            "label": module.label,
-            "editable": can_grant(actor, key),
-            "sections": [
-                {
-                    "key": section,
-                    "label": label,
-                    "cells": [
-                        {
-                            "company": m.company,
-                            "value": f"{key}:{section}:{m.company.slug}",
-                            "on": (key, section, m.company.slug) in held,
-                        }
-                        for m in memberships
-                    ],
-                }
-                for section, label in module.sections.items()
-            ],
-        }
-        for key, module in MODULES.items()
-    ]
     by_company = {m.company_id: m for m in memberships}
     return render(
         request,
@@ -106,8 +83,7 @@ def person(request, pk):
                 {"company": c, "membership": by_company.get(c.pk)}
                 for c in Company.objects.all()
             ],
-            "memberships": memberships,
-            "modules": modules,
+            "can_matrix": matrix.managed_companies(actor).exists(),
         },
     )
 
@@ -115,11 +91,12 @@ def person(request, pk):
 def _save_memberships(request, subject):
     chosen = set(request.POST.getlist("company"))
     companies = list(Company.objects.filter(slug__in=chosen))
-    subject.memberships.exclude(company__in=companies).delete()
-    # Grants the actor may not give, they may not take away either.
-    for grant in subject.access_grants.exclude(company__in=companies):
-        if can_grant(request.user, grant.module):
-            grant.delete()
+    # Leaving a company takes every tab and manager role there with it, on record.
+    for gone in subject.memberships.exclude(company__in=companies).select_related(
+        "company"
+    ):
+        matrix.drop_company_grants(request.user, subject, gone.company)
+        gone.delete()
     for company in companies:
         Membership.objects.update_or_create(
             user=subject,
@@ -138,39 +115,3 @@ def _save_memberships(request, subject):
         pay_company = companies[0]
     if pay_company:
         subject.memberships.filter(company=pay_company).update(pays_salary=True)
-
-
-def _save_grants(request, subject):
-    actor = request.user
-    wanted = set()
-    for value in request.POST.getlist("grant"):
-        try:
-            module, section, slug = value.split(":")
-        except ValueError:
-            continue
-        if module in MODULES and section in MODULES[module].sections:
-            wanted.add((module, section, slug))
-    members = {
-        m.company.slug: m.company for m in subject.memberships.select_related("company")
-    }
-    for module in MODULES:
-        if not can_grant(actor, module):
-            continue
-        existing = {
-            (g.section, g.company.slug): g
-            for g in subject.access_grants.filter(module=module).select_related(
-                "company"
-            )
-        }
-        target = {(s, slug) for m, s, slug in wanted if m == module and slug in members}
-        for key, grant in existing.items():
-            if key not in target:
-                grant.delete()
-        for section, slug in target - existing.keys():
-            AccessGrant.objects.create(
-                user=subject,
-                company=members[slug],
-                module=module,
-                section=section,
-                granted_by=actor,
-            )

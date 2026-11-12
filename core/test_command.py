@@ -3,6 +3,7 @@ from datetime import date
 import pytest
 from django.urls import reverse
 
+from core.access import MODULES
 from core.models import AccessGrant, Company
 from people.models import Person
 from tasks.models import Task
@@ -35,9 +36,11 @@ def test_plain_user_sees_only_the_everyday_pages(client, django_user_model):
 def test_recruiter_finds_pages_candidates_and_tasks(client, django_user_model, senken):
     user = django_user_model.objects.create_user("rec", password="x")
     senken.memberships.create(user=user)
-    AccessGrant.objects.create(
-        user=user, company=senken, module="recruitment", section="candidates"
-    )
+    for tab in MODULES["recruitment"].sections:
+        if tab != "openings":  # the test below needs a recruiter without Openings
+            AccessGrant.objects.create(
+                user=user, company=senken, module="recruitment", section=tab
+            )
     Person.objects.create(company=senken, name="Ravi Kumar", phone="+91 98765 43210")
     Task.objects.create(
         description="Call Ravi's referee",

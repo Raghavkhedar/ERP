@@ -33,36 +33,9 @@
     <button type="submit" class="mt-5 inline-flex h-10 items-center rounded-lg bg-blue-600 px-4 text-sm font-medium text-white transition duration-150 hover:bg-blue-700 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30">Save companies</button>
   </form>
 
-  <form method="post" class="mt-6 rounded-2xl border border-ink bg-surface p-5 sm:p-8">
-    {% csrf_token %}
-    <input type="hidden" name="action" value="access">
+  <section class="mt-6 rounded-2xl border border-ink bg-surface p-5 sm:p-8">
     <h2 class="font-semibold">Module access</h2>
-    {% if not memberships %}
-      <p class="mt-2 text-sm text-gray-500">Add a company first.</p>
-    {% else %}
-      <p class="mt-1 text-sm text-gray-500">A section stays hidden until it is ticked for a company.</p>
-      {% for module in modules %}
-        <div class="mt-6">
-          <h3 class="text-sm font-medium">{{ module.label }}{% if not module.editable %} <span class="font-normal text-gray-400">· only a superadmin can change this</span>{% endif %}</h3>
-          <table class="mt-2 w-full text-sm">
-            <thead><tr class="text-left text-gray-500">
-              <th class="py-1.5 font-normal"></th>
-              {% for m in memberships %}<th class="w-24 py-1.5 text-center font-normal">{{ m.company.name }}</th>{% endfor %}
-            </tr></thead>
-            <tbody class="divide-y divide-gray-100">
-              {% for section in module.sections %}
-                <tr>
-                  <td class="py-2.5">{{ section.label }}</td>
-                  {% for cell in section.cells %}
-                    <td class="text-center"><input type="checkbox" name="grant" value="{{ cell.value }}" aria-label="{{ section.label }} at {{ cell.company.name }}" {% if cell.on %}checked{% endif %} {% if not module.editable %}disabled{% endif %} class="size-4 rounded border-ink accent-blue-600"></td>
-                  {% endfor %}
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      {% endfor %}
-      <button type="submit" class="mt-6 inline-flex h-10 items-center rounded-lg bg-blue-600 px-4 text-sm font-medium text-white transition duration-150 hover:bg-blue-700 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/30">Save access</button>
-    {% endif %}
-  </form>
+    <p class="mt-1 text-sm text-gray-500">Tabs are given on the access matrix.{% if not can_matrix %} Ask the superadmin or a matrix manager.{% endif %}</p>
+    {% if can_matrix %}<a href="{% url 'access_matrix' %}" class="mt-4 inline-flex h-10 items-center rounded-lg bg-blue-600 px-4 text-sm font-medium">Open the access matrix</a>{% endif %}
+  </section>
 {% endblock %}

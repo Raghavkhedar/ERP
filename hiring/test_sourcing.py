@@ -23,7 +23,7 @@ def senken():
 def caller(client, django_user_model, senken):
     user = django_user_model.objects.create_user(username="S9", password="pw")
     senken.memberships.create(user=user)
-    for name in ("candidates", "openings"):
+    for name in ("sourcing", "people", "openings"):
         AccessGrant.objects.create(
             user=user, company=senken, module="recruitment", section=name
         )
@@ -129,3 +129,45 @@ def test_other_company_is_hidden(client, req, caller):
     )
     source_number(foreign, "Hidden", "9876543210", caller)
     assert b"Hidden" not in client.get(reverse("hiring:sourcing")).content
+
+
+def test_source_is_a_listed_portal_or_other_with_a_name(client, req):
+    url = reverse("hiring:source_new")
+    row = {"requisition": req.pk, "name": "A", "phone": "9876543210"}
+    assert client.post(url, row | {"source": "Facebook"}).status_code == 200
+    assert client.post(url, row | {"source": "other"}).status_code == 200  # no name
+    assert not SourcedNumber.objects.exists()
+    r = client.post(url, row | {"source": "other", "source_other": "Walk-in"})
+    assert r.status_code == 302
+    assert SourcedNumber.objects.get().source == "Walk-in"
+
+
+def test_save_and_add_another_keeps_requisition_and_source(client, req):
+    url = reverse("hiring:source_new")
+    row = {
+        "requisition": req.pk,
+        "name": "A",
+        "phone": "9876543210",
+        "source": "Naukri",
+    }
+    r = client.post(url, row | {"again": "1"})
+    assert r.status_code == 302 and f"requisition={req.pk}" in r["Location"]
+    page = client.get(r["Location"]).content.decode()
+    assert '<option value="Naukri" selected>' in page
+
+
+def test_address_is_kept_on_a_new_card_only(client, req):
+    url = reverse("hiring:source_new")
+    row = {"requisition": req.pk, "name": "A", "phone": "9876543210"}
+    client.post(url, row | {"address": "12 MG Road, Pune"})
+    client.post(url, row | {"address": "somewhere else"})
+    assert Person.objects.get().address == "12 MG Road, Pune"
+
+
+def test_gender_is_kept_on_a_new_card(client, req):
+    row = {"requisition": req.pk, "name": "A", "phone": "9876543210", "gender": "F"}
+    client.post(reverse("hiring:source_new"), row)
+    person = Person.objects.get()
+    assert person.gender == "F"
+    page = client.get(reverse("people:detail", args=[person.pk])).content.decode()
+    assert "Female" in page

@@ -28,6 +28,7 @@ from .services import (
     can_set_alarm,
     can_update,
     dismiss_alarm,
+    dismiss_all_alarms,
     due_alarms,
     manages,
     next_alarm_in,
@@ -326,6 +327,16 @@ def task_alarm(request, pk):
     return redirect("tasks:detail", pk=task.pk)
 
 
+SHOWN_ALARMS = 5
+
+
+@login_required
+@require_POST
+def dismiss_all(request):
+    dismiss_all_alarms(request.user)
+    return JsonResponse({"ok": True})
+
+
 @login_required
 @require_GET
 def alarms(request):
@@ -335,6 +346,12 @@ def alarms(request):
     from hiring.services import due_call_alarms, next_call_alarm_in
 
     user = request.user
+    tasks = list(due_alarms(user))
+    calls = due_call_alarms(user)
+    # Show a handful; the rest ring as these are dealt with. "Dismiss all" clears them.
+    shown = max(SHOWN_ALARMS - len(tasks), 0)
+    total = len(tasks) + calls.count()
+    tasks = tasks[:SHOWN_ALARMS]
     rings = [
         {
             "id": task.pk,
@@ -343,7 +360,7 @@ def alarms(request):
             "action": reverse("tasks:alarm", args=[task.pk]),
             "repeats": bool(task.remind_every),
         }
-        for task in due_alarms(user)
+        for task in tasks
     ] + [
         {
             "id": f"call-{f.pk}",
@@ -353,12 +370,13 @@ def alarms(request):
             "action": reverse("hiring:followup_snooze", args=[f.pk]),
             "repeats": True,
         }
-        for f in due_call_alarms(user)
+        for f in calls[:shown]
     ]
     waits = [next_alarm_in(user), next_call_alarm_in(user)]
     return JsonResponse(
         {
             "alarms": rings,
+            "total": total,
             "next_in": min((w for w in waits if w is not None), default=None),
         }
     )

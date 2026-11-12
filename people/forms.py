@@ -7,6 +7,7 @@ FIELDS = [
     "name",
     "phone",
     "email",
+    "gender",
     "address",
     "current_employer",
     "current_salary",

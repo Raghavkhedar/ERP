@@ -1,9 +1,22 @@
 from datetime import datetime, time, timedelta
+from types import SimpleNamespace
 
 from django.db import transaction
-from django.db.models import Case, Count, Q, When
+from django.db.models import (
+    Case,
+    Count,
+    F,
+    IntegerField,
+    Min,
+    OuterRef,
+    Q,
+    Subquery,
+    When,
+)
+from django.db.models.functions import Coalesce
 from django.urls import reverse
 from django.utils import timezone
+from simple_history.utils import bulk_update_with_history
 
 from notifications.services import notify
 from people.models import Person, phone_key
@@ -62,7 +75,80 @@ def close(requisition):
     requisition.save(update_fields=["status", "version"])
 
 
-def source_number(requisition, name, phone, user, source="", email=""):
+def reopen(requisition):
+    requisition.status = Requisition.Status.OPEN
+    requisition.version += 1
+    requisition.save(update_fields=["status", "version"])
+
+
+def requisition_timeline(r):
+    """Everything that has happened around a requisition, newest first, as
+    (when, who, text). Built from the records and their history, not stored."""
+    events = [(r.created_at, r.opened_by, "Requisition released")]
+
+    for rec in r.history.filter(history_type="~"):
+        prev = rec.prev_record
+        if not prev:
+            continue
+        fields = []
+        for c in rec.diff_against(prev).changes:
+            if c.field == "version":
+                continue
+            if c.field == "status":
+                text = "Closed" if rec.status == "closed" else "Reopened"
+                events.append((rec.history_date, rec.history_user, text))
+            elif c.field == "urgency":
+                text = f"Urgency changed to {rec.get_urgency_display().lower()}"
+                events.append((rec.history_date, rec.history_user, text))
+            else:
+                fields.append(c.field.replace("_", " "))
+        if fields:
+            events.append(
+                (rec.history_date, rec.history_user, "Edited " + ", ".join(fields))
+            )
+
+    for p in r.posts.select_related("author"):
+        if p.is_job_post:
+            events.append((p.created_at, p.author, f"Job post added on {p.portal}"))
+            for rec in p.history.filter(history_type="~"):
+                prev = rec.prev_record
+                if prev and rec.post_status != prev.post_status:
+                    status = rec.get_post_status_display().lower()
+                    text = f"Job post on {rec.portal}: {status}"
+                    events.append((rec.history_date, rec.history_user, text))
+                elif prev:
+                    events.append(
+                        (
+                            rec.history_date,
+                            rec.history_user,
+                            f"Job post on {rec.portal} edited",
+                        )
+                    )
+        else:
+            note = p.body if len(p.body) <= 80 else p.body[:77] + "..."
+            events.append((p.created_at, p.author, f"Comment: {note}"))
+
+    # One line per day, so a big sourcing day is one event, not a hundred.
+    days = {}
+    for s in r.sourced.select_related("sourced_by"):
+        day = timezone.localtime(s.created_at).date()
+        days.setdefault(day, []).append(s)
+    for rows in days.values():
+        n = len(rows)
+        events.append(
+            (
+                rows[0].created_at,
+                None,
+                f"{n} number{'s' if n != 1 else ''} received",
+            )
+        )
+
+    return sorted(events, key=lambda e: e[0], reverse=True)
+
+
+def source_number(
+    requisition, name, phone, user, source="", email="", address="", gender=""
+):
     """Log a number received for a requisition. A new number makes a card; a
     number already on a card (last 10 digits, same company) links to it instead."""
     if len(phone_key(phone)) < 10:
@@ -78,7 +164,12 @@ def source_number(requisition, name, phone, user, source="", email=""):
         duplicate = person is not None
         if not duplicate:
             person = Person.objects.create(
-                company=requisition.company, name=name, phone=phone, email=email
+                company=requisition.company,
+                name=name,
+                phone=phone,
+                email=email,
+                address=address,
+                gender=gender,
             )
         if not duplicate:
             # A new card goes straight into the sourcer's call queue.
@@ -135,49 +226,84 @@ def _pending(followup):
     return current
 
 
-def _open(after, purpose, due):
+def _open(after, purpose, due, other=""):
     """The next follow-up for the same person, unless one is already pending."""
     FollowUp.objects.get_or_create(
         person=after.person,
         purpose=purpose,
         status=FollowUp.Status.PENDING,
-        defaults=dict(requisition=after.requisition, due=due, owner=after.owner),
+        defaults=dict(
+            requisition=after.requisition,
+            due=due,
+            owner=after.owner,
+            purpose_other=other,
+        ),
     )
 
 
-# Outcomes that need a next date, and the follow-up they open.
-NEXT = {
-    CallLog.Outcome.INTERESTED: FollowUp.Purpose.CALL,
-    CallLog.Outcome.CALL_BACK: FollowUp.Purpose.CALL,
-    CallLog.Outcome.NO_ANSWER: FollowUp.Purpose.CALL,
-    CallLog.Outcome.INTERVIEW: FollowUp.Purpose.INTERVIEW,
-}
-
-
-def log_call(followup, outcome, user, notes="", next_due=None):
-    """Record a call: complete the follow-up, then open the next one if the
-    outcome calls for it (a date is required then)."""
-    purpose = NEXT.get(outcome)
-    if purpose and not next_due:
-        raise FollowUpError("Pick when to follow up next.")
+def log_call(
+    followup,
+    outcome,
+    user,
+    notes="",
+    next_due=None,
+    intention=FollowUp.Purpose.CALL,
+    intention_other="",
+    call_type=CallLog.Kind.OUTBOUND,
+    rescheduled=False,
+    reschedule_reason="",
+    department_changed=False,
+    discuss=False,
+    person=None,
+):
+    """Record a call: complete the follow-up and open the next one for `intention`.
+    With no follow-up (a call that came in) it is logged for `person` alone.
+    A department change or a discuss request sends the card to the caller's
+    supervisor."""
+    boss = user.supervisor if (discuss or department_changed) else None
+    if (discuss or department_changed) and not boss:
+        raise FollowUpError("You have no supervisor set to send this to.")
     with transaction.atomic():
-        current = _pending(followup)
+        current = _pending(followup) if followup else None
+        person = current.person if current else person
         call = CallLog.objects.create(
-            person=current.person,
+            person=person,
             followup=current,
             caller=user,
             outcome=outcome,
             notes=notes,
+            call_type=call_type,
+            rescheduled=rescheduled,
+            reschedule_reason=reschedule_reason,
+            department_changed=department_changed,
+            discussed=discuss,
         )
-        current.status = FollowUp.Status.COMPLETED
-        current.version += 1
-        current.save(update_fields=["status", "version"])
-        if purpose:
-            _open(current, purpose, next_due)
-        if outcome == CallLog.Outcome.DO_NOT_CALL:
-            current.person.contact_status = current.person.ContactStatus.DO_NOT_CALL
-            current.person.version += 1
-            current.person.save(update_fields=["contact_status", "version"])
+        if current:
+            current.status = FollowUp.Status.COMPLETED
+            current.version += 1
+            current.save(update_fields=["status", "version"])
+        if next_due:
+            # shortcut: an incoming call's next follow-up is filed under the
+            # candidate's latest requisition, and an already-pending follow-up
+            # of the same kind is kept as it is.
+            sourced = (
+                person.sourced.select_related("requisition")
+                .order_by("-created_at")
+                .first()
+            )
+            after = current or SimpleNamespace(
+                person=person,
+                requisition=sourced.requisition if sourced else None,
+                owner=user,
+            )
+            _open(after, intention, next_due, intention_other)
+        if boss:
+            why = "a department change" if department_changed else "a discussion"
+            notify(
+                boss,
+                f"{user.display_name} needs {why} with you: {person.name}",
+                reverse("people:detail", args=[person.pk]),
+            )
         return call
 
 
@@ -200,6 +326,61 @@ def cancel(followup):
         current.status = FollowUp.Status.CANCELLED
         current.version += 1
         current.save(update_fields=["status", "version"])
+
+
+def bulk_reassign(followups, owner, by):
+    """Give many pending follow-ups to `owner` at once; they get one notice."""
+    with transaction.atomic():
+        rows = list(
+            followups.select_related(None).exclude(owner=owner).select_for_update()
+        )
+        for f in rows:
+            f.reassigned_from_id = f.owner_id
+            f.owner = owner
+            f.version += 1
+        bulk_update_with_history(
+            rows,
+            FollowUp,
+            ["owner", "reassigned_from", "version"],
+            batch_size=1000,
+            default_user=by,
+        )
+        if rows:
+            notify(
+                owner,
+                f"{by.display_name} gave you {len(rows)} follow-ups",
+                reverse("hiring:calling"),
+            )
+    return len(rows)
+
+
+def bulk_move(followups, day, reason):
+    """Move many pending follow-ups to `day`, each keeping its time of day and
+    its first date, and counting the move."""
+    with transaction.atomic():
+        rows = list(followups.select_related(None).select_for_update())
+        for f in rows:
+            at = timezone.localtime(f.due).time()
+            f.original_due = f.original_due or f.due
+            f.snoozed_until = None
+            f.due = timezone.make_aware(datetime.combine(day, at))
+            f.reschedule_reason = reason
+            f.reschedule_count += 1
+            f.version += 1
+        bulk_update_with_history(
+            rows,
+            FollowUp,
+            [
+                "original_due",
+                "snoozed_until",
+                "due",
+                "reschedule_reason",
+                "reschedule_count",
+                "version",
+            ],
+            batch_size=1000,
+        )
+    return len(rows)
 
 
 def reassign(followup, owner, by):
@@ -278,8 +459,10 @@ def offers_waiting(user, companies):
 
 
 def visible_offers(companies):
-    return Offer.objects.filter(person__company__in=companies).select_related(
-        "person", "requisition"
+    return (
+        Offer.objects.filter(person__company__in=companies)
+        .select_related("person", "requisition")
+        .prefetch_related("rounds")
     )
 
 
@@ -371,18 +554,30 @@ def mark_joined(offer, on):
 def funnel(companies):
     """Requisitions with how many people reached each step. People are counted
     once per step, so a candidate called five times is still one call."""
-    done = lambda path, **kw: Count(path, distinct=True, filter=Q(**kw) if kw else None)  # noqa: E731
+
+    def reached(model, group="requisition", person="person", **kw):
+        # A count of its own per step: joining every step at once multiplies the
+        # rows and takes minutes at ten thousand candidates.
+        rows = (
+            model.objects.filter(**{group: OuterRef("pk")}, **kw)
+            .order_by()
+            .values(group)
+            .annotate(n=Count(person, distinct=True))
+            .values("n")
+        )
+        return Coalesce(Subquery(rows, output_field=IntegerField()), 0)
+
     return (
         Requisition.objects.filter(company__in=companies, archived_at__isnull=True)
         .annotate(
-            sourced_n=done("sourced"),
-            duplicate_n=done("sourced", sourced__is_duplicate=True),
-            called_n=done("followups__calls__person"),
-            interviewed_n=done("interviews__person"),
-            selected_n=done("interviews__person", interviews__result="selected"),
-            offered_n=done("offers__person"),
-            accepted_n=done("offers__person", offers__state="accepted"),
-            joined_n=done("offers__person", offers__joined_on__isnull=False),
+            sourced_n=reached(SourcedNumber, person="pk"),
+            duplicate_n=reached(SourcedNumber, person="pk", is_duplicate=True),
+            called_n=reached(CallLog, group="followup__requisition"),
+            interviewed_n=reached(Interview),
+            selected_n=reached(Interview, result="selected"),
+            offered_n=reached(Offer),
+            accepted_n=reached(Offer, state="accepted"),
+            joined_n=reached(Offer, joined_on__isnull=False),
         )
         .order_by("status", "needed_by", "-created_at")
     )
@@ -458,7 +653,7 @@ def timeline(person, with_hr=False):
                 )
 
     for c in person.calls.select_related("caller"):
-        text = f"Call: {c.get_outcome_display().lower()}"
+        text = f"Call: {c.get_outcome_display()}"
         events.append(
             (c.called_at, c.caller, f"{text}. {c.notes}" if c.notes else text)
         )
@@ -586,14 +781,25 @@ def due_call_alarms(user):
     )
 
 
+def quiet_call_alarms(user):
+    """Silence every ringing call and interview alarm of the user's for an hour."""
+    due_call_alarms(user).update(snoozed_until=timezone.now() + timedelta(hours=1))
+
+
 def next_call_alarm_in(user):
     """Seconds until the user's next call alarm, or None."""
     now = timezone.now()
-    times = [
-        f.snoozed_until if f.snoozed_until and f.snoozed_until > now else f.due
-        for f in _alarmed(user).filter(Q(due__gt=now) | Q(snoozed_until__gt=now))
-    ]
-    return max((min(times) - now).total_seconds(), 0) if times else None
+    soonest = (
+        _alarmed(user)
+        .filter(Q(due__gt=now) | Q(snoozed_until__gt=now))
+        .annotate(
+            rings=Case(
+                When(snoozed_until__gt=now, then=F("snoozed_until")), default=F("due")
+            )
+        )
+        .aggregate(at=Min("rings"))["at"]
+    )
+    return max((soonest - now).total_seconds(), 0) if soonest else None
 
 
 def snooze_call(followup, user, length):

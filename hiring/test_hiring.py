@@ -134,25 +134,25 @@ def test_discussion_comment_and_job_post(client, boss, senken):
     url = reverse("hiring:post", args=[r.pk])
     assert client.post(url, {"body": "Need it by Friday"}).status_code == 302
     job = {
-        "portal": "Job hai",
+        "portal": "Job Hai",
         "keyword": "Data Analyst Intern",
         "posted_on": "2026-10-29",
         "post_status": "active",
         "payment": "free",
         "portal_user": "nish.S@senkenindia.in",
-        "posting_company": "Senken",
+        "posting_company": Company.objects.get(slug="senken").name,
     }
     assert client.post(url, job).status_code == 302
     assert [p.is_job_post for p in r.posts.all()] == [False, True]
     page = client.get(reverse("hiring:detail", args=[r.pk]))
-    assert b"Job post on Job hai" in page.content
+    assert b"Job post on Job Hai" in page.content
 
 
 def test_discussion_rejects_empty_and_incomplete(client, boss, senken):
     r = _req(boss, senken)
     url = reverse("hiring:post", args=[r.pk])
     assert client.post(url, {"body": "  "}).status_code == 422
-    assert client.post(url, {"portal": "Job hai"}).status_code == 422
+    assert client.post(url, {"portal": "Job Hai"}).status_code == 422
     assert r.posts.count() == 0
 
 
@@ -161,3 +161,143 @@ def test_reader_can_join_discussion(client, boss, reader, senken):
     url = reverse("hiring:post", args=[r.pk])
     assert client.post(url, {"body": "On it"}).status_code == 302
     assert r.posts.get().author == reader
+
+
+def test_by_when_days_sets_the_date_and_reopening_keeps_it(client, boss, senken):
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    url = reverse("hiring:new")
+    client.post(
+        url,
+        REQUIRED
+        | {"department": "bo", "profile": "Fitter", "headcount": 1, "days": 10},
+    )
+    r = Requisition.objects.get()
+    assert r.needed_by == timezone.localdate() + timedelta(days=10)
+    # Saving with the number the form showed leaves the date alone.
+    r.needed_by = timezone.localdate() + timedelta(days=4)
+    r.save()
+    data = REQUIRED | {"department": "bo", "profile": "Fitter", "headcount": 1}
+    client.post(
+        reverse("hiring:edit", args=[r.pk]), data | {"days": 4, "version": r.version}
+    )
+    r.refresh_from_db()
+    assert r.needed_by == timezone.localdate() + timedelta(days=4)
+
+
+def test_job_post_on_a_portal_not_in_the_list(client, boss, senken):
+    r = _req(boss, senken)
+    url = reverse("hiring:post", args=[r.pk])
+    job = {
+        "portal": "other",
+        "keyword": "Data Analyst",
+        "posted_on": "2026-10-29",
+        "post_status": "active",
+        "payment": "free",
+    }
+    assert client.post(url, job).status_code == 422  # name missing
+    assert (
+        client.post(url, job | {"portal_other": "Local Jobs Board"}).status_code == 302
+    )
+    assert r.posts.get().portal == "Local Jobs Board"
+
+
+def test_job_post_company_is_senken_or_avris(client, boss, senken):
+    r = _req(boss, senken)
+    url = reverse("hiring:post", args=[r.pk])
+    job = {
+        "portal": "Naukri",
+        "keyword": "x",
+        "posted_on": "2026-10-29",
+        "post_status": "active",
+        "payment": "free",
+    }
+    assert client.post(url, job | {"posting_company": "Acme"}).status_code == 422
+    avris = Company.objects.get(slug="avris").name
+    assert client.post(url, job | {"posting_company": avris}).status_code == 302
+    assert r.posts.get().posting_company == avris
+
+
+def test_job_post_can_be_edited_and_the_change_is_kept(client, boss, senken):
+    r = _req(boss, senken)
+    job = {
+        "portal": "other",
+        "portal_other": "Local Jobs Board",
+        "keyword": "Data Analyst",
+        "posted_on": "2026-10-29",
+        "post_status": "active",
+        "payment": "free",
+    }
+    client.post(reverse("hiring:post", args=[r.pk]), job)
+    post = r.posts.get()
+    url = reverse("hiring:edit_post", args=[r.pk, post.pk])
+    page = client.get(url).content.decode()
+    assert "Local Jobs Board" in page and 'value="2026-10-29"' in page
+    assert client.post(url, job | {"post_status": "closed"}).status_code == 302
+    post.refresh_from_db()
+    assert (post.post_status, post.portal) == ("closed", "Local Jobs Board")
+    assert post.history.count() == 2
+
+
+def test_only_job_posts_are_editable(client, boss, senken):
+    r = _req(boss, senken)
+    client.post(reverse("hiring:post", args=[r.pk]), {"body": "hello"})
+    url = reverse("hiring:edit_post", args=[r.pk, r.posts.get().pk])
+    assert client.get(url).status_code == 404
+
+
+def test_reopen_brings_a_closed_requisition_back(client, boss, senken):
+    req = make(senken, boss)
+    client.post(reverse("hiring:close", args=[req.pk]))
+    client.post(reverse("hiring:reopen", args=[req.pk]))
+    req.refresh_from_db()
+    assert req.status == "open"
+
+
+def test_only_the_superadmin_can_reopen(client, boss, reader, senken):
+    req = make(senken, boss, status="closed")
+    assert client.post(reverse("hiring:reopen", args=[req.pk])).status_code == 403
+
+
+def test_close_and_reopen_go_back_to_a_safe_page_only(client, boss, senken):
+    req = make(senken, boss)
+    detail = reverse("hiring:detail", args=[req.pk])
+    r = client.post(reverse("hiring:close", args=[req.pk]), {"next": detail})
+    assert r["Location"] == detail
+    r = client.post(
+        reverse("hiring:reopen", args=[req.pk]), {"next": "https://evil.example/"}
+    )
+    assert r["Location"] == reverse("hiring:list")
+
+
+def test_requisition_timeline_tells_the_story(client, boss, senken):
+    req = make(senken, boss)
+    client.post(reverse("hiring:post", args=[req.pk]), {"body": "Need it by Friday"})
+    job = {
+        "portal": "Naukri",
+        "keyword": "x",
+        "posted_on": "2026-10-29",
+        "post_status": "active",
+        "payment": "free",
+    }
+    client.post(reverse("hiring:post", args=[req.pk]), job)
+    post = req.posts.get(portal="Naukri")
+    client.post(
+        reverse("hiring:edit_post", args=[req.pk, post.pk]),
+        job | {"post_status": "closed"},
+    )
+    client.post(reverse("hiring:close", args=[req.pk]))
+    client.post(reverse("hiring:reopen", args=[req.pk]))
+    page = client.get(reverse("hiring:detail", args=[req.pk])).content.decode()
+    for text in (
+        "Requisition released",
+        "Comment: Need it by Friday",
+        "Job post added on Naukri",
+        "Job post on Naukri: closed",
+        "Closed",
+        "Reopened",
+    ):
+        assert text in page
+    assert page.index("Reopened") < page.index("Requisition released")

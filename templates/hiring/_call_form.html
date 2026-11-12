@@ -1,0 +1,42 @@
+  <form id="call-form" method="post" action="{{ action }}"
+        x-data="{ moved: {{ call_form.rescheduled.value|yesno:'true,false' }}, other: '{{ call_form.intention.value|default:'' }}' === 'other' }"
+        class="fields mt-4 grid gap-x-10 gap-y-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] [&_input[type=date]]:w-full [&_input[type=text]]:w-full [&_select]:w-full [&_textarea]:w-full">
+    {% csrf_token %}
+    {% for error in call_form.non_field_errors %}<p role="alert" class="text-sm text-red-600 lg:col-span-2">{{ error }}</p>{% endfor %}
+
+    <div class="min-w-0">
+      <h2 class="title text-lg">Tagging</h2>
+      {% for error in call_form.outcome.errors %}<p role="alert" class="text-sm text-red-600">{{ error }}</p>{% endfor %}
+      <div class="mt-2 flex flex-wrap gap-1" role="radiogroup" aria-label="Tagging">
+        {% for radio in call_form.outcome %}
+          {% if radio.data.value == 'wa_touch' or radio.data.value == 'update_touch' or radio.data.value == 'blank' %}<span class="basis-full h-1"></span>{% endif %}
+          <label class="cursor-pointer rounded-lg border border-ink px-2.5 py-0.5 text-sm has-[:checked]:bg-pop has-[:checked]:shadow-md has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-blue-600"><span class="sr-only">{{ radio.tag }}</span>{{ radio.choice_label }}</label>
+        {% endfor %}
+      </div>
+      <div class="mt-3">{% include "tasks/_field.html" with field=call_form.notes %}</div>
+    </div>
+
+    <div class="min-w-0 space-y-3">
+      <h2 class="title text-lg">Next</h2>
+      <div class="grid gap-3 sm:grid-cols-[11rem_minmax(0,1fr)]">
+        {% include "tasks/_field.html" with field=call_form.next_due %}
+        <div @change="other = $event.target.value === 'other'">{% include "tasks/_field.html" with field=call_form.intention %}</div>
+      </div>
+      <div x-show="other" x-cloak>{% include "tasks/_field.html" with field=call_form.intention_other %}</div>
+      <div class="flex flex-wrap items-center gap-2 text-sm">
+        <span class="mr-1 font-medium">{{ call_form.call_type.label }}</span>
+        {% for radio in call_form.call_type %}<label class="cursor-pointer rounded-lg border border-ink px-2.5 py-0.5 text-sm has-[:checked]:bg-pop has-[:checked]:shadow-md has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-blue-600"><span class="sr-only">{{ radio.tag }}</span>{{ radio.choice_label }}</label>{% endfor %}
+      </div>
+      {% for error in call_form.call_type.errors %}<p role="alert" class="text-sm text-red-600">{{ error }}</p>{% endfor %}
+      <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="rescheduled" x-model="moved" {% if call_form.rescheduled.value %}checked{% endif %}> {{ call_form.rescheduled.label }}</label>
+      <div x-show="moved" x-cloak>{% include "tasks/_field.html" with field=call_form.reschedule_reason %}</div>
+      <div class="flex flex-wrap gap-1 text-sm">
+        <label class="cursor-pointer rounded-lg border border-ink px-2.5 py-0.5 text-sm has-[:checked]:bg-pop has-[:checked]:shadow-md has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-blue-600"><input type="checkbox" name="discuss" class="sr-only" {% if call_form.discuss.value %}checked{% endif %}> Discuss with manager</label>
+        <label class="cursor-pointer rounded-lg border border-ink px-2.5 py-0.5 text-sm has-[:checked]:bg-pop has-[:checked]:shadow-md has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-blue-600"><input type="checkbox" name="department_changed" class="sr-only" {% if call_form.department_changed.value %}checked{% endif %}> Department change</label>
+        <button type="button" disabled title="Form coming soon" class="cursor-not-allowed rounded-lg border border-ink px-2.5 py-0.5 opacity-50">Mini whereabout</button>
+        <button type="button" disabled title="Form coming soon" class="cursor-not-allowed rounded-lg border border-ink px-2.5 py-0.5 opacity-50">Major whereabout</button>
+      </div>
+      <p class="text-xs text-gray-500">Both manager buttons send this card to your supervisor on save.</p>
+      <button type="submit" class="h-11 w-full rounded-lg bg-blue-600 px-6 font-medium">Save call</button>
+    </div>
+  </form>

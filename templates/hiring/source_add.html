@@ -1,0 +1,47 @@
+{% extends "people/base_people.html" %}
+
+{% block title %}Add a number · Senken ERP{% endblock %}
+{% block heading %}Add a number{% endblock %}
+{% block actions %}<a href="{% url 'hiring:source_import' %}" class="text-gray-500 hover:text-gray-900">Import Excel instead</a>{% endblock %}
+
+{% block page %}
+  {# Quick entry: the requisition and source stay put between numbers (Save and add another). #}
+  <form method="post" x-data="{ source: '{{ form.source.value|default:'' }}' }" class="fields max-w-3xl space-y-6 [&_input:not([type=radio])]:w-full [&_select]:w-full [&_textarea]:w-full">
+    {% csrf_token %}
+    {% for error in form.non_field_errors %}<p class="text-sm text-red-600">{{ error }}</p>{% endfor %}
+
+    {% include "tasks/_field.html" with field=form.requisition %}
+
+    <div class="grid gap-5 sm:grid-cols-2">
+      {% include "tasks/_field.html" with field=form.name %}
+      {% include "tasks/_field.html" with field=form.phone %}
+    </div>
+    <fieldset>
+      <legend class="mb-1.5 text-sm font-medium">Gender</legend>
+      <div class="flex flex-wrap gap-2">
+        {% for radio in form.gender %}
+          <label class="flex min-h-10 cursor-pointer items-center rounded-full border border-ink bg-white px-3.5 has-[:checked]:bg-pop has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-blue-600">
+            <input type="radio" name="{{ radio.data.name }}" value="{{ radio.data.value }}" {% if radio.data.selected %}checked{% endif %} class="sr-only">
+            {{ radio.choice_label }}
+          </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+
+    <div class="grid gap-5 sm:grid-cols-2">
+      {% include "tasks/_field.html" with field=form.email %}
+      {% include "tasks/_field.html" with field=form.address %}
+    </div>
+
+    <div class="grid gap-5 sm:grid-cols-2">
+      {% include "tasks/_field.html" with field=form.source %}
+      <div x-show="source === 'other'" x-cloak>{% include "tasks/_field.html" with field=form.source_other %}</div>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-4 border-t border-gray-100 pt-5">
+      <button type="submit" class="h-11 rounded-lg bg-blue-600 px-5 font-medium">Save</button>
+      <button type="submit" name="again" value="1" class="h-11 rounded-lg border border-ink bg-white px-5 font-medium shadow-md">Save and add another</button>
+      <a href="{% url 'hiring:sourcing' %}" class="text-sm text-gray-500 hover:text-gray-900">Cancel</a>
+    </div>
+  </form>
+{% endblock %}

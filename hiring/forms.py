@@ -1,10 +1,12 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from django import forms
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
-from people.models import phone_key
+from core.models import Company
+from people.models import Person, phone_key
+from people.services import visible_people
 from people.widgets import PhoneWidget
 
 from .models import (
@@ -25,6 +27,22 @@ LANGUAGES = [
 ]
 
 
+PORTALS = [
+    "Naukri",
+    "LinkedIn",
+    "Indeed",
+    "Apna",
+    "WorkIndia",
+    "Foundit",
+    "Shine",
+    "Job Hai",
+    "Internshala",
+    "Freshersworld",
+    "TimesJobs",
+    "Glassdoor",
+]
+
+
 class RequisitionForm(forms.ModelForm):
     languages = forms.MultipleChoiceField(
         choices=LANGUAGES,
@@ -34,6 +52,25 @@ class RequisitionForm(forms.ModelForm):
     )
     # The version the form was opened at; see services.save_requisition.
     version = forms.IntegerField(widget=forms.HiddenInput, required=False)
+    # Typed as days from today; stored as the date (needed_by).
+    days = forms.IntegerField(
+        min_value=0, max_value=3650, required=False, label="By when (days)"
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        due = self.instance.needed_by
+        if due:
+            self.initial["days"] = max((due - timezone.localdate()).days, 0)
+
+    def save(self, commit=True):
+        # Only a changed number moves the date, so reopening never shifts it.
+        if "days" in self.changed_data:
+            days = self.cleaned_data["days"]
+            self.instance.needed_by = (
+                None if days is None else timezone.localdate() + timedelta(days=days)
+            )
+        return super().save(commit)
 
     class Meta:
         model = Requisition
@@ -45,7 +82,6 @@ class RequisitionForm(forms.ModelForm):
             "headcount",
             "experience_years",
             "employment",
-            "needed_by",
             "urgency",
             "gender",
             "requirements",
@@ -67,14 +103,12 @@ class RequisitionForm(forms.ModelForm):
             "profile": "Designation",
             "headcount": "Number of openings",
             "experience_years": "Years of experience",
-            "needed_by": "Needed by",
             "requirements": "Job requirements",
             "reputed_company_must": "Experience in a reputed company is a must",
             "site": "Place of job",
         }
         widgets = {
             "kind": forms.RadioSelect,
-            "needed_by": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
             "requirements": forms.Textarea(attrs={"rows": 3}),
             "other_details": forms.Textarea(attrs={"rows": 3}),
         }
@@ -85,11 +119,18 @@ class SourceForm(forms.Form):
     name = forms.CharField(max_length=200)
     phone = forms.CharField(max_length=30, widget=PhoneWidget)
     email = forms.EmailField(required=False)
-    source = forms.CharField(
-        max_length=120,
-        required=False,
-        widget=forms.TextInput(attrs={"list": "sources"}),
+    gender = forms.ChoiceField(
+        required=False, choices=Person.Gender.choices, widget=forms.RadioSelect
     )
+    address = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 2}))
+    # A well-known portal, or "other" with the name typed below it.
+    source = forms.ChoiceField(
+        required=False,
+        label="Where did this number come from?",
+        choices=[("", "---------")] + [(x, x) for x in PORTALS] + [("other", "Other")],
+        widget=forms.Select(attrs={"x-model": "source"}),
+    )
+    source_other = forms.CharField(label="Source name", max_length=120, required=False)
 
     def __init__(self, *args, requisitions, **kwargs):
         super().__init__(*args, **kwargs)
@@ -100,6 +141,15 @@ class SourceForm(forms.Form):
         if len(phone_key(phone)) < 10:
             raise forms.ValidationError("Enter a phone number with at least 10 digits.")
         return phone
+
+    def clean(self):
+        data = super().clean()
+        if data.get("source") == "other":
+            name = (data.get("source_other") or "").strip()
+            if not name:
+                self.add_error("source_other", "Write the source's name.")
+            data["source"] = name
+        return data
 
 
 class ImportForm(forms.Form):
@@ -134,15 +184,81 @@ def tomorrow_morning():
 
 class CallForm(forms.Form):
     outcome = forms.ChoiceField(
-        choices=CallLog.Outcome.choices, widget=forms.RadioSelect
+        label="Tagging", choices=CallLog.Outcome.choices, widget=forms.RadioSelect
     )
-    next_due = _when("Next follow-up", required=False)
-    notes = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
+    notes = forms.CharField(
+        label="Status", required=False, widget=forms.Textarea(attrs={"rows": 3})
+    )
+    next_due = forms.DateField(
+        label="Next follow-up date",
+        widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+    )
+    call_type = forms.ChoiceField(
+        choices=CallLog.Kind.choices,
+        initial=CallLog.Kind.OUTBOUND,
+        widget=forms.RadioSelect,
+    )
+    intention = forms.ChoiceField(
+        label="Next call intention", choices=FollowUp.Purpose.choices
+    )
+    intention_other = forms.CharField(
+        label="What is the intention?", required=False, max_length=200
+    )
+    rescheduled = forms.BooleanField(label="Candidate rescheduled", required=False)
+    reschedule_reason = forms.CharField(
+        label="Reason the candidate gave",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 2}),
+    )
+    department_changed = forms.BooleanField(required=False)
+    discuss = forms.BooleanField(required=False)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Pre-filled so the usual "try again tomorrow" is one tap.
-        self.fields["next_due"].initial = tomorrow_morning()
+        self.fields["next_due"].initial = tomorrow_morning().date()
+        self.fields["next_due"].widget.attrs["min"] = timezone.localdate().isoformat()
+
+    def clean_next_due(self):
+        day = self.cleaned_data["next_due"]
+        if day < timezone.localdate():
+            raise forms.ValidationError("The next follow-up can't be before today.")
+        # Only the day is asked for; the call alarm rings at the usual 10:00.
+        return timezone.make_aware(datetime.combine(day, tomorrow_morning().time()))
+
+    def clean(self):
+        data = super().clean()
+        for flag, text, message in (
+            (
+                "rescheduled",
+                "reschedule_reason",
+                "Write the reason the candidate gave.",
+            ),
+            ("intention", "intention_other", "Say what the intention is."),
+        ):
+            on = (
+                data.get(flag) == FollowUp.Purpose.OTHER
+                if flag == "intention"
+                else data.get(flag)
+            )
+            if on and not data.get(text, "").strip():
+                self.add_error(text, message)
+        return data
+
+
+class IncomingCallForm(CallForm):
+    """A call that came in: the same questions, for a candidate picked by hand."""
+
+    person = forms.ModelChoiceField(
+        Person.objects.none(),
+        widget=forms.HiddenInput,
+        error_messages={"required": "Pick the candidate."},
+    )
+
+    def __init__(self, *args, companies, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["person"].queryset = visible_people(companies)
+        self.fields["call_type"].initial = CallLog.Kind.INBOUND
 
 
 class RescheduleForm(forms.Form):
@@ -177,6 +293,30 @@ class ReassignForm(forms.Form):
             .objects.filter(is_active=True, memberships__company__in=companies)
             .distinct()
         )
+
+
+class BulkForm(ReassignForm):
+    """Assign or move many follow-ups: the ticked ones, or all a filter matches."""
+
+    scope = forms.ChoiceField(choices=[("ticked", "Ticked"), ("all", "All matching")])
+    do = forms.ChoiceField(choices=[("assign", "Assign"), ("move", "Move")])
+    day = forms.DateField(required=False)
+    reason = forms.ChoiceField(choices=FollowUp.Reason.choices, required=False)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["owner"].required = False
+
+    def clean(self):
+        data = super().clean()
+        if data.get("do") == "assign" and not data.get("owner"):
+            self.add_error("owner", "Pick who to give them to.")
+        if data.get("do") == "move":
+            if not data.get("day") or data["day"] < timezone.localdate():
+                self.add_error("day", "Pick a day that is not before today.")
+            if not data.get("reason"):
+                self.add_error("reason", "Pick a reason for the move.")
+        return data
 
 
 class InterviewForm(forms.Form):
@@ -247,6 +387,15 @@ class CommentForm(forms.ModelForm):
 
 
 class JobPostForm(forms.ModelForm):
+    # A well-known portal, or "other" with the name typed below it.
+    portal = forms.ChoiceField(
+        label="Job portal",
+        choices=[("", "---------")] + [(x, x) for x in PORTALS] + [("other", "Other")],
+        widget=forms.Select(attrs={"x-model": "portal"}),
+    )
+    portal_other = forms.CharField(label="Portal name", max_length=120, required=False)
+    field_order = ["portal", "portal_other"]
+
     class Meta:
         model = RequisitionPost
         fields = [
@@ -260,17 +409,15 @@ class JobPostForm(forms.ModelForm):
             "body",
         ]
         labels = {
-            "portal": "Job portal",
             "keyword": "Source keyword",
             "posted_on": "Date posted",
             "post_status": "Status",
             "payment": "Payment type",
             "portal_user": "Portal user ID",
-            "posting_company": "Company",
             "body": "Note (optional)",
         }
         widgets = {
-            "posted_on": forms.DateInput(attrs={"type": "date"}),
+            "posted_on": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
             "body": forms.Textarea(attrs={"rows": 2}),
         }
 
@@ -278,3 +425,24 @@ class JobPostForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         for name in ("portal", "keyword", "posted_on", "post_status", "payment"):
             self.fields[name].required = True
+        # Only our own companies (Senken, Avris), stored by name.
+        names = list(Company.objects.order_by("name").values_list("name", "name"))
+        old = self.instance.posting_company
+        if old and (old, old) not in names:
+            names.append((old, old))  # saved before the list was fixed
+        self.fields["posting_company"] = forms.ChoiceField(
+            label="Company", required=False, choices=[("", "---------"), *names]
+        )
+        # A portal outside the list is edited as "other" with its name filled in.
+        portal = self.instance.portal
+        if portal and portal not in PORTALS:
+            self.initial["portal"], self.initial["portal_other"] = "other", portal
+
+    def clean(self):
+        data = super().clean()
+        if data.get("portal") == "other":
+            name = (data.get("portal_other") or "").strip()
+            if not name:
+                self.add_error("portal_other", "Write the portal's name.")
+            data["portal"] = name
+        return data

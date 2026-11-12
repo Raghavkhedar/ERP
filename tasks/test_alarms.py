@@ -199,3 +199,14 @@ def test_other_peoples_tasks_404_on_the_alarm_endpoint(client, task, bob):
         reverse("tasks:alarm", args=[task.pk]), {"action": "dismiss"}
     )
     assert response.status_code == 404
+
+
+def test_dismiss_all_stops_every_ring_and_the_list_is_capped(client, alice, next_week):
+    for i in range(7):
+        ringing(assign(alice, alice, 5, f"Task {i}", next_week))
+    client.force_login(alice)
+    data = client.get(reverse("tasks:alarms")).json()
+    assert (data["total"], len(data["alarms"])) == (7, 5)
+    assert client.post(reverse("tasks:alarms_dismiss_all")).json() == {"ok": True}
+    assert client.get(reverse("tasks:alarms")).json()["total"] == 0
+    assert not due_alarms(alice).exists()

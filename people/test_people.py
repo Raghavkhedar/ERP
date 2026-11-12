@@ -1,6 +1,7 @@
 import pytest
 from django.urls import reverse
 
+from core.access import MODULES
 from core.models import AccessGrant, Company
 
 from .models import Person, phone_key
@@ -18,9 +19,10 @@ def caller(client, django_user_model, senken):
     """A BO Caller: granted Empanelment candidates in Senken only."""
     user = django_user_model.objects.create_user(username="S9", password="pw")
     senken.memberships.create(user=user)
-    AccessGrant.objects.create(
-        user=user, company=senken, module="recruitment", section="candidates"
-    )
+    for tab in MODULES["recruitment"].sections:
+        AccessGrant.objects.create(
+            user=user, company=senken, module="recruitment", section=tab
+        )
     client.force_login(user)
     return user
 
