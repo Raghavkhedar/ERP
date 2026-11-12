@@ -1,0 +1,8 @@
+<li class="flex items-center justify-between gap-3 border-b border-ink/15 py-2">
+  <span id="{{ field.auto_id }}_label" class="min-w-0 text-sm">{{ field.label }}</span>
+  <span role="radiogroup" aria-labelledby="{{ field.auto_id }}_label" class="flex shrink-0 gap-1.5">
+    {% for radio in field %}
+      <label class="cursor-pointer rounded-full border border-ink bg-surface px-3 py-0.5 text-sm has-[:checked]:bg-pop has-[:checked]:shadow-md has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-pop"><span class="sr-only">{{ radio.tag }}</span>{{ radio.choice_label }}</label>
+    {% endfor %}
+  </span>
+</li>

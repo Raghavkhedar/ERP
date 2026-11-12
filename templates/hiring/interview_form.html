@@ -6,8 +6,9 @@
 
 {% block page %}
   {{ tables|json_script:"tables-data" }}
+  <div class="{% if hr_form %}mx-auto max-w-[88rem] items-start lg:grid lg:grid-cols-[minmax(0,1fr)_28rem] lg:gap-6{% endif %}">
   <form method="post" enctype="multipart/form-data"
-        class="fields mx-auto max-w-4xl space-y-6 [&_input:not([type=checkbox])]:w-full [&_select]:w-full [&_textarea]:w-full [&_input[readonly]]:bg-canvas [&_input[readonly]]:text-gray-500"
+        class="fields {% if not hr_form %}mx-auto {% endif %}max-w-4xl space-y-6 [&_input:not([type=checkbox])]:w-full [&_select]:w-full [&_textarea]:w-full [&_input[readonly]]:bg-canvas [&_input[readonly]]:text-gray-500"
         x-data="{ profile: '{{ form.profile.value|default:'' }}', today: '{{ today }}', vehicle: '{{ form.vehicle_status.value|default:'' }}', n: 0,
                   row() { return { err: '', _id: ++this.n }; },
                   t: JSON.parse(document.getElementById('tables-data').textContent),
@@ -59,10 +60,11 @@
         </div>
         {% for title, shows, fields in group.blocks %}
           <div x-show="{{ shows }}.includes(pick)" x-cloak class="mt-5 border-t border-ink/30 pt-4">
-            <h3 class="mb-3 font-semibold">{{ title }} work: can they do it?</h3>
-            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {% for field in fields %}{% include "tasks/_field.html" %}{% endfor %}
-            </div>
+            <h3 class="font-semibold">{{ title }} work</h3>
+            <p class="mb-2 text-sm text-gray-600">Can they do it?</p>
+            <ul class="grid gap-x-10 sm:grid-cols-2">
+              {% for field in fields %}{% include "hiring/_yesno_row.html" %}{% endfor %}
+            </ul>
           </div>
         {% endfor %}
       </section>
@@ -118,15 +120,16 @@
   </form>
 
   {% if hr_form %}
-    <form method="post" class="fields mx-auto mt-8 max-w-4xl space-y-4 rounded-xl border border-ink bg-surface p-5 shadow-xl [&_input]:w-full [&_select]:w-full [&_textarea]:w-full">
+    <form method="post" class="fields mt-6 space-y-3 rounded-xl border border-ink bg-pop/25 p-4 shadow-xl lg:sticky lg:top-20 lg:mt-0 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto [&_input]:w-full [&_select]:w-full [&_textarea]:w-full [&_textarea]:min-h-0">
       {% csrf_token %}
       <input type="hidden" name="which" value="hr">
       <h2 class="title text-lg">HR assessment (PFA)</h2>
-      <p class="text-sm text-gray-500">Only you can see this. Interview status decides what happens next: Selected opens an offer, Hold opens a call on the follow up date.</p>
-      <div class="grid gap-4 sm:grid-cols-2">
+      <p class="text-sm text-gray-600">Only you can see this. Selected opens an offer. Hold opens a call on the follow up date.</p>
+      <div class="grid gap-3 sm:grid-cols-2">
         {% for field in hr_form %}<div class="{% if field.widget_type == 'textarea' %}sm:col-span-2{% endif %}">{% include "tasks/_field.html" %}</div>{% endfor %}
       </div>
-      <button type="submit" class="h-11 rounded-lg bg-blue-600 px-5 font-medium">Save HR assessment</button>
+      <button type="submit" class="h-11 w-full rounded-lg bg-blue-600 px-5 font-medium">Save HR assessment</button>
     </form>
   {% endif %}
+  </div>
 {% endblock %}

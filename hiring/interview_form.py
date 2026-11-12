@@ -302,6 +302,13 @@ def table_shows():
 class AnswersForm(whereabouts.WhereaboutForm):
     spec = SPEC
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for key, field in self.fields.items():  # yes/no reads best as two buttons
+            if SPEC.get(key, ("",))[0] == "yesno":
+                field.widget = forms.RadioSelect()
+                field.choices = [(x, x) for x in YESNO]
+
 
 def rows(post, prefix, columns):
     """The filled rows of a repeating table: one input per column, same names."""
@@ -406,7 +413,7 @@ class AssessmentForm(forms.Form):
     comments = forms.CharField(
         label="PFA assessor comments",
         required=False,
-        widget=forms.Textarea(attrs={"rows": 3}),
+        widget=forms.Textarea(attrs={"rows": 2}),
     )
 
     def __init__(self, *args, **kwargs):
