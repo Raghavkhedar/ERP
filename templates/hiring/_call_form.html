@@ -19,7 +19,14 @@
     <div class="min-w-0 space-y-3">
       <h2 class="title text-lg">Next</h2>
       <div class="grid gap-3 sm:grid-cols-[11rem_minmax(0,1fr)]">
-        {% include "tasks/_field.html" with field=call_form.next_due %}
+        <div class="flex items-end gap-2">
+          <div class="min-w-0 flex-1">{% include "tasks/_field.html" with field=call_form.next_due %}</div>
+          <label title="{{ call_form.rescheduled.label }}" class="grid size-10 shrink-0 cursor-pointer place-items-center rounded-full border border-ink bg-white has-[:checked]:bg-pop has-[:checked]:shadow-md has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-blue-600">
+            <input type="checkbox" name="rescheduled" x-model="moved" class="sr-only" {% if call_form.rescheduled.value %}checked{% endif %}>
+            <span class="sr-only">{{ call_form.rescheduled.label }}</span>
+            <svg aria-hidden="true" viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6M12 2v3"/></svg>
+          </label>
+        </div>
         <div @change="other = $event.target.value === 'other'">{% include "tasks/_field.html" with field=call_form.intention %}</div>
       </div>
       <div x-show="other" x-cloak>{% include "tasks/_field.html" with field=call_form.intention_other %}</div>
@@ -28,7 +35,6 @@
         {% for radio in call_form.call_type %}<label class="cursor-pointer rounded-lg border border-ink px-2.5 py-0.5 text-sm has-[:checked]:bg-pop has-[:checked]:shadow-md has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-blue-600"><span class="sr-only">{{ radio.tag }}</span>{{ radio.choice_label }}</label>{% endfor %}
       </div>
       {% for error in call_form.call_type.errors %}<p role="alert" class="text-sm text-red-600">{{ error }}</p>{% endfor %}
-      <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="rescheduled" x-model="moved" {% if call_form.rescheduled.value %}checked{% endif %}> {{ call_form.rescheduled.label }}</label>
       <div x-show="moved" x-cloak>{% include "tasks/_field.html" with field=call_form.reschedule_reason %}</div>
       <div class="flex flex-wrap gap-1 text-sm">
         <label class="cursor-pointer rounded-lg border border-ink px-2.5 py-0.5 text-sm has-[:checked]:bg-pop has-[:checked]:shadow-md has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-blue-600"><input type="checkbox" name="discuss" class="sr-only" {% if call_form.discuss.value %}checked{% endif %}> Discuss with manager</label>
