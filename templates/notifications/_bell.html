@@ -7,8 +7,8 @@
     <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M6 9a6 6 0 1 1 12 0c0 4 1.5 5.5 2 6.5H4c.5-1 2-2.5 2-6.5Z"/><path d="M10 19a2 2 0 0 0 4 0"/>
     </svg>
-    <span x-show="$store.notify.unread" x-cloak x-text="$store.notify.unread > 99 ? '99+' : $store.notify.unread"
-          class="absolute -right-0.5 -top-0.5 h-4 min-w-4 rounded-full bg-rose-500 px-1 text-center text-[0.65rem] font-semibold leading-4 text-white ring-2 ring-white"></span>
+    <span x-show="$store.notify.unread" x-cloak x-floor="$store.notify.unread"
+          class="floor absolute -right-1.5 -top-1.5 h-4 min-w-4 px-1 text-[0.65rem] leading-4"></span>
   </button>
   <div x-show="open" x-cloak x-transition.opacity.duration.120ms
        class="absolute right-0 top-full z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-ink bg-surface text-left">

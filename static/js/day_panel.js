@@ -47,7 +47,11 @@ document.addEventListener("alpine:init", () => {
     async refresh() {
       try {
         const response = await fetch(this.$root.dataset.panel);
-        if (response.ok) this.$refs.body.innerHTML = await response.text();
+        if (response.ok) {
+          // The lift only travels in on first load, not after every edit.
+          this.$refs.body.classList.add("settled");
+          this.$refs.body.innerHTML = await response.text();
+        }
       } catch {}
     },
 
@@ -58,7 +62,7 @@ document.addEventListener("alpine:init", () => {
       input.maxLength = 200;
       input.setAttribute("aria-label", "Block name");
       input.className =
-        "w-full rounded border border-ink bg-white px-1 text-xs focus-visible:outline-none";
+        "w-full rounded-lg bg-white ring-1 ring-blue-200 px-1 text-xs focus-visible:outline-none";
       let settled = false;
       const settle = (fn) => {
         if (settled) return;
@@ -88,8 +92,8 @@ document.addEventListener("alpine:init", () => {
       const top = clamp(Math.floor(y / this.step) * this.step, 0, grid.offsetHeight - this.step);
       const card = document.createElement("div");
       card.dataset.draft = "";
-      card.style.cssText = `top:${top}px;height:20px;left:0;right:4px`;
-      card.className = "absolute z-20 mt-px overflow-hidden rounded-md border border-ink bg-pop px-1";
+      card.style.cssText = `top:${top}px;height:30px;left:0;right:4px`;
+      card.className = "absolute z-20 mt-px overflow-hidden rounded-xl bg-pop/50 px-1";
       const minutes = this.first * 60 + Math.round((top * 60) / this.hour);
       const start = `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
       const input = this.field(
