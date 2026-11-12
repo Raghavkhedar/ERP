@@ -5,6 +5,23 @@
 {% block actions %}<a href="{% url 'hiring:offers_export' %}" class="text-gray-500 hover:text-gray-900">Export</a>{% endblock %}
 
 {% block page %}
+  {% if interviews %}
+    <h2 class="font-semibold">Interview forms <span class="font-normal text-gray-500">({{ interviews|length }})</span></h2>
+    <ul class="mt-1 divide-y divide-gray-100 border-y border-gray-100">
+      {% for i in interviews %}
+        <li>
+          <a href="{% url 'hiring:interview_review' i.pk %}" class="flex items-center gap-4 py-3 hover:bg-canvas/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pop">
+            <div class="min-w-0 flex-1">
+              <p class="truncate font-medium">{{ i.person.name }}</p>
+              <p class="truncate text-sm text-gray-500">{{ i.person.phone }} · {{ i.scheduled_at|date:"j M" }}{% if i.requisition %} · {{ i.requisition }}{% endif %} · filed by {{ i.interviewer.display_name }}</p>
+            </div>
+            <span class="shrink-0 rounded-full border border-ink px-2.5 py-0.5 text-xs {% if i.result == 'pending' %}bg-pop{% endif %}">{{ i.get_result_display }}</span>
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+    <div class="mt-8"></div>
+  {% endif %}
   <h2 class="font-semibold">To offer <span class="font-normal text-gray-500">({{ waiting.paginator.count }})</span></h2>
   {% if waiting %}
     <ul class="mt-1 divide-y divide-gray-100 border-y border-gray-100">

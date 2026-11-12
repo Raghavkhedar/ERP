@@ -13,8 +13,6 @@ from . import whereabouts
 from .models import (
     CallLog,
     FollowUp,
-    HRAssessment,
-    Interview,
     Requisition,
     RequisitionPost,
 )
@@ -227,6 +225,8 @@ class CallForm(forms.Form):
             key: whereabouts.WhereaboutForm(keys, data, prefix=key)
             for key, (_, keys) in whereabouts.GROUPS.items()
         }
+        for key, (label, _) in whereabouts.GROUPS.items():
+            self.groups[key].title = label
         # Pre-filled so the usual "try again tomorrow" is one tap.
         self.fields["next_due"].initial = tomorrow_morning().date()
         self.fields["next_due"].widget.attrs["min"] = timezone.localdate().isoformat()
@@ -343,24 +343,6 @@ class BulkForm(ReassignForm):
             if not data.get("reason"):
                 self.add_error("reason", "Pick a reason for the move.")
         return data
-
-
-class InterviewForm(forms.Form):
-    result = forms.ChoiceField(
-        choices=Interview.Result.choices, widget=forms.RadioSelect
-    )
-    next_due = _when("Call again on", required=False)
-    questions = forms.CharField(
-        required=False, widget=forms.Textarea(attrs={"rows": 3})
-    )
-    notes = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 3}))
-
-
-class AssessmentForm(forms.ModelForm):
-    class Meta:
-        model = HRAssessment
-        fields = ["decision", "level", "hold_tenure", "comments"]
-        widgets = {"comments": forms.Textarea(attrs={"rows": 3})}
 
 
 class StartOfferForm(forms.Form):

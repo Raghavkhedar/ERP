@@ -62,13 +62,16 @@
       <div class="min-w-0">
         <div class="max-w-xs" @change="dept = $event.target.value">{% include "tasks/_field.html" with field=call_form.major.department %}</div>
         <div class="mt-4">{% include "hiring/_whereabout_fields.html" with form=call_form.major skip="department" %}</div>
-        {% for key, group in call_form.groups.items %}
-          <div x-show="dept === '{{ key }}'" x-cloak class="mt-5 border-t border-gray-100 pt-4">
-            {% include "hiring/_whereabout_fields.html" with form=group %}
-          </div>
-        {% endfor %}
       </div>
     </section>
+
+    {% for key, group in call_form.groups.items %}
+      <section x-show="major && dept === '{{ key }}'" x-cloak class="rounded-xl border border-ink bg-pop/25 p-5 shadow-md">
+        <h2 class="title text-lg">{{ group.title }} questions</h2>
+        <p class="mb-3 text-sm text-gray-600">Only for this department.</p>
+        {% include "hiring/_whereabout_fields.html" with form=group %}
+      </section>
+    {% endfor %}
 
     <div class="flex justify-end border-t border-gray-200 pt-6">
       <button type="submit" class="h-11 w-full rounded-lg bg-blue-600 px-8 font-medium sm:w-auto">Save call</button>

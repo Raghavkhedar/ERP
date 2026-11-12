@@ -56,6 +56,13 @@ class Person(models.Model):
         max_length=20, choices=ContactStatus, default=ContactStatus.ACTIVE
     )
     priority = models.CharField(max_length=20, choices=Priority, blank=True)
+    # Filled from the interview form, which updates them each time it is saved.
+    alternate_phone = models.CharField(max_length=30, blank=True)
+    permanent_address = models.TextField(blank=True)
+    highest_education = models.CharField(max_length=200, blank=True)
+    place_of_birth = models.CharField(max_length=200, blank=True)
+    date_of_birth = models.DateField(null=True, blank=True)
+    time_of_birth = models.TimeField(null=True, blank=True)
     zoho_id = models.CharField(max_length=40, blank=True)
     # Bumped on every save; a form that carries an older number was opened
     # before someone else saved, and is rejected.

@@ -1,6 +1,7 @@
 from datetime import datetime, time, timedelta
 from types import SimpleNamespace
 
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import (
     Case,
@@ -16,13 +17,14 @@ from django.db.models import (
 from django.db.models.functions import Coalesce
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.dateparse import parse_date, parse_time
 from simple_history.utils import bulk_update_with_history
 
 from notifications.services import notify
 from people.models import Person, phone_key
 from tasks.services import can_assign
 
-from . import whereabouts
+from . import interview_form, whereabouts
 from .models import (
     CallLog,
     FollowUp,
@@ -416,7 +418,16 @@ def interviews_waiting(user, companies):
     return visible_followups(user, companies).filter(purpose=FollowUp.Purpose.INTERVIEW)
 
 
-def record_interview(followup, result, user, questions="", notes="", next_due=None):
+def record_interview(
+    followup,
+    result,
+    user,
+    questions="",
+    notes="",
+    next_due=None,
+    profile="",
+    answers=None,
+):
     """Record how an interview went. It completes the booking, and what happens
     next follows the result: selected opens an offer, hold opens a call if a date
     is given, rejected ends it."""
@@ -430,8 +441,17 @@ def record_interview(followup, result, user, questions="", notes="", next_due=No
             result=result,
             questions=questions,
             notes=notes,
+            profile=profile,
+            answers=answers or {},
             interviewer=user,
         )
+        apply_to_person(interview)
+        for boss in get_user_model().objects.filter(is_superuser=True, is_active=True):
+            notify(
+                boss,
+                f"Interview form filed: {current.person.name}",
+                reverse("hiring:interview_review", args=[interview.pk]),
+            )
         current.status = FollowUp.Status.COMPLETED
         current.version += 1
         current.save(update_fields=["status", "version"])
@@ -446,21 +466,68 @@ def record_interview(followup, result, user, questions="", notes="", next_due=No
 
 def visible_interviews(companies):
     return Interview.objects.filter(person__company__in=companies).select_related(
-        "person", "requisition", "hr"
+        "person", "requisition", "hr", "interviewer"
     )
 
 
-def save_assessment(interview, decision, level, user, hold_tenure="", comments=""):
-    return HRAssessment.objects.update_or_create(
-        interview=interview,
-        defaults=dict(
-            decision=decision,
-            level=level,
-            hold_tenure=hold_tenure,
-            comments=comments,
-            assessor=user,
-        ),
-    )[0]
+def apply_to_person(interview, preference=None):
+    """Write what the interview form learned onto the candidate's card. The form
+    filled last wins. Name and phone are never changed from here."""
+    a = interview.answers
+    changes = {
+        "email": a.get("email"),
+        "address": a.get("temporary_address"),
+        "permanent_address": a.get("permanent_address"),
+        "highest_education": a.get("highest_education"),
+        "expected_salary": a.get("expected_salary"),
+        "joining_period": a.get("joining_days") and f"{a['joining_days']} days",
+        "place_of_birth": a.get("place_of_birth"),
+        "alternate_phone": a.get("alternate_phone"),
+        "date_of_birth": parse_date(a.get("date_of_birth") or ""),
+        "time_of_birth": parse_time(a.get("time_of_birth") or ""),
+        "priority": preference,
+    }
+    if a.get("experience_months") is not None:
+        changes["experience_years"] = round(a["experience_months"] / 12, 1)
+    changes = {k: v for k, v in changes.items() if v not in (None, "")}
+    if not changes:
+        return
+    person = Person.objects.select_for_update().get(pk=interview.person_id)
+    for k, v in changes.items():
+        setattr(person, k, v)
+    person.version += 1
+    person.save()
+
+
+def save_assessment(
+    interview, decision, level, user, hold_tenure="", comments="", answers=None
+):
+    """HR's side. The decision becomes the interview's result: selected opens the
+    offer, hold opens a call on the follow-up date if one is given."""
+    answers = answers or {}
+    with transaction.atomic():
+        hr = HRAssessment.objects.update_or_create(
+            interview=interview,
+            defaults=dict(
+                decision=decision,
+                level=level,
+                hold_tenure=hold_tenure,
+                comments=comments,
+                answers=answers,
+                assessor=user,
+            ),
+        )[0]
+        apply_to_person(interview, answers.get("preference"))
+        if interview.result != decision:
+            edit_interview(interview, decision, interview.questions, interview.notes)
+        due = parse_date(answers.get("next_follow_up", ""))
+        if decision == Interview.Result.HOLD and due and interview.followup_id:
+            _open(
+                interview.followup,
+                FollowUp.Purpose.CALL,
+                timezone.make_aware(datetime.combine(due, time(10, 0))),
+            )
+        return hr
 
 
 class OfferError(FollowUpError):
@@ -679,6 +746,8 @@ def timeline(person, with_hr=False):
 
     for i in person.interviews.select_related("interviewer"):
         text = f"Interview: {i.get_result_display().lower()}"
+        if i.profile:
+            text += f" ({interview_form.PROFILES.get(i.profile, (i.profile,))[0]})"
         events.append(
             (i.scheduled_at, i.interviewer, f"{text}. {i.notes}" if i.notes else text)
         )
@@ -841,7 +910,7 @@ def snooze_call(followup, user, length):
         return current
 
 
-def edit_interview(interview, result, questions, notes):
+def edit_interview(interview, result, questions, notes, profile=None, answers=None):
     """Correct a saved interview. If it now reads "selected", the offer opens as
     it would have the first time; a move away from selected leaves the offer
     follow-up for someone to cancel."""
@@ -849,7 +918,13 @@ def edit_interview(interview, result, questions, notes):
         interview.result = result
         interview.questions = questions
         interview.notes = notes
+        if answers is not None:
+            interview.profile = profile or ""
+            interview.answers = answers
         interview.save()
+        if answers is not None:
+            hr = getattr(interview, "hr", None)
+            apply_to_person(interview, hr and hr.answers.get("preference"))
         person = interview.person
         if result == Interview.Result.SELECTED and not person.offers.exists():
             FollowUp.objects.get_or_create(

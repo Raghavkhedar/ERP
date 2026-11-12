@@ -179,9 +179,13 @@ GROUPS = {
 }
 
 
-def _field(key):
-    kind, label = SPEC[key]
-    kw = {"label": label, "required": False}
+def _field(key, spec=None):
+    """`spec` entries may carry a third item: True when the answer is required."""
+    entry = (spec or SPEC)[key]
+    kind, label = entry[:2]
+    kw = {"label": label, "required": len(entry) > 2 and entry[2]}
+    if kind == "time":
+        return forms.CharField(widget=forms.TimeInput(attrs={"type": "time"}), **kw)
     if kind == "text":
         return forms.CharField(max_length=200, **kw)
     if kind == "area":
@@ -210,10 +214,11 @@ class WhereaboutForm(forms.Form):
 
     # The block may be hidden when it is submitted, so the browser must not insist.
     use_required_attribute = False
+    spec = None  # another question list, as the interview form has
 
     def __init__(self, keys, *args, department=False, **kwargs):
         super().__init__(*args, **kwargs)
-        fields = {k: _field(k) for k in keys}
+        fields = {k: _field(k, self.spec) for k in keys}
         if department:
             choice = forms.ChoiceField(
                 label="Department",
@@ -228,11 +233,15 @@ class WhereaboutForm(forms.Form):
         return {k: v for k, v in self.cleaned_data.items() if v not in ("", None, [])}
 
 
-def summary(answers):
+def summary(answers, spec=None):
     """One readable line for the timeline and the export."""
     parts = []
     for key, value in answers.items():
-        label = "Department" if key == "department" else SPEC.get(key, (0, key))[1]
+        label = (
+            "Department"
+            if key == "department"
+            else (spec or SPEC).get(key, (0, key))[1]
+        )
         if key == "department":
             value = GROUPS.get(value, (value,))[0]
         if isinstance(value, list):

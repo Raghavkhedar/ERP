@@ -288,6 +288,18 @@ textarea:focus {
   outline: none;
 }
 
+/* File pickers: the button and the chosen name sit side by side, never over each other. */
+.fields input[type="file"] {
+  padding: 0.35rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fields input[type="file"]::file-selector-button {
+  margin-right: 0.75rem;
+  cursor: pointer;
+}
+
 /* A strip of words that scrolls across the page. */
 @keyframes marquee {
   to {
