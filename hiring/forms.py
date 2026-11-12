@@ -299,7 +299,9 @@ class ScheduleCallForm(forms.Form):
 
 
 class ShiftForm(forms.Form):
-    group = forms.ChoiceField(choices=[(g, g) for g in ("overdue", "today", "later")])
+    group = forms.ChoiceField(
+        choices=[(g, g) for g in ("all", "overdue", "today", "later")]
+    )
     day = forms.DateField(
         label="Move to",
         widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),

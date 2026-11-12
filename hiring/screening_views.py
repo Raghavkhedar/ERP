@@ -11,6 +11,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from core.access import require_section
 from core.pagination import paginate
+from people.models import Person
 from people.services import visible_people
 from tasks.services import can_assign
 
@@ -76,6 +77,17 @@ STAGES = [
     ("accepted", "Accepted"),
     ("declined", "Declined"),
 ]
+SHIFT_FILTERS = (
+    "q",
+    "due_from",
+    "due_to",
+    "stage",
+    "tag",
+    "department",
+    "sub",
+    "owner",
+    "priority",
+)
 TAGS = [*CallLog.Outcome.choices, ("none", "Not called yet")]
 
 
@@ -120,6 +132,8 @@ def _sheet(rows, get):
         rows = rows.filter(requisition__department__in=departments)
     if subs := get.getlist("sub"):
         rows = rows.filter(requisition__sub_department__in=subs)
+    if priorities := get.getlist("priority"):
+        rows = rows.filter(person__priority__in=priorities)
     if get.get("owner", "").isdigit():
         rows = rows.filter(owner_id=get["owner"])
     return rows
@@ -277,18 +291,58 @@ def bulk(request):
 @section
 @require_POST
 def shift(request):
+    """Move the calls matching the page's filters (and a due group) to another day.
+    With `preview` it only lists who would move, for the confirm dialog."""
     form = ShiftForm(request.POST)
     if not form.is_valid():
         messages.error(request, "Pick a day and a reason to move them.")
         return redirect("hiring:screening")
     d = form.cleaned_data
+    filters = QueryDict(request.POST.get("filters", ""), mutable=True)
+    if "refined" in request.POST:  # the dialog's own filters replace the page's
+        for key in SHIFT_FILTERS:
+            filters.setlist(key, [v for v in request.POST.getlist(key) if v])
+    today = timezone.localdate()
+    base = visible_followups(request.user, request.companies)
+    rows = _sheet(base, filters).filter(purpose=FollowUp.Purpose.CALL)
+    if d["group"] == "overdue":
+        rows = rows.filter(due__date__lt=today)
+    elif d["group"] == "today":
+        rows = rows.filter(due__date=today)
+    elif d["group"] == "later":
+        rows = rows.filter(due__date__gt=today)
+    rows = rows.order_by("due", "pk")
+    if "preview" in request.POST:
+        return render(
+            request,
+            "hiring/_shift_preview.html",
+            {
+                "rows": rows[:100],
+                "count": rows.count(),
+                "d": d,
+                "filters": filters.urlencode(),
+                "get": filters,
+                "dept_data": _dept_data(base, filters),
+                "owners": get_user_model().objects.filter(pk__in=base.values("owner")),
+                "tags": TAGS,
+                "stages": STAGES,
+                "priorities": Person.Priority.choices,
+                "groups": [
+                    ("all", "Any day"),
+                    ("overdue", "Overdue"),
+                    ("today", "Due today"),
+                    ("later", "Later"),
+                ],
+            },
+        )
+    back = reverse("hiring:screening") + (f"?{filters.urlencode()}" if filters else "")
     try:
-        moved = shift_calls(_groups(request)[d["group"]], d["day"], d["reason"])
+        moved = shift_calls(rows, d["day"], d["reason"])
     except FollowUpError as exc:
         messages.error(request, str(exc))
     else:
         messages.success(request, f"Moved {moved} call{'s' if moved != 1 else ''}.")
-    return redirect("hiring:screening")
+    return redirect(back)
 
 
 @section
