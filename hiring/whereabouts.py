@@ -17,7 +17,7 @@ SPEC = {
     "joining_period_days": ("int", "Joining period (days)"),
     "current_address": ("area", "Current address"),
     "current_salary": ("int", "Current salary (monthly)"),
-    "availability_status": ("text", "Availability status"),
+    "availability_status": ("yesno", "Availability status"),
     "notes": ("area", "Notes"),
     # common to every major whereabout
     "company_name": ("text", "Company name"),
