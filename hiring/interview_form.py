@@ -436,14 +436,16 @@ class AssessmentForm(forms.Form):
 
     def clean(self):
         data = super().clean()
-        if (
-            data.get("decision") == "hold"
-            and not data.get("next_follow_up")
-            and "next_follow_up" not in self.errors
-        ):
-            self.add_error(
-                "next_follow_up", "A candidate on hold needs a follow up date."
-            )
+        if data.get("decision") == "hold" and "next_follow_up" not in self.errors:
+            day = whereabouts.parse_day(data.get("next_follow_up"))
+            if not day:
+                message = "A candidate on hold needs a follow up date."
+            elif day < timezone.localdate():
+                message = "The follow up date can't be before today."
+            else:
+                message = ""
+            if message:
+                self.add_error("next_follow_up", message)
         return data
 
     def answers(self):

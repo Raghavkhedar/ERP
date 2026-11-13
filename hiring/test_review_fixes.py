@@ -459,3 +459,15 @@ def test_a_malformed_hold_date_gets_one_error_not_two():
     form = AssessmentForm({"decision": "hold", "next_follow_up": "2031-02-30"})
     form.is_valid()
     assert len(form.errors["next_follow_up"]) == 1
+
+
+def test_a_hold_date_in_the_past_is_refused():
+    yesterday = (timezone.localdate() - timedelta(days=1)).isoformat()
+    today = timezone.localdate().isoformat()
+    past = AssessmentForm({"decision": "hold", "next_follow_up": yesterday})
+    assert not past.is_valid() and "before today" in past.errors["next_follow_up"][0]
+    assert AssessmentForm({"decision": "hold", "next_follow_up": today}).is_valid()
+    # Other decisions keep their date as typed.
+    assert AssessmentForm(
+        {"decision": "selected", "next_follow_up": yesterday}
+    ).is_valid()
