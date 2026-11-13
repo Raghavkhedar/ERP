@@ -302,14 +302,14 @@ def test_pending_calls_keep_their_owner_and_unassigned_go_to_nitin(
     assert FollowUp.objects.filter(status="completed").count() == 1
 
 
-def test_calls_signed_by_the_real_caller_and_shifts_are_not_calls(export, monkeypatch):
+def test_calls_signed_by_the_real_caller_and_shifts_are_left_out(export, monkeypatch):
     monkeypatch.setattr(legacy_import, "MIN_SIGNATURES", 2)
     stats, _ = run(export)
     assert (
-        stats["call logs"] == 5
-        and stats["  marked not-a-call (shifts and parking)"] == 1
+        stats["call logs"] == 4
+        and stats["call logs left out (shifts and parking)"] == 1
     )
-    assert CallLog.objects.filter(not_a_call=True).count() == 1
+    assert not CallLog.objects.filter(notes__contains="shift").exists()
     ringing = CallLog.objects.get(notes="ringing-taniya")
     assert ringing.caller.first_name == "Taniya" and not ringing.caller.is_active
     assert ringing.outcome == "reg_not_touch"
@@ -381,5 +381,8 @@ def test_real_export_dry_run():
     print("created", stats["_created"])
     print("shift", stats["_shift_notes"][:12])
     print("kept", stats["_other_notes"][:12])
-    for r in review[:6]:
-        print(r)
+    seen = Counter()
+    for r in review:
+        seen[r[0]] += 1
+        if seen[r[0]] <= 2:
+            print("EX", r)

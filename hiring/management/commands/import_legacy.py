@@ -36,7 +36,7 @@ class Command(BaseCommand):
         self.stdout.write("Names with no account (made inactive):")
         for name in extras["_created"]:
             self.stdout.write(f"  {name}")
-        self.stdout.write("\nMost common notes marked as NOT a call:")
+        self.stdout.write("\nMost common notes left out (shifts and parking):")
         for note, n in extras["_shift_notes"]:
             self.stdout.write(f"  {n:6}  {note}")
         self.stdout.write("Most common notes kept as calls:")

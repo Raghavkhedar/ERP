@@ -81,11 +81,12 @@ ALIASES = {
 NOT_NAMES = {"both", "yes", "no", "na", "ok", "done", "call", "ringing"}
 SIGNATURE = re.compile(r"[-–—]\s*([A-Za-z][A-Za-z .]{1,25}?)\s*\d*\.?\s*$")
 
-# Notes that move or park calls in bulk: they are not calls.
+# Notes that move or park calls in bulk: they are not calls, and are left out.
 SHIFT = re.compile(
     r"shift|\bodb\b|hold kar|hold kra|calls? hold"
     r"|followups? (jyada|jyda|missing|lagaya)"
-    r"|calls? (dedi|de di)|manpower|post odb",
+    r"|calls? (dedi|de di)|manpower|post odb"
+    r"|saturday sab apna pending|cftl karva|ye data .* hold kiya|sunday ke din call",
     re.I,
 )
 
@@ -871,7 +872,17 @@ def _run(data, files, apply, stats, review, log):
         if tag not in OUTCOMES and tag != "Blank":
             unmapped[tag[:40]] += 1
         kind = r["Call_Type"].strip()
-        not_a_call = not kind and bool(SHIFT.search(note))
+        # A log carrying a whereabout form is kept whatever its note says.
+        left_out = (
+            not kind
+            and bool(SHIFT.search(note))
+            and r["Major_Whereabout"] != "true"
+            and r["Mini_Whereabout"] != "true"
+        )
+        if left_out:
+            shifted += 1
+            shift_notes[SHIFT_KEY.sub("", note.lower())[:90]] += 1
+            continue
         when = ts(r["Call_Date"]) or ts(r["Added_Time"]) or now
         added = ts(r["Added_Time"])
         if added and when > added:
@@ -884,19 +895,14 @@ def _run(data, files, apply, stats, review, log):
             notes=note,
             call_type="inbound" if kind == "Incoming" else "outbound",
             discussed=kind == "Discuss with Manager" or r["Discuss_with_sir"] == "true",
-            not_a_call=not_a_call,
         )
         call_objs.append(c)
-        if not_a_call:
-            shifted += 1
-            shift_notes[SHIFT_KEY.sub("", note.lower())[:90]] += 1
-        else:
-            other_notes[SHIFT_KEY.sub("", note.lower())[:90]] += 1
+        other_notes[SHIFT_KEY.sub("", note.lower())[:90]] += 1
         for flag in ("Major_Whereabout", "Mini_Whereabout"):
             if r[flag] == "true":
                 flagged[(zid, flag)].append((added or when, c))
     stats["call logs"] = len(call_objs)
-    stats["  marked not-a-call (shifts and parking)"] = shifted
+    stats["call logs left out (shifts and parking)"] = shifted
     for tag, n in unmapped.items():
         review.append(("call tag not recognised, saved as Blank", tag, n))
 

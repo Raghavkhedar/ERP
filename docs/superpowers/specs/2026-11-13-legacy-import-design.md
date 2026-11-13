@@ -24,7 +24,7 @@ next day. Rows are written directly (never through `source_number()`), so nothin
   Done assignments are kept as completed follow-ups.
 - Calls: every call log. The caller is the name signed at the end of the note (common
   signatures only, misspellings matched), else the login. Bulk shifts and parking notes are
-  `not_a_call`. People with no account get an inactive user (shown as "Former employee").
+  left out (unless the log carries a whereabout form). People with no account get an inactive user (shown as "Former employee").
 - Whereabout forms sit on the call flagged for them, else on a call of their own.
 - Interviews keep their answers, tables, HR assessment and files; the interview wins over the card.
 - Joined and offered candidates get an offer.
