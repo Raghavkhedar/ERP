@@ -6,7 +6,6 @@ from django.http import JsonResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_GET, require_POST
 
 from core.access import require_section
@@ -40,6 +39,7 @@ from .services import (
     snooze_call,
     visible_followups,
 )
+from .whereabouts import parse_day
 
 section = require_section("recruitment", "screening")
 calling_section = require_section("recruitment", "calling")
@@ -115,9 +115,9 @@ def _sheet(rows, get):
     )
     if q := get.get("q", "").strip():
         rows = rows.filter(person__name__icontains=q)
-    if day := parse_date(get.get("due_from", "")):
+    if day := parse_day(get.get("due_from")):
         rows = rows.filter(due__date__gte=day)
-    if day := parse_date(get.get("due_to", "")):
+    if day := parse_day(get.get("due_to")):
         rows = rows.filter(due__date__lte=day)
     if purposes := get.getlist("purpose"):
         rows = rows.filter(purpose__in=purposes)

@@ -8,7 +8,6 @@ import re
 from django import forms
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from django.utils.dateparse import parse_date
 
 from people.models import Person
 
@@ -263,8 +262,8 @@ def table_keys(profile):
 def work_months(start, end, current, today):
     """Whole months between two dates (to today while still working there), or
     None when a date is missing, the end is before the start, or it hasn't begun."""
-    began = parse_date(start or "")
-    left = today if current == "Yes" else parse_date(end or "")
+    began = whereabouts.parse_day(start)
+    left = today if current == "Yes" else whereabouts.parse_day(end)
     if not began or not left or left < began or began > today:
         return None
     return (

@@ -284,6 +284,8 @@ def test_sheet_filters_by_date_range_and_assignee(client, todo, caller):
     assert (
         len(client.get(url, {"q": "", "due_from": "not a date"}).context["rows"]) == 1
     )
+    # looks like a date, isn't one: ignored, not a 500
+    assert len(client.get(url, {"due_to": "2031-02-30"}).context["rows"]) == 1
 
 
 def test_sheet_and_calling_are_paged_and_keep_filters(client, todo, caller):

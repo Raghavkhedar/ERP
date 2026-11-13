@@ -481,3 +481,20 @@ def test_a_table_keeps_up_to_the_row_limit_and_the_page_stops_there(
     assert len(rows(post, "edu", ["degree"])) == MAX_ROWS
     page = client.get(reverse("hiring:interview", args=[booked.pk])).content.decode()
     assert f">= {MAX_ROWS}" in page
+
+
+def test_a_date_that_does_not_exist_is_refused_not_a_crash(client, booked, caller):
+    url = reverse("hiring:interview", args=[booked.pk])
+    r = client.post(url, {**FORM, "assessor": caller.pk, "date_of_birth": "2031-02-30"})
+    assert r.status_code == 200 and not Interview.objects.exists()
+    r = client.post(  # a work row's dates are not checked, only ignored
+        url,
+        {
+            **FORM,
+            "assessor": caller.pk,
+            "work_start": "2031-02-30",
+            "work_organization": "X",
+        },
+    )
+    assert r.status_code == 302
+    assert Interview.objects.get().answers["work"][0]["duration"] == ""

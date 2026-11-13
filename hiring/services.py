@@ -17,7 +17,7 @@ from django.db.models import (
 from django.db.models.functions import Coalesce
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.dateparse import parse_date, parse_time
+from django.utils.dateparse import parse_time
 from simple_history.utils import bulk_update_with_history
 
 from notifications.services import notify
@@ -503,7 +503,7 @@ def apply_to_person(interview, preference=None):
         "joining_period": a.get("joining_days") and f"{a['joining_days']} days",
         "place_of_birth": a.get("place_of_birth"),
         "alternate_phone": a.get("alternate_phone"),
-        "date_of_birth": parse_date(a.get("date_of_birth") or ""),
+        "date_of_birth": whereabouts.parse_day(a.get("date_of_birth")),
         "time_of_birth": parse_time(a.get("time_of_birth") or ""),
         "priority": preference,
     }
@@ -523,7 +523,7 @@ def _follow_up_after_assessment(interview, decision, answers):
     """An offer named in the HR form turns the candidate's pending call into an
     offer call, and the next follow up date, if given, becomes its date."""
     person = interview.person
-    day = parse_date(answers.get("next_follow_up", ""))
+    day = whereabouts.parse_day(answers.get("next_follow_up"))
     due = day_start(day) if day else None
     offered = interview_form.offer_amount(answers.get("offer_given")) > 0
     # Interview and joining reminders are other people's work; leave them be.
