@@ -298,3 +298,19 @@ def test_block_endpoint_is_only_for_your_own_plan(client, alice, django_user_mod
     stolen = client.post(reverse("plans:block"), {"action": "delete", "ids": item.pk})
     assert stolen.status_code == 400 and alice_items(alice, today)
     assert client.get(reverse("plans:panel")).status_code == 200
+
+
+def test_toggle_goal_crosses_it_out_and_back(alice):
+    from django.utils import timezone
+
+    from plans.services import plan_for, toggle_goal
+
+    today = timezone.localdate()
+    plan = plan_for(alice, today) or DailyPlan.objects.create(user=alice, date=today)
+    goal = PlanItem.objects.create(plan=plan, kind=PlanItem.Kind.GOAL, text="Ship it")
+    toggle_goal(alice, today, goal.pk)
+    goal.refresh_from_db()
+    assert goal.done
+    toggle_goal(alice, today, goal.pk)
+    goal.refresh_from_db()
+    assert not goal.done

@@ -252,6 +252,17 @@ def rename_blocks(user, date, ids, title):
 
 
 @transaction.atomic
+def toggle_goal(user, date, goal_id):
+    plan = plan_for(user, date)
+    item = plan and plan.items.filter(kind=PlanItem.Kind.GOAL, pk=goal_id).first()
+    if not item:
+        raise PlanError("That goal is gone. Refresh and try again.")
+    item.done = not item.done
+    item.save()
+    plan.save()
+
+
+@transaction.atomic
 def delete_blocks(user, date, ids):
     plan, items = _own_blocks(user, date, ids)
     for item in items:

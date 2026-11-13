@@ -26,6 +26,7 @@ from .services import (
     progress,
     rename_blocks,
     save_plan,
+    toggle_goal,
 )
 
 
@@ -184,6 +185,8 @@ def block(request):
             move_blocks(request.user, today, ids, int(post.get("delta", "")))
         elif action == "rename":
             rename_blocks(request.user, today, ids, post.get("title", ""))
+        elif action == "toggle_goal":
+            toggle_goal(request.user, today, int(post.get("id", "")))
         elif action == "delete":
             delete_blocks(request.user, today, ids)
         else:
