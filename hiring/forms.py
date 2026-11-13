@@ -2,7 +2,7 @@ from datetime import timedelta
 
 from django import forms
 from django.contrib.auth import get_user_model
-from django.db.models import Q
+from django.db.models import F, Q
 from django.utils import timezone
 
 from core.models import AccessGrant, Company
@@ -328,8 +328,9 @@ class ReassignForm(forms.Form):
         # would sit where they can't see it.
         can_open = AccessGrant.objects.filter(
             module="recruitment",
-            section__in=("screening", "calling"),
+            section__in=("screening", "calling", "selecting", "hiring", "onboarding"),
             company__in=companies,
+            company__memberships__user=F("user"),
         ).values("user")
         self.fields["owner"].queryset = (
             get_user_model()

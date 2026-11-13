@@ -132,6 +132,11 @@ def test_import_skips_cells_the_columns_cannot_hold(req, user):
     assert skipped[0][0] == 2 and "longer than 200" in skipped[0][1]
 
 
+def test_import_ignores_formatted_empty_rows_below_the_data(req, user):
+    rows = [["Ok", "9123456780"]] + [[None, None]] * 3000
+    assert import_numbers(req, sheet(rows), user)[:2] == (1, 0)
+
+
 def test_import_over_the_row_limit_is_refused_not_trimmed(req, user):
     rows = [[f"P{i}", f"9{i:09d}"] for i in range(2001)]
     with pytest.raises(SheetError):
@@ -163,20 +168,32 @@ def test_hr_panel_and_export_follow_the_interviews_own_company(
     client, django_user_model, senken, interview, user
 ):
     other = Company.objects.create(name="Other Co", slug="other")
-    viewer = django_user_model.objects.create_user(username="v", password="pw")
-    grant(viewer, senken, "selecting", "hiring")
-    grant(viewer, other, "assessments", "hiring")  # HR only in the other company
-    client.force_login(viewer)
     s.save_assessment(interview, "selected", "expert", user, comments="secret")
-    page = client.get(reverse("hiring:interview_review", args=[interview.pk]))
-    assert page.status_code == 200 and page.context["hr_form"] is None
-    out = client.get(reverse("hiring:selecting_export"))
-    book = load_workbook(BytesIO(out.content))
-    assert "HR assessments" not in book.sheetnames or all(
-        "secret" not in str(c.value)
-        for r in book["HR assessments"].iter_rows()
-        for c in r
-    )
+    url = reverse("hiring:interview_review", args=[interview.pk])
+
+    def hr_text():
+        out = client.get(reverse("hiring:selecting_export"))
+        book = load_workbook(BytesIO(out.content))
+        return "|".join(
+            str(c.value)
+            for name in book.sheetnames
+            for r in book[name].iter_rows()
+            for c in r
+            if name == "HR assessments"
+        )
+
+    wrong = django_user_model.objects.create_user(username="v", password="pw")
+    grant(wrong, senken, "selecting", "hiring")
+    grant(wrong, other, "assessments", "hiring")  # HR only in the other company
+    client.force_login(wrong)
+    assert client.get(url).context["hr_form"] is None
+    assert "secret" not in hr_text()
+
+    right = django_user_model.objects.create_user(username="r2", password="pw")
+    grant(right, senken, "selecting", "hiring", "assessments")
+    client.force_login(right)
+    assert client.get(url).context["hr_form"] is not None
+    assert "secret" in hr_text()  # the control: the right grant does see it
 
 
 # 8 -------------------------------------------------------------------------
@@ -192,14 +209,25 @@ def test_hiring_access_reads_an_interview_but_cannot_change_it(
 
 
 # 9 + 11 --------------------------------------------------------------------
-def test_a_declined_candidate_selected_again_gets_an_offer_task(interview, user):
+def test_a_declined_candidate_interviewed_again_gets_an_offer_task(interview, user):
     s.save_assessment(interview, "selected", "expert", user)
-    offer = s.start_offer(pending(interview.person, "offer").get(), 9, user)
-    s.decline(offer)
-    interview.result = "pending"
-    interview.save()
-    s.edit_interview(interview, "selected", "", "")
+    s.decline(s.start_offer(pending(interview.person, "offer").get(), 9, user))
+    again = Interview.objects.create(
+        person=interview.person,
+        scheduled_at=timezone.now(),
+        result="pending",
+        interviewer=user,
+    )
+    s.edit_interview(again, "selected", "", "")
     assert pending(interview.person, "offer").count() == 1
+
+
+def test_saving_the_same_interview_again_after_a_decline_opens_nothing(interview, user):
+    s.save_assessment(interview, "selected", "expert", user)
+    s.decline(s.start_offer(pending(interview.person, "offer").get(), 9, user))
+    s.edit_interview(interview, "selected", "new notes", "", answers={"email": "a@b.c"})
+    s.save_assessment(interview, "selected", "expert", user, answers={"offer_given": 9})
+    assert not pending(interview.person, "offer").exists()
 
 
 def test_rejecting_cancels_the_offer_task_and_an_amount_alone_is_no_offer(
@@ -229,6 +257,17 @@ def test_stage_after_a_decline_follows_the_newer_interview(interview, user):
 def test_a_second_offer_task_cannot_start_a_second_open_offer(interview, user):
     s.save_assessment(interview, "selected", "expert", user)
     s.start_offer(pending(interview.person, "offer").get(), 9, user)
+    extra = FollowUp.objects.create(
+        person=interview.person, purpose="offer", due=timezone.now(), owner=user
+    )
+    with pytest.raises(s.OfferError):
+        s.start_offer(extra, 9, user)
+
+
+def test_an_accepted_candidate_cannot_be_offered_again(interview, user):
+    s.save_assessment(interview, "selected", "expert", user)
+    offer = s.start_offer(pending(interview.person, "offer").get(), 9, user)
+    s.accept(offer, date(2031, 6, 1), user)
     extra = FollowUp.objects.create(
         person=interview.person, purpose="offer", due=timezone.now(), owner=user
     )
@@ -277,7 +316,10 @@ def test_reassign_offers_only_people_who_can_open_the_queue(
     outsider = django_user_model.objects.create_user(username="o", password="pw")
     grant(outsider, senken)
     owners = ReassignForm(companies=[senken]).fields["owner"].queryset
-    assert worker in owners and outsider not in owners
+    hirer = django_user_model.objects.create_user(username="h", password="pw")
+    grant(hirer, senken, "hiring")
+    owners = ReassignForm(companies=[senken]).fields["owner"].queryset
+    assert {worker, hirer} <= set(owners) and outsider not in owners
 
 
 # 16 ------------------------------------------------------------------------
@@ -306,9 +348,16 @@ def test_a_call_refused_for_no_supervisor_keeps_what_was_typed(
 
 
 # 17 ------------------------------------------------------------------------
-def test_sourcing_takes_a_lock_per_number(req, user, django_assert_num_queries):
-    # The lock is one extra statement; a repeat still finds the first card.
+def test_sourcing_holds_a_lock_on_the_number_and_a_repeat_finds_the_card(req, user):
+    from django.db import connection
+
     s.source_number(req, "Asha", "9876543210", user)
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT count(*) FROM pg_locks "
+            "WHERE locktype = 'advisory' AND pid = pg_backend_pid()"
+        )
+        assert cursor.fetchone()[0] == 1
     s.source_number(req, "Asha again", "+91 98765 43210", user)
     assert Person.objects.count() == 1
 
@@ -362,7 +411,8 @@ def test_past_days_are_refused_for_moves_and_joining():
     assert (
         JoinedForm({"joined_on": tomorrow, "sim_allotted": "Yes"}).is_valid() is False
     )
-    assert BulkForm  # (bulk already refused past days)
+    bulk = {"scope": "all", "do": "move", "day": yesterday, "reason": "holiday"}
+    assert not BulkForm(bulk, companies=Company.objects.all()).is_valid()
 
 
 # 22 ------------------------------------------------------------------------
@@ -378,3 +428,34 @@ def test_requisition_timeline_counts_each_day_once(req, user):
         s.source_number(req, f"P{i}", f"900000000{i}", user)
     texts = [e[2] for e in s.requisition_timeline(req)]
     assert "3 numbers received" in texts
+
+
+# review follow-ups ----------------------------------------------------------
+def test_bulk_move_says_when_it_left_interviews_alone(
+    client, django_user_model, senken, interview, user
+):
+    boss = django_user_model.objects.create_superuser(username="boss", password="pw")
+    grant(boss, senken)
+    client.force_login(boss)
+    booked = FollowUp.objects.create(
+        person=interview.person, purpose="interview", due=timezone.now(), owner=user
+    )
+    out = client.post(
+        reverse("hiring:bulk"),
+        {
+            "scope": "ticked",
+            "do": "move",
+            "ids": [booked.pk],
+            "day": (timezone.localdate() + timedelta(days=2)).isoformat(),
+            "reason": "holiday",
+            "filters": "",
+        },
+        follow=True,
+    )
+    assert "No calls to move" in out.content.decode()
+
+
+def test_a_malformed_hold_date_gets_one_error_not_two():
+    form = AssessmentForm({"decision": "hold", "next_follow_up": "2031-02-30"})
+    form.is_valid()
+    assert len(form.errors["next_follow_up"]) == 1

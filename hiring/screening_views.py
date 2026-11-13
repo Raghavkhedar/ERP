@@ -283,9 +283,19 @@ def bulk(request):
         )
     else:
         n = bulk_move(rows, d["day"], d["reason"], by=request.user)
-        messages.success(
-            request, f"Moved {n} follow-up{'s' if n != 1 else ''} to {d['day']:%-d %b}."
+        left = len(pks) - n
+        note = (
+            f" {left} interview, offer or joining dates were left as they are."
+            if left
+            else ""
         )
+        if n:
+            messages.success(
+                request,
+                f"Moved {n} call{'s' if n != 1 else ''} to {d['day']:%-d %b}.{note}",
+            )
+        else:
+            messages.error(request, f"No calls to move.{note}")
     return redirect(back)
 
 

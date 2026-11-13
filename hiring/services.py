@@ -156,6 +156,16 @@ def next_day():
     return day_start(timezone.localdate() + timedelta(days=1))
 
 
+def lock_numbers(company_id, keys):
+    """Hold the sourcing lock of these numbers until the transaction ends. Always
+    taken in sorted order, so two imports sharing numbers can't deadlock."""
+    with connection.cursor() as cursor:
+        for key in sorted(set(keys)):
+            cursor.execute(
+                "SELECT pg_advisory_xact_lock(hashtext(%s))", [f"{company_id}:{key}"]
+            )
+
+
 def _not_to_call(cards):
     """Cards that must not get a recruiter call: asked not to be called, closed,
     or holding an open or accepted offer (so also anyone already working)."""
@@ -178,11 +188,7 @@ def source_number(
         raise ValueError("Enter a phone number with at least 10 digits.")
     with transaction.atomic():
         # One sourcing of a number at a time, so a double submit can't make two cards.
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT pg_advisory_xact_lock(hashtext(%s))",
-                [f"{requisition.company_id}:{key}"],
-            )
+        lock_numbers(requisition.company_id, [key])
         cards = Person.objects.filter(company=requisition.company, phone_key=key)
         person = cards.order_by("-pk").first()  # the card used last time
         duplicate = person is not None
@@ -556,6 +562,16 @@ def _live_offer(person):
     ).exists()
 
 
+def _offer_taken(interview):
+    """No offer task for this interview: an offer is open or accepted, or one was
+    already made after it (even if declined, so saving it again can't reopen it).
+    A new interview after a declined offer is a second chance and may."""
+    return (
+        _live_offer(interview.person)
+        or interview.person.offers.filter(created_at__gte=interview.created_at).exists()
+    )
+
+
 def _follow_up_after_assessment(interview, decision, answers):
     """An offer named in the HR form turns the candidate's pending call into an
     offer call, and the next follow up date, if given, becomes its date. A rejected
@@ -566,7 +582,7 @@ def _follow_up_after_assessment(interview, decision, answers):
     due = day_start(day) if day else None
     offered = (
         decision != Interview.Result.REJECTED
-        and not _live_offer(person)
+        and not _offer_taken(interview)
         and interview_form.offer_amount(answers.get("offer_given")) > 0
     )
     # Interview and joining reminders are other people's work; leave them be.
@@ -659,8 +675,8 @@ def start_offer(followup, amount, user, note=""):
     """Make the first offer for a candidate whose interview went well."""
     with transaction.atomic():
         current = _pending(followup)
-        if current.person.offers.filter(state=Offer.State.OFFERED).exists():
-            raise OfferError("This candidate already has an open offer.")
+        if _live_offer(current.person):
+            raise OfferError("This candidate already has an open or accepted offer.")
         offer = Offer.objects.create(
             person=current.person, requisition=current.requisition, made_by=user
         )
@@ -1071,7 +1087,7 @@ def edit_interview(interview, result, questions, notes, profile=None, answers=No
                 f.status = FollowUp.Status.CANCELLED
                 f.version += 1
                 f.save(update_fields=["status", "version"])
-        if result == Interview.Result.SELECTED and not _live_offer(person):
+        if result == Interview.Result.SELECTED and not _offer_taken(interview):
             FollowUp.objects.get_or_create(
                 person=person,
                 purpose=FollowUp.Purpose.OFFER,
