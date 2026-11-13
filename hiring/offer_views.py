@@ -16,6 +16,7 @@ from .services import (
     offers_waiting,
     onboarding,
     start_offer,
+    visible_interviews,
     visible_offers,
 )
 
@@ -30,6 +31,7 @@ def hiring(request):
         request,
         "hiring/offers.html",
         {
+            "interviews": visible_interviews(request.companies)[:100],
             "waiting": paginate(
                 request,
                 offers_waiting(request.user, request.companies),

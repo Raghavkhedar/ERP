@@ -59,7 +59,7 @@ MODULES = {
 
 
 # Where each Empanelment tab lands. Assessments has no page of its own: it is
-# a form reached from Selecting.
+# a form reached from Hiring.
 TAB_URLS = {
     "openings": "hiring:list",
     "people": "people:list",

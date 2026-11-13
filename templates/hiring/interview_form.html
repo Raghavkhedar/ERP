@@ -1,24 +1,135 @@
 {% extends "people/base_people.html" %}
 
 {% block title %}Interview · Senken ERP{% endblock %}
-{% block heading %}{{ f.person.name }}{% endblock %}
-{% block actions %}<a href="{% url 'people:detail' f.person_id %}" class="text-gray-500 hover:text-gray-900">Card</a><a href="{% url 'hiring:selecting' %}" class="text-gray-500 hover:text-gray-900">Back</a>{% endblock %}
+{% block heading %}Interview form{% endblock %}
+{% block actions %}<a href="{% url 'people:detail' person.pk %}" class="text-gray-500 hover:text-gray-900">Card</a><a href="{% if editing %}{% url 'hiring:offers' %}{% else %}{% url 'hiring:selecting' %}{% endif %}" class="text-gray-500 hover:text-gray-900">Back</a>{% endblock %}
 
 {% block page %}
-  <p class="text-sm text-gray-500">{{ f.person.phone }} · {{ when|date:"j M, g:i a" }}{% if f.requisition %} · {{ f.requisition }}{% endif %}{% if f.person.current_employer %} · {{ f.person.current_employer }}{% endif %}{% if f.person.expected_salary %} · expects {{ f.person.expected_salary }}{% endif %}{% if f.person.experience_years %} · {{ f.person.experience_years }} yrs{% endif %}</p>
-  <form method="post" class="fields mt-6 max-w-xl space-y-4 [&_input[type=datetime-local]]:w-full [&_textarea]:w-full">
+  {{ tables|json_script:"tables-data" }}
+  <div class="{% if hr_form %}mx-auto max-w-[88rem] items-start lg:grid lg:grid-cols-[minmax(0,1fr)_28rem] lg:gap-6{% endif %}">
+  <form method="post" enctype="multipart/form-data"
+        class="fields {% if not hr_form %}mx-auto {% endif %}max-w-4xl space-y-6 [&_input:not([type=checkbox])]:w-full [&_select]:w-full [&_textarea]:w-full [&_input[readonly]]:bg-canvas [&_input[readonly]]:text-gray-500"
+        x-data="{ profile: '{{ form.profile.value|default:'' }}', today: '{{ today }}', vehicle: '{{ form.vehicle_status.value|default:'' }}', n: 0,
+                  row() { return { err: '', _id: ++this.n }; },
+                  t: JSON.parse(document.getElementById('tables-data').textContent),
+                  // Months worked, whole months, from the dates. Still working means up to today.
+                  calc(r) {
+                    r.err = '';
+                    if (r.current === 'Yes') r.end = '';
+                    const s = r.start ? new Date(r.start + 'T00:00') : null;
+                    const now = new Date(this.today + 'T00:00');
+                    const e = r.current === 'Yes' ? now : (r.end ? new Date(r.end + 'T00:00') : null);
+                    r.duration = '';
+                    if (!s || !e) return;
+                    if (s > now) { r.err = 'The start date is in the future.'; return; }
+                    if (e < s) { r.err = 'The end date is before the start date.'; return; }
+                    r.duration = (e.getFullYear() - s.getFullYear()) * 12 + e.getMonth() - s.getMonth() - (e.getDate() < s.getDate() ? 1 : 0);
+                  },
+                  drop(list, i) { list.splice(i, 1); if (!list.length) list.push(this.row()); } }"
+        x-init="for (const k in t) { if (!t[k].length) t[k] = [{}]; t[k] = t[k].map(r => ({ ...r, err: '', _id: ++n })); } t.work.forEach(r => { const d = r.duration; calc(r); if (!r.duration) r.duration = d || ''; })"
+        @change="if ($event.target.name === 'profile') profile = $event.target.value; if ($event.target.name === 'vehicle_status') vehicle = $event.target.value">
     {% csrf_token %}
-    <h2 class="font-semibold">Result</h2>
-    {% for error in form.result.errors %}<p class="text-sm text-red-600">{{ error }}</p>{% endfor %}
-    <div class="flex flex-wrap gap-2">
-      {% for radio in form.result %}
-        <label class="cursor-pointer rounded-lg border border-ink px-3 py-2 text-sm has-[:checked]:bg-pop"><span class="sr-only">{{ radio.tag }}</span>{{ radio.choice_label }}</label>
-      {% endfor %}
+    <input type="hidden" name="which" value="interview">
+
+    <header class="rounded-xl border border-ink bg-ink p-5 text-white shadow-xl">
+      <h2 class="title text-2xl text-pop">{{ person.name }}</h2>
+      <p class="mt-1 text-sm">{{ person.phone }}, interview on {{ when|date:"j M Y" }}{% if editing and interview.requisition %}, for {{ interview.requisition }}{% endif %}{% if editing %}, filed by {{ interview.interviewer.display_name }}{% endif %}</p>
+    </header>
+
+    {% if form.errors %}
+      <p class="rounded-lg border border-ink bg-pop p-3 text-sm font-medium" role="alert">Some answers need fixing. They are marked below.</p>
+    {% endif %}
+
+    <section class="rounded-xl border border-ink bg-surface p-5 shadow-xl">
+      <h2 class="title text-lg">Profile</h2>
+      <p class="mb-3 text-sm text-gray-500">The profile decides which questions and tables follow.</p>
+      <div class="max-w-md">{% include "tasks/_field.html" with field=form.profile %}</div>
+      <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 [&>div]:min-w-0">
+        <div><label for="photo" class="mb-1.5 block text-sm font-medium">Image</label><input type="file" id="photo" name="photo" accept="image/*" class="max-w-full text-sm">{% if interview.photo %}<a href="{% url 'hiring:interview_file' interview.pk 'photo' %}" class="mt-1 block text-sm underline">See current image</a>{% endif %}</div>
+        <div><label for="resume" class="mb-1.5 block text-sm font-medium">Resume</label><input type="file" id="resume" name="resume" class="max-w-full text-sm">{% if interview.resume %}<a href="{% url 'hiring:interview_file' interview.pk 'resume' %}" class="mt-1 block text-sm underline">See current resume</a>{% endif %}</div>
+      </div>
+    </section>
+
+    {% for key, group in form.groups.items %}
+      <section x-show="profile === '{{ key }}'" x-cloak class="rounded-xl border border-ink bg-pop/25 p-5 shadow-xl"
+               {% if group.pick %}x-data="{ pick: '{{ group.pick_value }}' }" @change="if ($event.target.name === '{{ group.pick }}') pick = $event.target.value"{% endif %}>
+        <h2 class="title text-lg">{{ group.title }} questions</h2>
+        <p class="mb-3 text-sm text-gray-600">Only for this profile.</p>
+        <div class="grid gap-4 sm:grid-cols-2">
+          {% for field in group.main %}<div class="{% if field.widget_type == 'textarea' %}sm:col-span-2{% endif %}">{% include "tasks/_field.html" %}</div>{% endfor %}
+        </div>
+        {% for title, shows, fields in group.blocks %}
+          <div x-show="{{ shows }}.includes(pick)" x-cloak class="mt-5 border-t border-ink/30 pt-4">
+            <h3 class="font-semibold">{{ title }} work</h3>
+            <p class="mb-2 text-sm text-gray-600">Can they do it?</p>
+            <ul class="grid gap-x-10 sm:grid-cols-2">
+              {% for field in fields %}{% include "hiring/_yesno_row.html" %}{% endfor %}
+            </ul>
+          </div>
+        {% endfor %}
+      </section>
+    {% endfor %}
+
+    {% for s in sections %}
+      <section class="rounded-xl border border-ink bg-surface p-5 shadow-xl">
+        <h2 class="title mb-3 text-lg">{{ s.title }}</h2>
+        <div class="grid gap-4 sm:grid-cols-2">
+          {% for field in s.fields %}<div class="{% if field.widget_type == 'textarea' %}sm:col-span-2{% endif %}">{% include "tasks/_field.html" %}</div>{% endfor %}
+        </div>
+      </section>
+    {% endfor %}
+
+    {% for d in table_defs %}
+      <section x-show="{{ d.show }}.includes(profile)" x-cloak class="rounded-xl border border-ink bg-surface p-5 shadow-xl">
+        <h2 class="title mb-3 text-lg">{{ d.title }}</h2>
+        {% if d.key == "vehicles" %}<div class="mb-2 max-w-xs">{% include "tasks/_field.html" with field=form.vehicle_status %}</div>{% endif %}
+        <div{% if d.key == "vehicles" %} x-show="vehicle === 'Has a vehicle'" x-cloak{% endif %}>
+        <template x-for="(r, i) in t.{{ d.key }}" :key="r._id">
+          <div class="mt-3 border-t border-gray-100 pt-3">
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {% for c in d.cols %}
+                <label class="text-sm">{{ c.label }}
+                  {% if c.type == "yesno" %}
+                    <select name="{{ d.prefix }}_{{ c.key }}" x-model="r.{{ c.key }}" @change="calc(r)" class="mt-1"><option value="">-</option><option>Yes</option><option>No</option></select>
+                  {% elif d.key == "work" and c.key == "duration" %}
+                    <input type="text" readonly name="{{ d.prefix }}_{{ c.key }}" :value="r.duration" placeholder="Worked out from the dates" class="mt-1">
+                  {% elif d.key == "work" and c.key == "end" %}
+                    <input type="date" name="{{ d.prefix }}_{{ c.key }}" x-model="r.end" :readonly="r.current === 'Yes'" :placeholder="r.current === 'Yes' ? 'Still working here' : ''" :max="today" @change="calc(r)" class="mt-1">
+                    <span x-show="r.current === 'Yes'" class="text-xs text-gray-500">Still working here, so no end date.</span>
+                  {% elif d.key == "work" and c.key == "start" %}
+                    <input type="date" name="{{ d.prefix }}_{{ c.key }}" x-model="r.start" :max="today" @change="calc(r)" class="mt-1">
+                  {% else %}
+                    <input type="{{ c.type }}"{% if c.type == "number" %} min="0"{% endif %} name="{{ d.prefix }}_{{ c.key }}" x-model="r.{{ c.key }}" class="mt-1">
+                  {% endif %}
+                </label>
+              {% endfor %}
+            </div>
+            <p x-show="r.err" x-text="r.err" class="mt-2 text-sm text-red-600" role="alert"></p>
+            <button type="button" @click="drop(t.{{ d.key }}, i)" class="mt-2 text-sm text-gray-500 underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pop">Remove this row</button>
+          </div>
+        </template>
+        <button type="button" @click="t.{{ d.key }}.push(row())" class="mt-4 h-9 rounded-lg border border-ink px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pop">Add a row</button>
+        </div>
+      </section>
+    {% endfor %}
+
+    <div class="sticky bottom-3 z-10 flex items-center gap-4 rounded-xl border border-ink bg-surface p-3 shadow-lg">
+      <button type="submit" class="h-11 rounded-lg bg-blue-600 px-5 font-medium">{% if editing %}Save changes{% else %}File interview{% endif %}</button>
+      <p class="text-sm text-gray-500">{% if editing %}Saving updates the candidate's card.{% else %}Super admins are told as soon as you file it.{% endif %}</p>
     </div>
-    <p class="text-xs text-gray-500">Selected opens an offer for this person.{% if not editing %} Hold opens a call if you set a date.{% endif %}</p>
-    {% if form.next_due %}{% include "tasks/_field.html" with field=form.next_due %}{% endif %}
-    {% include "tasks/_field.html" with field=form.questions %}
-    {% include "tasks/_field.html" with field=form.notes %}
-    <button type="submit" class="h-11 rounded-lg bg-blue-600 px-5 font-medium">{% if editing %}Save changes{% else %}Save interview{% endif %}</button>
   </form>
+
+  {% if hr_form %}
+    <form method="post" class="fields mt-6 space-y-3 rounded-xl border border-ink bg-pop/25 p-4 shadow-xl lg:sticky lg:top-20 lg:mt-0 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto [&_input]:w-full [&_select]:w-full [&_textarea]:w-full [&_textarea]:min-h-0">
+      {% csrf_token %}
+      <input type="hidden" name="which" value="hr">
+      <h2 class="title text-lg">HR assessment (PFA)</h2>
+      <p class="text-sm text-gray-600">Only you can see this. Selected opens an offer. Hold opens a call on the follow up date.</p>
+      <div class="grid gap-3 sm:grid-cols-2">
+        {% for field in hr_form %}<div class="{% if field.widget_type == 'textarea' %}sm:col-span-2{% endif %}">{% include "tasks/_field.html" %}</div>{% endfor %}
+      </div>
+      <button type="submit" class="h-11 w-full rounded-lg bg-blue-600 px-5 font-medium">Save HR assessment</button>
+    </form>
+  {% endif %}
+  </div>
 {% endblock %}

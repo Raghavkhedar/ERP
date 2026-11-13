@@ -100,12 +100,7 @@ def test_edit_interview_opens_the_offer_when_it_becomes_selected(req, user, clie
         person.followups.get(purpose="interview"), "hold", user
     )
     assert not person.followups.filter(purpose="offer").exists()
-    page = client.get(reverse("hiring:interview_edit", args=[interview.pk]))
-    assert page.status_code == 200 and b"Save changes" in page.content
-    client.post(
-        reverse("hiring:interview_edit", args=[interview.pk]),
-        {"result": "selected", "questions": "Q", "notes": "Good"},
-    )
+    edit_interview(interview, "selected", "Q", "Good")
     interview.refresh_from_db()
     assert interview.result == "selected" and interview.notes == "Good"
     assert person.followups.filter(purpose="offer", status="pending").count() == 1

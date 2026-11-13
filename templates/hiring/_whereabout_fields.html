@@ -1,0 +1,7 @@
+<div class="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+  {% for field in form %}{% if field.name != skip %}
+    <div class="{% if field.field.widget.input_type == 'select' or field.field.widget.input_type == 'text' or field.field.widget.input_type == 'number' or field.field.widget.input_type == 'date' %}{% else %}sm:col-span-2 lg:col-span-3{% endif %}">
+      {% include "tasks/_field.html" with field=field %}
+    </div>
+  {% endif %}{% endfor %}
+</div>

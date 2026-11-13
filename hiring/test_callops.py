@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from core.access import MODULES
 from core.models import AccessGrant, Company
+from people.models import Person
 
 from .models import FollowUp, Requisition
 from .services import shift_calls, source_number
@@ -111,3 +112,46 @@ def test_only_the_owner_can_snooze(req, user, client, django_user_model, senken)
 
     with pytest.raises(FollowUpError):
         snooze_call(call, other, "1h")
+
+
+def test_shift_preview_lists_who_moves_and_obeys_filters(req, user, client):
+    source_number(req, "Ravi", "99999 11111", user)
+    source_number(req, "Asha", "99999 22222", user)
+    before = list(FollowUp.objects.order_by("pk").values_list("due", flat=True))
+    data = {"group": "all", "day": "2031-05-01", "reason": "shortage", "preview": "1"}
+    page = client.post(reverse("hiring:shift"), {**data, "filters": "q=Ravi"})
+    assert b"1 call will move" in page.content and b"Asha" not in page.content
+    assert list(FollowUp.objects.order_by("pk").values_list("due", flat=True)) == before
+    client.post(
+        reverse("hiring:shift"),
+        {
+            "group": "all",
+            "day": "2031-05-01",
+            "reason": "shortage",
+            "filters": "q=Ravi",
+        },
+    )
+    moved = FollowUp.objects.get(person__name="Ravi")
+    assert timezone.localtime(moved.due).date() == date(2031, 5, 1)
+    assert timezone.localtime(
+        FollowUp.objects.get(person__name="Asha").due
+    ).date() != date(2031, 5, 1)
+
+
+def test_shift_preview_narrows_by_preference_and_department(req, user, client):
+    source_number(req, "Ravi", "99999 11111", user)
+    source_number(req, "Asha", "99999 22222", user)
+    Person.objects.filter(name="Ravi").update(priority="preferred")
+    data = {
+        "group": "all",
+        "day": "2031-05-01",
+        "reason": "shortage",
+        "preview": "1",
+        "refined": "1",
+        "priority": "preferred",
+    }
+    page = client.post(reverse("hiring:shift"), data)
+    assert b"1 call will move" in page.content and b"Asha" not in page.content
+    data["department"] = "no-such-department"
+    page = client.post(reverse("hiring:shift"), data)
+    assert b"0 calls will move" in page.content

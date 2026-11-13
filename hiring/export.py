@@ -1,5 +1,6 @@
 from core.export import stamp, workbook_response
 
+from . import interview_form, whereabouts
 from .models import CallLog, OfferRound, RequisitionPost
 from .services import by_source
 
@@ -170,6 +171,8 @@ def followups_workbook(followups):
                     "Reschedule reason",
                     "Department change",
                     "Discuss with manager",
+                    "Mini whereabout",
+                    "Major whereabout",
                 ),
                 [
                     (
@@ -183,6 +186,8 @@ def followups_workbook(followups):
                         c.reschedule_reason,
                         c.department_changed,
                         c.discussed,
+                        whereabouts.summary(c.mini_whereabout),
+                        whereabouts.summary(c.major_whereabout),
                     )
                     for c in CallLog.objects.filter(person_id__in=people)
                     .exclude(not_a_call=True)
@@ -208,6 +213,8 @@ def interviews_workbook(interviews, include_hr=False):
                 "Interviewer",
                 "Questions asked",
                 "Notes",
+                "Profile",
+                "Form answers",
             ),
             [
                 (
@@ -219,6 +226,8 @@ def interviews_workbook(interviews, include_hr=False):
                     who(i.interviewer),
                     i.questions,
                     i.notes,
+                    i.profile,
+                    interview_form.summary(i.answers),
                 )
                 for i in interviews
             ],
@@ -226,7 +235,15 @@ def interviews_workbook(interviews, include_hr=False):
     }
     if include_hr:
         sheets["HR assessments"] = (
-            ("Candidate", "Decision", "Level", "Hold tenure", "Comments", "Assessor"),
+            (
+                "Candidate",
+                "Decision",
+                "Level",
+                "Hold tenure",
+                "Comments",
+                "Assessor",
+                "PFA answers",
+            ),
             [
                 (
                     i.person.name,
@@ -235,6 +252,7 @@ def interviews_workbook(interviews, include_hr=False):
                     i.hr.hold_tenure,
                     i.hr.comments,
                     who(i.hr.assessor),
+                    interview_form.summary(i.hr.answers),
                 )
                 for i in interviews
                 if hasattr(i, "hr")

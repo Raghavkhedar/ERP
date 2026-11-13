@@ -1,6 +1,16 @@
+from pathlib import Path
+from uuid import uuid4
+
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 from simple_history.models import HistoricalRecords
+
+
+def interview_file_path(interview, filename):
+    # A random name, as for red-flag files; they are served only through a view.
+    suffix = Path(filename).suffix.lower()
+    return f"interviews/{timezone.now():%Y/%m}/{uuid4().hex}{suffix}"
 
 
 class Requisition(models.Model):
@@ -307,6 +317,9 @@ class CallLog(models.Model):
     reschedule_reason = models.TextField(blank=True)
     department_changed = models.BooleanField(default=False)
     discussed = models.BooleanField(default=False)
+    # Answers of the whereabout forms (see whereabouts.py); empty when not filled.
+    mini_whereabout = models.JSONField(default=dict, blank=True)
+    major_whereabout = models.JSONField(default=dict, blank=True)
     # Bulk shifts and on-demand moves migrated from Zoho aren't real calls.
     not_a_call = models.BooleanField(default=False)
 
@@ -323,6 +336,7 @@ class Interview(models.Model):
     """The interview event, pre-filled from the follow-up that booked it."""
 
     class Result(models.TextChoices):
+        PENDING = "pending", "Waiting for HR"
         SELECTED = "selected", "Selected"
         HOLD = "hold", "Hold"
         REJECTED = "rejected", "Rejected"
@@ -344,6 +358,11 @@ class Interview(models.Model):
     result = models.CharField(max_length=20, choices=Result)
     questions = models.TextField(blank=True)
     notes = models.TextField(blank=True)
+    profile = models.CharField(max_length=40, blank=True)
+    # The form's answers, education and vehicle rows; see interview_form.py.
+    answers = models.JSONField(default=dict, blank=True)
+    photo = models.FileField(upload_to=interview_file_path, max_length=200, blank=True)
+    resume = models.FileField(upload_to=interview_file_path, max_length=200, blank=True)
     interviewer = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
     )
@@ -372,9 +391,10 @@ class HRAssessment(models.Model):
         Interview, on_delete=models.PROTECT, related_name="hr"
     )
     decision = models.CharField(max_length=20, choices=Interview.Result)
-    level = models.CharField(max_length=20, choices=Level)
+    level = models.CharField(max_length=20, choices=Level, blank=True)
     hold_tenure = models.CharField(max_length=60, blank=True)
     comments = models.TextField(blank=True)
+    answers = models.JSONField(default=dict, blank=True)
     assessor = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
     )

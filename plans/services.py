@@ -150,7 +150,7 @@ def can_view(viewer, owner):
     return Task.objects.filter(assigned_by=viewer, assigned_to=owner).exists()
 
 
-PANEL_HOUR_HEIGHT = 56  # pixels per hour in the home page's day panel
+PANEL_HOUR_HEIGHT = 76  # pixels per hour in the home page's day panel
 PANEL_START, PANEL_END = 10, 18  # the hours the panel shows
 
 
@@ -350,7 +350,7 @@ def day_panel(user, date):
     for block in blocks:
         block["top"] = offset(block["start"])
         bottom = span if block["end"] == time.max else offset(block["end"])
-        block["height"] = min(max(bottom - block["top"], 20), span - block["top"])
+        block["height"] = min(max(bottom - block["top"], 30), span - block["top"])
     now = timezone.localtime()
     now_top = None
     if now.date() == date and first <= now.hour < last:
@@ -370,6 +370,8 @@ def day_panel(user, date):
         ],
         "height": (last - first) * PANEL_HOUR_HEIGHT,
         "now_top": now_top,
+        # Which "floor" (hour of the drawn day) the lift is on, 1 at the first hour.
+        "floor": now.hour - first + 1 if now_top is not None else None,
         "done": done,
         "total": total,
     }
