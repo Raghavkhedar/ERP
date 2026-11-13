@@ -28,6 +28,7 @@ from .forms import (
 from .models import CallLog, FollowUp, Interview, Offer, Requisition
 from .services import (
     FollowUpError,
+    NoSupervisor,
     bulk_move,
     bulk_reassign,
     cancel,
@@ -281,7 +282,7 @@ def bulk(request):
             f"Gave {n} follow-up{'s' if n != 1 else ''} to {d['owner'].display_name}.",
         )
     else:
-        n = bulk_move(rows, d["day"], d["reason"])
+        n = bulk_move(rows, d["day"], d["reason"], by=request.user)
         messages.success(
             request, f"Moved {n} follow-up{'s' if n != 1 else ''} to {d['day']:%-d %b}."
         )
@@ -337,7 +338,7 @@ def shift(request):
         )
     back = reverse("hiring:screening") + (f"?{filters.urlencode()}" if filters else "")
     try:
-        moved = shift_calls(rows, d["day"], d["reason"])
+        moved = shift_calls(rows, d["day"], d["reason"], by=request.user)
     except FollowUpError as exc:
         messages.error(request, str(exc))
     else:
@@ -382,6 +383,10 @@ def _act(
     if form.is_valid():
         try:
             run(followup, form.cleaned_data)
+        except NoSupervisor as exc:
+            # Keep what was typed: a whereabout form is long.
+            messages.error(request, str(exc))
+            return _detail(request, followup, **{form_key: form})
         except FollowUpError as exc:
             messages.error(request, str(exc))
             return redirect(back)

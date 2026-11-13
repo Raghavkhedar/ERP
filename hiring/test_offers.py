@@ -131,8 +131,9 @@ def test_export(client, offer):
     assert len(list(book["Rounds"].values)) == 2
 
 
+# Joining can't be in the future, so the tests join on the day they accept.
 JOINED = {
-    "joined_on": "2030-01-07",
+    "joined_on": timezone.localdate().isoformat(),
     "sim_allotted": "Yes",
     "resources": "Laptop, ID card",
     "notes": "On time",
@@ -144,17 +145,19 @@ def test_marking_joined_closes_the_joining_follow_up(client, offer, caller):
     r = client.post(reverse("hiring:joined", args=[offer.pk]), JOINED)
     assert r.status_code == 302
     offer.refresh_from_db()
-    assert offer.joined_on == date(2030, 1, 7)
+    assert offer.joined_on == timezone.localdate()
     assert not FollowUp.objects.filter(purpose="joining", status="pending").exists()
     page = client.get(reverse("hiring:onboarding")).content.decode()
-    assert "joined 7 Jan 2030" in page and "coming soon" in page
+    assert f"joined {timezone.localdate():%-d %b %Y}" in page and "coming soon" in page
     assert (offer.resources, offer.sim_allotted) == ("Laptop, ID card", "Yes")
     assert "SIM: Yes" in page and "Laptop, ID card" in page
 
 
 def test_joining_needs_the_sim_answer(client, offer, caller):
     accept(offer, date(2030, 1, 6), caller)
-    client.post(reverse("hiring:joined", args=[offer.pk]), {"joined_on": "2030-01-07"})
+    client.post(
+        reverse("hiring:joined", args=[offer.pk]), {"joined_on": JOINED["joined_on"]}
+    )
     offer.refresh_from_db()
     assert offer.joined_on is None
 
@@ -167,7 +170,7 @@ def test_only_accepted_unjoined_offers_can_join(client, offer, caller):
     for _ in range(2):
         client.post(reverse("hiring:joined", args=[offer.pk]), JOINED)
     offer.refresh_from_db()
-    assert offer.joined_on == date(2030, 1, 7)
+    assert offer.joined_on == timezone.localdate()
 
 
 def test_onboarding_export(client, offer, caller):

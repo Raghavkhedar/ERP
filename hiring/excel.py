@@ -1,3 +1,5 @@
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.db import transaction
 from openpyxl import load_workbook
 
@@ -14,8 +16,24 @@ HEADS = {
 }
 
 
+# The longest each cell may be: the columns it lands in.
+LIMITS = {"name": 200, "phone": 30, "email": 254, "source": 120}
+
+
 class SheetError(Exception):
     pass
+
+
+def _too_long(cell, row):
+    for key, limit in LIMITS.items():
+        if len(cell(row, key)) > limit:
+            return f"{key} is longer than {limit} characters"
+    if email := cell(row, "email"):
+        try:
+            validate_email(email)
+        except ValidationError:
+            return "not a valid email"
+    return ""
 
 
 def _text(value):
@@ -33,12 +51,14 @@ def import_numbers(requisition, upload, user, source=""):
     try:
         sheet = load_workbook(upload, read_only=True, data_only=True).active
         rows = [
-            list(r) for r in sheet.iter_rows(max_row=MAX_ROWS + 1, values_only=True)
+            list(r) for r in sheet.iter_rows(max_row=MAX_ROWS + 2, values_only=True)
         ]
     except Exception:
         raise SheetError(
             "Couldn't read that file. Upload an Excel .xlsx file."
         ) from None
+    if len(rows) > MAX_ROWS + 1:
+        raise SheetError(f"That sheet has more than {MAX_ROWS} rows. Split it up.")
 
     heads = [_text(c).lower() for c in rows[0]] if rows else []
     cols = {
@@ -60,6 +80,9 @@ def import_numbers(requisition, upload, user, source=""):
                 continue
             if not cell(row, "name"):
                 skipped.append((n, "no name"))
+                continue
+            if why := _too_long(cell, row):
+                skipped.append((n, why))
                 continue
             try:
                 made = source_number(

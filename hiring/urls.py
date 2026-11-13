@@ -94,4 +94,5 @@ urlpatterns = [
     path("onboarding/", offer_views.onboarding_page, name="onboarding"),
     path("onboarding/export/", offer_views.export_onboarding, name="onboarding_export"),
     path("onboarding/<int:pk>/joined/", offer_views.joined, name="joined"),
+    path("onboarding/<int:pk>/not-joined/", offer_views.not_joined, name="not_joined"),
 ]

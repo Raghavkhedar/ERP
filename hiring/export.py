@@ -200,7 +200,7 @@ def followups_workbook(followups):
     )
 
 
-def interviews_workbook(interviews, include_hr=False):
+def interviews_workbook(interviews, include_hr=False, hr_companies=None):
     def who(u):
         return u.get_full_name() or u.get_username()
 
@@ -258,6 +258,7 @@ def interviews_workbook(interviews, include_hr=False):
                 )
                 for i in interviews
                 if hasattr(i, "hr")
+                and (hr_companies is None or i.person.company_id in hr_companies)
             ],
         )
     return workbook_response(stamp("interviews"), sheets)

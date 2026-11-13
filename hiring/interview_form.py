@@ -434,6 +434,14 @@ class AssessmentForm(forms.Form):
         for key in PFA:
             self.fields[key] = whereabouts._field(key, SPEC)
 
+    def clean(self):
+        data = super().clean()
+        if data.get("decision") == "hold" and not data.get("next_follow_up"):
+            self.add_error(
+                "next_follow_up", "A candidate on hold needs a follow up date."
+            )
+        return data
+
     def answers(self):
         """What goes in the JSON: everything but the two columns and the comments."""
         keep = {"preference", *PFA}

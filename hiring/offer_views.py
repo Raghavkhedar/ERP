@@ -13,6 +13,7 @@ from .services import (
     accept,
     add_round,
     decline,
+    did_not_join,
     mark_joined,
     offers_waiting,
     onboarding,
@@ -171,6 +172,18 @@ def joined(request, pk):
     else:
         for errors in form.errors.values():
             messages.error(request, errors[0])
+    return redirect("hiring:onboarding")
+
+
+@onboarding_section
+@require_POST
+def not_joined(request, pk):
+    try:
+        did_not_join(_offer(request, pk), request.POST.get("reason", "").strip()[:150])
+    except FollowUpError as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, "Marked as not joined.")
     return redirect("hiring:onboarding")
 
 

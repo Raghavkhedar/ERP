@@ -2,9 +2,10 @@ from datetime import timedelta
 
 from django import forms
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 from django.utils import timezone
 
-from core.models import Company
+from core.models import AccessGrant, Company
 from people.models import Person, phone_key
 from people.services import visible_people
 from people.widgets import PhoneWidget
@@ -288,6 +289,11 @@ class RescheduleForm(forms.Form):
     due = _when("New date")
     reason = forms.ChoiceField(choices=FollowUp.Reason.choices)
 
+    def clean_due(self):
+        if self.cleaned_data["due"].date() < timezone.localdate():
+            raise forms.ValidationError("Pick a day that is not before today.")
+        return self.cleaned_data["due"]
+
 
 class ScheduleCallForm(forms.Form):
     due = _when("Call on")
@@ -307,15 +313,28 @@ class ShiftForm(forms.Form):
     )
     reason = forms.ChoiceField(choices=FollowUp.Reason.choices)
 
+    def clean_day(self):
+        if self.cleaned_data["day"] < timezone.localdate():
+            raise forms.ValidationError("Pick a day that is not before today.")
+        return self.cleaned_data["day"]
+
 
 class ReassignForm(forms.Form):
     owner = forms.ModelChoiceField(get_user_model().objects.none(), label="Give to")
 
     def __init__(self, *args, companies, **kwargs):
         super().__init__(*args, **kwargs)
+        # Only people who can open the queues: a follow-up given to anyone else
+        # would sit where they can't see it.
+        can_open = AccessGrant.objects.filter(
+            module="recruitment",
+            section__in=("screening", "calling"),
+            company__in=companies,
+        ).values("user")
         self.fields["owner"].queryset = (
             get_user_model()
             .objects.filter(is_active=True, memberships__company__in=companies)
+            .filter(Q(is_superuser=True) | Q(pk__in=can_open))
             .distinct()
         )
 
@@ -388,6 +407,8 @@ class JoinedForm(forms.Form):
 
     def clean_joined_on(self):
         day = self.cleaned_data["joined_on"]
+        if day > timezone.localdate():
+            raise forms.ValidationError("They can't have joined in the future.")
         if self.floor and day < self.floor:
             raise forms.ValidationError(
                 f"They accepted on {self.floor:%d %b %Y}; join on or after it."
