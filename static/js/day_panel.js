@@ -25,8 +25,10 @@ document.addEventListener("alpine:init", () => {
     },
 
     async send(data) {
-      if (this.busy) return; // a second click while one is saving would be lost or repeated
-      this.busy = true;
+      // A second tick while one is saving would undo it; other edits are never dropped.
+      const tick = data.action === "toggle_goal";
+      if (tick && this.busy) return;
+      if (tick) this.busy = true;
       const body = new URLSearchParams();
       for (const [key, value] of Object.entries(data)) {
         [].concat(value).forEach((v) => body.append(key, v));
@@ -45,7 +47,7 @@ document.addEventListener("alpine:init", () => {
         this.error = "Couldn't reach the server.";
       }
       await this.refresh();
-      this.busy = false;
+      if (tick) this.busy = false;
     },
 
     async refresh() {

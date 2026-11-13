@@ -18,7 +18,7 @@
     <ul class="mt-3 space-y-2 text-sm">
       {% for goal in panel.goals %}
         <li class="{% if goal.done %}text-gray-400 line-through{% endif %}">
-          <button type="button" data-goal="{{ goal.pk }}" @click="send({ action: 'toggle_goal', id: {{ goal.pk }}, done: {{ goal.done|yesno:'0,1' }} })" :disabled="busy" aria-pressed="{{ goal.done|yesno:'true,false' }}" class="flex w-full items-start gap-2.5 rounded-md text-left focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-pop disabled:opacity-60">
+          <button type="button" data-goal="{{ goal.pk }}" @click="send({ action: 'toggle_goal', id: {{ goal.pk }}, done: {{ goal.done|yesno:'0,1' }} })" :aria-busy="busy" aria-pressed="{{ goal.done|yesno:'true,false' }}" class="flex w-full items-start gap-2.5 rounded-md text-left focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-pop aria-busy:opacity-60">
             <span class="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full {% if goal.done %}bg-blue-600 text-white{% else %}ring-1 ring-gray-300{% endif %}">
               {% if goal.done %}<svg viewBox="0 0 12 12" class="size-3" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2.5 6.5 5 9l4.5-6"/></svg>{% endif %}
             </span>

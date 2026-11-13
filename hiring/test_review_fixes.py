@@ -208,6 +208,22 @@ def test_hiring_access_reads_an_interview_but_cannot_change_it(
     assert client.post(url, {"profile": "bo"}).status_code == 403
 
 
+def test_hiring_page_lists_only_interviews_you_can_open(
+    client, django_user_model, senken, interview
+):
+    from core.models import Company
+
+    other = Company.objects.create(name="Other Co")
+    reader = django_user_model.objects.create_user(username="r2", password="pw")
+    grant(reader, senken, "selecting")  # a member of Senken, but not for Hiring
+    grant(reader, other, "hiring")
+    client.force_login(reader)
+    page = client.get(reverse("hiring:offers")).content
+    assert b"Asha" not in page
+    url = reverse("hiring:interview_review", args=[interview.pk])
+    assert client.get(url).status_code == 404
+
+
 # 9 + 11 --------------------------------------------------------------------
 def test_a_declined_candidate_interviewed_again_gets_an_offer_task(interview, user):
     s.save_assessment(interview, "selected", "expert", user)
