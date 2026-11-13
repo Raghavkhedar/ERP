@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 from django.contrib import messages
@@ -119,7 +120,7 @@ def _initial(person):
         "experience_months": person.experience_years
         and round(person.experience_years * 12),
         "expected_salary": person.expected_salary and int(person.expected_salary),
-        "joining_days": "".join(c for c in person.joining_period if c.isdigit()),
+        "joining_days": joining_days(person.joining_period),
         "place_of_birth": person.place_of_birth,
         "date_of_birth": person.date_of_birth and person.date_of_birth.isoformat(),
         "time_of_birth": person.time_of_birth
@@ -128,11 +129,36 @@ def _initial(person):
     }
 
 
+MAX_UPLOAD = 10 * 1024 * 1024
+
+
+def joining_days(period):
+    """Days from the card's free-text joining period: "15 days", "2 weeks", "1 month",
+    or a range like "15-20 days" (its first number)."""
+    found = re.search(r"(\d+)\s*(week|month)?", period or "", re.I)
+    if not found:
+        return ""
+    unit = {"week": 7, "month": 30}.get((found[2] or "").lower(), 1)
+    return int(found[1]) * unit
+
+
 def _files(request, interview):
     """Keep an uploaded photo or resume; a file not sent leaves the old one."""
     for name in ("photo", "resume"):
-        if request.FILES.get(name):
-            setattr(interview, name, request.FILES[name])
+        file = request.FILES.get(name)
+        if not file:
+            continue
+        if file.size > MAX_UPLOAD or (
+            name == "photo" and not file.content_type.startswith("image/")
+        ):
+            kind = "an image" if name == "photo" else "a file"
+            messages.error(request, f"The {name} wasn't kept: send {kind} under 10 MB.")
+            continue
+        if getattr(interview, name):
+            getattr(interview, name).delete(
+                save=False
+            )  # don't leave the old one behind
+        setattr(interview, name, file)
     interview.save(update_fields=["photo", "resume"])
 
 
@@ -249,10 +275,11 @@ def review(request, pk):
     has_hr = _has_hr(request, interview)
     existing = getattr(interview, "hr", None)
     posted = request.method == "POST"
-    if posted and not (has_hr and request.POST.get("which") == "hr"):
-        if not _can_edit(request, interview):
-            raise PermissionDenied
-    hr = bool(posted and has_hr and request.POST.get("which") == "hr")
+    hr = bool(posted and request.POST.get("which") == "hr")
+    if hr and not has_hr:
+        raise PermissionDenied
+    if posted and not hr and not _can_edit(request, interview):
+        raise PermissionDenied
     form = InterviewForm(
         request.POST if posted and not hr else None,
         initial={
@@ -260,7 +287,8 @@ def review(request, pk):
             "sub_department": interview.requisition
             and interview.requisition.sub_department,
             **interview.answers,
-            "assessor": interview.answers.get("assessor_id"),
+            "assessor": interview.answers.get("assessor_id")
+            or interview.interviewer_id,
         },
         user=request.user,
     )

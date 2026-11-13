@@ -263,7 +263,7 @@ class CallForm(forms.Form):
                 self.add_error(None, "Check the mini whereabout.")
         if data.get("major_on"):
             group = self.groups.get(self.major.data.get("major-department"))
-            if self.major.is_valid() and group.is_valid():
+            if self.major.is_valid() and group and group.is_valid():
                 data["major_whereabout"] = {**self.major.answers(), **group.answers()}
             else:
                 self.add_error(None, "Check the major whereabout.")

@@ -224,6 +224,65 @@ def test_hiring_page_lists_only_interviews_you_can_open(
     assert client.get(url).status_code == 404
 
 
+def test_joining_days_reads_ranges_weeks_and_months():
+    from hiring.selecting_views import joining_days
+
+    cases = {"15 days": 15, "15-20 days": 15, "2 weeks": 14, "1 month": 30}
+    assert {k: joining_days(k) for k in cases} == cases
+    assert joining_days("immediately") == "" and joining_days("") == ""
+
+
+def test_editing_an_interview_keeps_a_later_card_correction(interview, user):
+    person = interview.person
+    s.edit_interview(interview, "pending", "", "", answers={"email": "old@example.com"})
+    person.refresh_from_db()
+    person.email = "fixed@example.com"
+    person.save()
+    s.edit_interview(
+        interview,
+        "pending",
+        "",
+        "x",
+        answers={"email": "old@example.com", "place_of_birth": "Pune"},
+    )
+    person.refresh_from_db()
+    assert person.email == "fixed@example.com" and person.place_of_birth == "Pune"
+
+
+def test_review_needs_the_hr_grant_to_post_the_hr_form(
+    client, django_user_model, senken, interview
+):
+    reader = django_user_model.objects.create_user(username="r3", password="pw")
+    grant(reader, senken, "hiring")
+    client.force_login(reader)
+    url = reverse("hiring:interview_review", args=[interview.pk])
+    assert client.post(url, {"which": "hr"}).status_code == 403
+
+
+def test_a_bad_upload_is_refused_and_a_good_one_replaces_the_old(
+    rf, interview, settings, tmp_path
+):
+    from django.contrib.messages.storage.fallback import FallbackStorage
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    from hiring.selecting_views import _files
+
+    settings.MEDIA_ROOT = tmp_path
+
+    def send(**files):
+        request = rf.post("/", files)
+        request.session = {}
+        request._messages = FallbackStorage(request)
+        _files(request, interview)
+
+    send(photo=SimpleUploadedFile("a.txt", b"hi", content_type="text/plain"))
+    assert not interview.photo
+    send(photo=SimpleUploadedFile("a.png", b"x", content_type="image/png"))
+    first = interview.photo.name
+    send(photo=SimpleUploadedFile("b.png", b"y", content_type="image/png"))
+    assert interview.photo.name != first and not (tmp_path / first).exists()
+
+
 # 9 + 11 --------------------------------------------------------------------
 def test_a_declined_candidate_interviewed_again_gets_an_offer_task(interview, user):
     s.save_assessment(interview, "selected", "expert", user)
