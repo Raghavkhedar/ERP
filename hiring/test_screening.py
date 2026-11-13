@@ -227,12 +227,9 @@ def test_incoming_call_is_logged_for_a_picked_candidate(client, todo, caller):
     )
     found = client.get(reverse("hiring:calling_people"), {"q": "rav"}).json()["people"]
     assert [p["name"] for p in found] == ["Ravi"]
-    assert (
-        client.get(reverse("hiring:calling_people"), {"q": str(other.pk)}).json()[
-            "people"
-        ][0]["id"]
-        == other.pk
-    )
+    by_id = client.get(reverse("hiring:calling_people"), {"q": str(other.pk)}).json()
+    # the id can also substring-match another person's phone, so check membership
+    assert other.pk in [p["id"] for p in by_id["people"]]
     r = client.post(
         reverse("hiring:call_new"),
         {**CALL, "person": other.pk, "next_due": "2030-01-02", "call_type": "inbound"},

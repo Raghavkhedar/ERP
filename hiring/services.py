@@ -526,10 +526,14 @@ def visible_interviews(companies):
     )
 
 
-def apply_to_person(interview, preference=None):
+def apply_to_person(interview, preference=None, before=None):
     """Write what the interview form learned onto the candidate's card. The form
-    filled last wins. Name and phone are never changed from here."""
+    filled last wins, but when an interview is edited only the answers that changed
+    are written, so a later correction on the card isn't undone. Name and phone are
+    never changed from here."""
     a = interview.answers
+    if before is not None:
+        a = {k: v for k, v in a.items() if before.get(k) != v}
     changes = {
         "email": a.get("email"),
         "address": a.get("temporary_address"),
@@ -898,8 +902,8 @@ def timeline(person, with_hr=False):
 
     for i in person.interviews.select_related("interviewer"):
         text = f"Interview: {i.get_result_display().lower()}"
-        if i.profile:
-            text += f" ({interview_form.PROFILES.get(i.profile, (i.profile,))[0]})"
+        if i.profile or i.answers.get("department"):
+            text += f" ({interview_form.label(i)})"
         events.append(
             (i.scheduled_at, i.interviewer, f"{text}. {i.notes}" if i.notes else text)
         )
@@ -1067,13 +1071,14 @@ def edit_interview(interview, result, questions, notes, profile=None, answers=No
         interview.result = result
         interview.questions = questions
         interview.notes = notes
+        before = interview.answers
         if answers is not None:
             interview.profile = profile or ""
             interview.answers = answers
         interview.save()
         if answers is not None:
             hr = getattr(interview, "hr", None)
-            apply_to_person(interview, hr and hr.answers.get("preference"))
+            apply_to_person(interview, hr and hr.answers.get("preference"), before)
         person = interview.person
         if (
             was == Interview.Result.SELECTED

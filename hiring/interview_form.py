@@ -1,5 +1,6 @@
 """The interview form: questions every candidate answers (COMMON) plus the
-questions of the chosen profile (PROFILES), and the HR assessment (PFA).
+questions of the profile that the department and sub-department point to
+(PROFILE_OF), and the HR assessment (PFA).
 Answers are stored as plain dicts on the Interview, so a question can change
 without a migration. Education and vehicle rows are lists of dicts."""
 
@@ -12,7 +13,7 @@ from django.utils import timezone
 from people.models import Person
 
 from . import whereabouts
-from .models import HRAssessment
+from .models import HRAssessment, Requisition
 
 YESNO = ["Yes", "No"]
 
@@ -103,12 +104,6 @@ SECTIONS = [
 SPEC.update(
     {
         "trade": ("choice:Electrical|Mechanical|Both", "Department"),
-        "internship": ("choice:3 months|6 months|1 year", "Internship"),
-        "placement": ("choice:6 months|1 year|1.5 year", "Placement"),
-        "trainee_skills": ("area", "Skills"),
-        "department_interested": ("text", "Department interested in"),
-        "interests": ("area", "Area of interest and hobbies"),
-        "achievements": ("area", "Achievements (any two)"),
     }
 )
 
@@ -161,10 +156,8 @@ CONDITIONAL = {
 # profile key: (label, extra question keys, extra tables). Every profile also gets
 # the Vehicle and Educational background tables; most add Work experience.
 _WORK = ["work"]
-_TRAINEE = ["projects", "internships"]
 PROFILES = {
-    "sales_head": ("Sales Head", [], _WORK),
-    "sales_lead": ("Sales Lead / Senior Sales Lead", [], _WORK),
+    "sales_head": ("Sales Head / Sales Lead", [], _WORK),
     "office_boy": ("Office Boy", [], _WORK),
     "elec_mech": ("Elec + Mech", ["trade", *ELECTRICAL, *MECHANICAL], _WORK),
     "helper": ("Helper", [], _WORK),
@@ -173,20 +166,37 @@ PROFILES = {
     "bo_trainer": ("BO Cum Trainer", [], _WORK),
     "helper_welder": ("Helper Cum Welder", [], _WORK),
     "bo_sales_caller": ("BO Sales Caller", [], _WORK),
-    "apprentice": (
-        "Apprentice & Trainee",
-        [
-            "internship",
-            "placement",
-            "trainee_skills",
-            "department_interested",
-            "interests",
-            "achievements",
-        ],
-        _TRAINEE,
-    ),
     "data": ("Data Analyst / Data Executive", [], _WORK),
+    "": ("Other", [], _WORK),  # any other department / sub-department
 }
+
+# (department, sub-department) -> profile. The questions follow these two.
+PROFILE_OF = {
+    ("sales", "Sales Head"): "sales_head",  # also Sales Lead / Senior Sales Lead
+    ("bo", "Office Boy"): "office_boy",
+    ("operations", "Helper"): "helper",
+    ("operations", "HHE"): "hhe",
+    ("operations", "Elec + Mech"): "elec_mech",
+    ("bo", "Back Office Executive"): "bo",
+    ("training", "Trainer"): "bo_trainer",
+    ("operations", "Welder"): "helper_welder",
+    ("sales", "Customer Sales Executive"): "bo_sales_caller",
+    ("bo", "Data Analyst"): "data",
+}
+
+
+def profile_for(department, sub_department):
+    return PROFILE_OF.get((department, (sub_department or "").strip()), "")
+
+
+def label(interview):
+    """What an interview was for: the department, or the old profile name."""
+    a = interview.answers
+    if a.get("department"):
+        dept = Requisition.Department(a["department"]).label
+        return f"{dept} / {a['sub_department']}" if a.get("sub_department") else dept
+    return PROFILES.get(interview.profile, (interview.profile,))[0]
+
 
 WORK = {
     "place": "Place of duty",
@@ -209,24 +219,6 @@ COLUMN_TYPES = {
     "salary": "number",
 }
 
-PROJECTS = {
-    "name": "Name of project/research paper",
-    "period": "Time period from-to and year",
-    "description": "Description of the project/research paper",
-    "role": "What was your role and responsibilities",
-    "published": "Published (in case of research paper)",
-    "skills": "Skills acquired",
-}
-INTERNSHIPS = {
-    "organization": "Name of organization",
-    "period": "Time period from-to",
-    "does": "What organization does",
-    "role": "What was your role and responsibilities in organization",
-    "nature": "Nature of internship",
-    "mode": "Mode of internship",
-    "skills": "Skills acquired",
-}
-
 EDUCATION = {
     "qualification": "Academic qualification",
     "board": "Board/University",
@@ -247,15 +239,13 @@ VEHICLE = {
 TABLES = {
     "vehicles": ("veh", "Vehicle", VEHICLE),
     "work": ("work", "Work experience", WORK),
-    "projects": ("proj", "Projects / research papers", PROJECTS),
-    "internships": ("intern", "Work / internship experience", INTERNSHIPS),
     "education": ("edu", "Educational background", EDUCATION),
 }
 
 
 def table_keys(profile):
     """The tables a profile shows: vehicle, its own, then education."""
-    extra = PROFILES.get(profile, ("", [], []))[2]
+    extra = PROFILES.get(profile, PROFILES[""])[2]
     return ["vehicles", *extra, "education"]
 
 
@@ -342,7 +332,8 @@ def summary(answers):
 
 
 class InterviewForm(AnswersForm):
-    """The common questions, a profile choice and the chosen profile's own."""
+    """The common questions, a department and sub-department, and the questions of the
+    profile they point to."""
 
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(COMMON, *args, **kwargs)
@@ -351,12 +342,23 @@ class InterviewForm(AnswersForm):
             label="Assessor",
             initial=user,
         )
-        pick = forms.ChoiceField(
-            label="Profile",
-            choices=[("", "-")] + [(k, p[0]) for k, p in PROFILES.items()],
-            error_messages={"required": "Pick the profile."},
+        department = forms.ChoiceField(
+            label="Department",
+            choices=[("", "-"), *Requisition.Department.choices],
+            error_messages={"required": "Pick the department."},
         )
-        self.fields = {"profile": pick, **self.fields, "assessor": assessor}
+        sub = forms.CharField(
+            label="Sub-department",
+            required=False,
+            max_length=120,
+            widget=forms.TextInput(attrs={"list": "sub-departments"}),
+        )
+        self.fields = {
+            "department": department,
+            "sub_department": sub,
+            **self.fields,
+            "assessor": assessor,
+        }
         data = args[0] if args else None
         self.groups = {
             k: AnswersForm(keys, data, prefix=k, initial=kwargs.get("initial"))
@@ -382,16 +384,21 @@ class InterviewForm(AnswersForm):
                     for title, shows, keys in blocks
                 ]
 
+    @property
+    def profile(self):
+        d = self.cleaned_data
+        return profile_for(d.get("department"), d.get("sub_department"))
+
     def clean(self):
         data = super().clean()
-        group = self.groups.get(data.get("profile"))
+        group = self.groups.get(self.profile)
         if group and not group.is_valid():
-            self.add_error("profile", "Check the profile questions below.")
+            self.add_error("sub_department", "Check the questions below.")
         return data
 
     def answers(self):
         got = super().answers()
-        profile = got.pop("profile", "")
+        profile = self.profile
         who = got.pop("assessor", None)
         if who:
             got["assessor"], got["assessor_id"] = who.display_name, who.pk

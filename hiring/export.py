@@ -228,7 +228,7 @@ def interviews_workbook(interviews, include_hr=False, hr_companies=None):
                     who(i.interviewer),
                     i.questions,
                     i.notes,
-                    i.profile,
+                    interview_form.label(i),
                     interview_form.summary(i.answers),
                 )
                 for i in interviews

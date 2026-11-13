@@ -6,10 +6,15 @@
 
 {% block page %}
   {{ tables|json_script:"tables-data" }}
+  {{ sub_departments|json_script:"sub-departments-data" }}
+  {{ profile_of|json_script:"profile-of-data" }}
   <div class="{% if hr_form %}mx-auto max-w-[88rem] items-start lg:grid lg:grid-cols-[minmax(0,1fr)_28rem] lg:gap-6{% endif %}">
   <form method="post" enctype="multipart/form-data"
         class="fields {% if not hr_form %}mx-auto {% endif %}max-w-4xl space-y-6 [&_input:not([type=checkbox])]:w-full [&_select]:w-full [&_textarea]:w-full [&_input[readonly]]:bg-canvas [&_input[readonly]]:text-gray-500"
-        x-data="{ profile: '{{ form.profile.value|default:'' }}', today: '{{ today }}', vehicle: '{{ form.vehicle_status.value|default:'' }}', n: 0,
+        x-data="{ dept: '{{ form.department.value|default:'' }}', sub: '{{ form.sub_department.value|default:''|escapejs }}',
+                  subs: JSON.parse(document.getElementById('sub-departments-data').textContent), map: JSON.parse(document.getElementById('profile-of-data').textContent),
+                  get profile() { return this.map[this.dept + '|' + this.sub.trim()] || ''; },
+                  today: '{{ today }}', vehicle: '{{ form.vehicle_status.value|default:'' }}', n: 0,
                   row() { return { err: '', _id: ++this.n }; },
                   t: JSON.parse(document.getElementById('tables-data').textContent),
                   // Months worked, whole months, from the dates. Still working means up to today.
@@ -27,7 +32,8 @@
                   },
                   drop(list, i) { list.splice(i, 1); if (!list.length) list.push(this.row()); } }"
         x-init="for (const k in t) { if (!t[k].length) t[k] = [{}]; t[k] = t[k].map(r => ({ ...r, err: '', _id: ++n })); } t.work.forEach(r => { const d = r.duration; calc(r); if (!r.duration) r.duration = d || ''; })"
-        @change="if ($event.target.name === 'profile') profile = $event.target.value; if ($event.target.name === 'vehicle_status') vehicle = $event.target.value">
+        @input="if ($event.target.name === 'department') dept = $event.target.value; if ($event.target.name === 'sub_department') sub = $event.target.value"
+        @change="if ($event.target.name === 'vehicle_status') vehicle = $event.target.value">
     {% csrf_token %}
     <input type="hidden" name="which" value="interview">
 
@@ -41,9 +47,13 @@
     {% endif %}
 
     <section class="rounded-xl border border-ink bg-surface p-5 shadow-xl">
-      <h2 class="title text-lg">Profile</h2>
-      <p class="mb-3 text-sm text-gray-500">The profile decides which questions and tables follow.</p>
-      <div class="max-w-md">{% include "tasks/_field.html" with field=form.profile %}</div>
+      <h2 class="title text-lg">Department</h2>
+      <p class="mb-3 text-sm text-gray-500">Filled in from the requisition. Change them if the interview is for something else; they decide which questions and tables follow.</p>
+      <div class="grid gap-4 sm:grid-cols-2">
+        {% include "tasks/_field.html" with field=form.department %}
+        {% include "tasks/_field.html" with field=form.sub_department %}
+        <datalist id="sub-departments"><template x-for="o in subs[dept] || []" :key="o"><option :value="o"></option></template></datalist>
+      </div>
       <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 [&>div]:min-w-0">
         <div><label for="photo" class="mb-1.5 block text-sm font-medium">Image</label><input type="file" id="photo" name="photo" accept="image/*" class="max-w-full text-sm">{% if interview.photo %}<a href="{% url 'hiring:interview_file' interview.pk 'photo' %}" class="mt-1 block text-sm underline">See current image</a>{% endif %}</div>
         <div><label for="resume" class="mb-1.5 block text-sm font-medium">Resume</label><input type="file" id="resume" name="resume" class="max-w-full text-sm">{% if interview.resume %}<a href="{% url 'hiring:interview_file' interview.pk 'resume' %}" class="mt-1 block text-sm underline">See current resume</a>{% endif %}</div>
@@ -54,7 +64,7 @@
       <section x-show="profile === '{{ key }}'" x-cloak class="rounded-xl border border-ink bg-pop/25 p-5 shadow-xl"
                {% if group.pick %}x-data="{ pick: '{{ group.pick_value }}' }" @change="if ($event.target.name === '{{ group.pick }}') pick = $event.target.value"{% endif %}>
         <h2 class="title text-lg">{{ group.title }} questions</h2>
-        <p class="mb-3 text-sm text-gray-600">Only for this profile.</p>
+        <p class="mb-3 text-sm text-gray-600">Only for this department and sub-department.</p>
         <div class="grid gap-4 sm:grid-cols-2">
           {% for field in group.main %}<div class="{% if field.widget_type == 'textarea' %}sm:col-span-2{% endif %}">{% include "tasks/_field.html" %}</div>{% endfor %}
         </div>
