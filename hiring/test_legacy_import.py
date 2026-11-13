@@ -376,6 +376,38 @@ def test_interview_moves_to_the_main_card_and_updates_it(export):
     )
 
 
+def test_repeated_candidate_ids_stop_the_import(export):
+    rows = list(
+        csv.DictReader(
+            open(export / "basic#Candidate_Master.csv", encoding="utf-8-sig")
+        )
+    )
+    rows[1]["Candidate_ID"] = rows[0]["Candidate_ID"]
+    write(export, "basic#Candidate_Master.csv", rows)
+    with pytest.raises(RuntimeError, match="used twice"):
+        run(export)
+    assert not Person.objects.exists()
+
+
+def test_the_earlier_of_two_dated_calls_is_kept_and_the_other_listed(export):
+    rows = list(
+        csv.DictReader(
+            open(export / "basic#Candidate_Master.csv", encoding="utf-8-sig")
+        )
+    )
+    # WJ3 and WJ4 share a number; WJ3 is dated later than WJ4
+    rows[3]["Phone_No"] = rows[2]["Phone_No"]
+    rows[2]["Next_Follow_Up_Date"] = (
+        timezone.localdate() + timedelta(days=9)
+    ).isoformat()
+    write(export, "basic#Candidate_Master.csv", rows)
+    _, review = run(export)
+    assert [r[1] for r in review if r[0].startswith("second dated")] == ["WJ3"]
+    # one call for the number, on its main card, at the earlier date
+    (call,) = FollowUp.objects.filter(status="pending", person__phone="9876543203")
+    assert timezone.localtime(call.due).date().isoformat() == NEXT
+
+
 def test_cannot_run_twice(export):
     run(export)
     with pytest.raises(RuntimeError):

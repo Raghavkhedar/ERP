@@ -19,6 +19,7 @@ from pathlib import Path
 
 from django.contrib.auth import get_user_model
 from django.core.files import File
+from django.core.files.storage import default_storage
 from django.db import transaction
 from django.utils import timezone
 
@@ -457,8 +458,18 @@ class Users:
         if match:
             self.found[name] = match
         else:
+            base = f"OLD-{re.sub(r'[^a-z0-9]+', '-', key).strip('-').upper()}"
+            taken = set(
+                self.model.objects.filter(username__startswith=base).values_list(
+                    "username", flat=True
+                )
+            )
+            username, n = base, 1
+            while username in taken:
+                n += 1
+                username = f"{base}-{n}"
             match = self.model(
-                username=f"OLD-{re.sub(r'[^a-z0-9]+', '-', key).strip('-').upper()}",
+                username=username,
                 first_name=name.title(),
                 is_active=False,
                 must_change_password=False,
@@ -740,25 +751,41 @@ class DryRun(Exception):
 def run(data, files, apply=False, log=print):
     """Import. Returns a dict of counts and review rows; writes nothing when
     `apply` is false."""
-    stats, review = Counter(), []
+    stats, review, saved = Counter(), [], []
     try:
         with transaction.atomic():
-            _run(data, files, apply, stats, review, log)
+            _run(data, files, apply, stats, review, log, saved)
             if not apply:
                 raise DryRun
     except DryRun:
         pass
+    except Exception:
+        # The database rolls back; files already copied to storage must go too.
+        for name in saved:
+            default_storage.delete(name)
+        raise
     return stats, review
 
 
-def _run(data, files, apply, stats, review, log):
-    if Person.objects.exclude(candidate_id="").exists():
+def _run(data, files, apply, stats, review, log, saved):
+    if Requisition.objects.filter(profile=REQUISITION).exists():
         raise RuntimeError("Candidates were already imported; run it only once.")
     company = Company.objects.get(slug="senken")
     users = Users()
     nitin = users.named("Nitin")
 
     cards = table(data, "basic#Candidate_Master.csv")
+    ids = [r["Candidate_ID"].strip() for r in cards if r["Candidate_ID"].strip()]
+    clash = {i for i, n in Counter(ids).items() if n > 1} | set(
+        Person.objects.filter(candidate_id__in=ids).values_list(
+            "candidate_id", flat=True
+        )
+    )
+    if clash:
+        raise RuntimeError(
+            f"{len(clash)} candidate ids are used twice (in the file or already "
+            f"in the ERP), for example {sorted(clash)[:5]}"
+        )
     by_zid = {r["ID"]: r for r in cards}
     log_of = links(data, "rel#Candidate#Call_Logs.csv")
     calls = [r for r in table(data, "basic#Call_Logs.csv") if r["ID"] in log_of]
@@ -792,7 +819,7 @@ def _run(data, files, apply, stats, review, log):
             key=lambda r: (
                 live(r),
                 per_card_logs[r["ID"]],
-                int(r["Candidate_Serial_Number"] or 0),
+                whole(r["Candidate_Serial_Number"]) or 0,
             ),
         )["ID"]
         for key, members in groups.items()
@@ -898,8 +925,10 @@ def _run(data, files, apply, stats, review, log):
             continue
         when = ts(r["Call_Date"]) or ts(r["Added_Time"]) or now
         added = ts(r["Added_Time"])
-        if added and when > added:
-            when = added
+        if when > (added or now):  # a call can't be dated after it was logged
+            when = added or now
+        if not ts(r["Call_Date"]) and not added:
+            review.append(("call log without a date, dated today", zid, note[:60]))
         c = CallLog(
             person=person_of[zid],
             caller=caller,
@@ -977,7 +1006,11 @@ def _run(data, files, apply, stats, review, log):
     assigned = links(data, "rel#Candidate#Call_Assignment.csv")
     for a in table(data, "basic#Call_Assignment.csv"):
         zid = assigned.get(a["ID"])
-        if zid not in person_of or not day(a["Date_field"]):
+        if (
+            zid not in person_of
+            or not day(a["Date_field"])
+            or a["Status"] != "Completed"
+        ):
             continue
         owner = users.account(a["Assigned_To"]) or nitin
         original = day(a["Original_Date"])
@@ -991,11 +1024,10 @@ def _run(data, files, apply, stats, review, log):
                 if original and original != due
                 else None,
                 owner=owner,
-                status="completed" if a["Status"] == "Completed" else "pending",
+                status="completed",
                 created_at=ts(a["Added_Time"]) or now,
             )
         )
-    done = [f for f in done if f.status == "completed"]
     with keep_dates((FollowUp, "created_at")):
         FollowUp.objects.bulk_create(done, batch_size=BATCH)
     stats["assignments (done)"] = len(done)
@@ -1022,15 +1054,18 @@ def _run(data, files, apply, stats, review, log):
             )
             continue
         seen = wanted.get(home.pk)
-        if seen and (seen[0] <= due):
+        if seen:
+            # The earlier date is kept; the other is listed as dropped.
+            lost = r if due >= seen[0] else seen[1]
             review.append(
                 (
                     "second dated call for the same number, dropped",
-                    r["Candidate_ID"],
-                    r["Next_Follow_Up_Date"],
+                    lost["Candidate_ID"],
+                    lost["Next_Follow_Up_Date"],
                 )
             )
-            continue
+            if due >= seen[0]:
+                continue
         wanted[home.pk] = (due, r, home)
     waiting = set(
         FollowUp.objects.filter(status="pending", person_id__in=wanted).values_list(
@@ -1141,7 +1176,7 @@ def _run(data, files, apply, stats, review, log):
         # The interview wins where it and the card disagree.
         apply_to_person(iv, hr and hr.answers.get("preference"))
         if apply:
-            _attach_files(iv, i, files)
+            _attach_files(iv, i, files, saved)
 
     # --- offers: people the old system had offered or taken on
     for r in cards:
@@ -1194,7 +1229,7 @@ def _run(data, files, apply, stats, review, log):
 SHIFT_KEY = re.compile(r"\s*[-–—]\s*[a-z .]{2,25}\d*$")
 
 
-def _attach_files(interview, row, files):
+def _attach_files(interview, row, files, saved):
     resume = (
         find_file(files, "Resume", name=row["Resume"].strip())
         if row["Resume"].strip()
@@ -1206,6 +1241,7 @@ def _attach_files(interview, row, files):
         if path:
             with open(path, "rb") as f:
                 field.save(path.name, File(f), save=False)
+            saved.append(field.name)
     interview.save(update_fields=["resume", "photo"])
 
 
