@@ -434,6 +434,20 @@ class AssessmentForm(forms.Form):
         for key in PFA:
             self.fields[key] = whereabouts._field(key, SPEC)
 
+    def clean(self):
+        data = super().clean()
+        if data.get("decision") == "hold" and "next_follow_up" not in self.errors:
+            day = whereabouts.parse_day(data.get("next_follow_up"))
+            if not day:
+                message = "A candidate on hold needs a follow up date."
+            elif day < timezone.localdate():
+                message = "The follow up date can't be before today."
+            else:
+                message = ""
+            if message:
+                self.add_error("next_follow_up", message)
+        return data
+
     def answers(self):
         """What goes in the JSON: everything but the two columns and the comments."""
         keep = {"preference", *PFA}

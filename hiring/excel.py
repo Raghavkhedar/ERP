@@ -1,7 +1,11 @@
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.db import transaction
 from openpyxl import load_workbook
 
-from .services import source_number
+from people.models import phone_key
+
+from .services import lock_numbers, source_number
 
 MAX_BYTES = 1_000_000
 MAX_ROWS = 2000
@@ -14,8 +18,24 @@ HEADS = {
 }
 
 
+# The longest each cell may be: the columns it lands in.
+LIMITS = {"name": 200, "phone": 30, "email": 254, "source": 120}
+
+
 class SheetError(Exception):
     pass
+
+
+def _too_long(cell, row):
+    for key, limit in LIMITS.items():
+        if len(cell(row, key)) > limit:
+            return f"{key} is longer than {limit} characters"
+    if email := cell(row, "email"):
+        try:
+            validate_email(email)
+        except ValidationError:
+            return "not a valid email"
+    return ""
 
 
 def _text(value):
@@ -33,12 +53,16 @@ def import_numbers(requisition, upload, user, source=""):
     try:
         sheet = load_workbook(upload, read_only=True, data_only=True).active
         rows = [
-            list(r) for r in sheet.iter_rows(max_row=MAX_ROWS + 1, values_only=True)
+            list(r) for r in sheet.iter_rows(max_row=MAX_ROWS + 2, values_only=True)
         ]
     except Exception:
         raise SheetError(
             "Couldn't read that file. Upload an Excel .xlsx file."
         ) from None
+    while rows and not any(c not in (None, "") for c in rows[-1]):
+        rows.pop()  # Excel keeps formatted empty rows below the data
+    if len(rows) > MAX_ROWS + 1:
+        raise SheetError(f"That sheet has more than {MAX_ROWS} rows. Split it up.")
 
     heads = [_text(c).lower() for c in rows[0]] if rows else []
     cols = {
@@ -55,11 +79,18 @@ def import_numbers(requisition, upload, user, source=""):
     new = duplicates = 0
     skipped = []
     with transaction.atomic():
+        lock_numbers(
+            requisition.company_id,
+            [k for r in rows[1:] if len(k := phone_key(cell(r, "phone"))) >= 10],
+        )
         for n, row in enumerate(rows[1:], start=2):
             if not any(c not in (None, "") for c in row):
                 continue
             if not cell(row, "name"):
                 skipped.append((n, "no name"))
+                continue
+            if why := _too_long(cell, row):
+                skipped.append((n, why))
                 continue
             try:
                 made = source_number(

@@ -6,7 +6,7 @@ Answers are stored as plain dicts on the CallLog, so a question can change
 without a migration."""
 
 from django import forms
-from django.utils.dateparse import parse_date
+from django.utils.dateparse import parse_date, parse_time
 
 YESNO = ["Yes", "No"]
 
@@ -18,6 +18,23 @@ def parse_day(value):
         return parse_date(value or "")
     except ValueError:
         return None
+
+
+def parse_clock(value):
+    """A time from text, or None when it is blank or not a real time (25:00)."""
+    try:
+        return parse_time(value or "")
+    except ValueError:
+        return None
+
+
+class ClockField(forms.CharField):
+    """A time kept as text, so it can sit in the JSON answers."""
+
+    def validate(self, value):
+        super().validate(value)
+        if value and not parse_clock(value):
+            raise forms.ValidationError("Enter a real time.")
 
 
 class DayField(forms.CharField):
@@ -205,13 +222,15 @@ def _field(key, spec=None):
     kind, label = entry[:2]
     kw = {"label": label, "required": len(entry) > 2 and entry[2]}
     if kind == "time":
-        return forms.CharField(widget=forms.TimeInput(attrs={"type": "time"}), **kw)
+        return ClockField(widget=forms.TimeInput(attrs={"type": "time"}), **kw)
     if kind == "text":
         return forms.CharField(max_length=200, **kw)
     if kind == "area":
         return forms.CharField(widget=forms.Textarea(attrs={"rows": 2}), **kw)
     if kind == "int":
-        return forms.IntegerField(min_value=0, **kw)
+        # Months stop at 100 years, which keeps years inside the card's column.
+        limit = 1200 if "months" in key else 99_999_999
+        return forms.IntegerField(min_value=0, max_value=limit, **kw)
     if kind == "date":
         return DayField(widget=forms.DateInput(attrs={"type": "date"}), **kw)
     if kind == "yesno":

@@ -26,6 +26,11 @@
             <div class="sm:col-span-2"><button type="submit" class="h-10 rounded-lg bg-blue-600 px-4 font-medium">Save joining</button></div>
           </form>
         </details>
+        <form method="post" action="{% url 'hiring:not_joined' o.pk %}" class="flex w-full flex-wrap items-center gap-2 text-sm" onsubmit="return confirm('Mark {{ o.person.name|escapejs }} as not joined? The offer ends as declined.')">
+          {% csrf_token %}
+          <input type="text" name="reason" maxlength="150" placeholder="Why did they not join? (optional)" class="h-9 min-w-[14rem] flex-1">
+          <button type="submit" class="h-9 rounded-lg border border-ink bg-surface px-3 font-medium">Did not join</button>
+        </form>
       </li>
     {% empty %}<li class="py-4 text-sm text-gray-500">No one waiting. Accepted offers from Hiring land here.</li>{% endfor %}
   </ul>

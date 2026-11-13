@@ -370,8 +370,6 @@ def day_panel(user, date):
         ],
         "height": (last - first) * PANEL_HOUR_HEIGHT,
         "now_top": now_top,
-        # Which "floor" (hour of the drawn day) the lift is on, 1 at the first hour.
-        "floor": now.hour - first + 1 if now_top is not None else None,
         "done": done,
         "total": total,
     }

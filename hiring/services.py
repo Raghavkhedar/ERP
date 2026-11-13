@@ -2,7 +2,7 @@ from datetime import datetime, time, timedelta
 from types import SimpleNamespace
 
 from django.contrib.auth import get_user_model
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.models import (
     Case,
     Count,
@@ -14,10 +14,9 @@ from django.db.models import (
     Subquery,
     When,
 )
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, TruncDate
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.dateparse import parse_time
 from simple_history.utils import bulk_update_with_history
 
 from notifications.services import notify
@@ -133,18 +132,16 @@ def requisition_timeline(r):
             events.append((p.created_at, p.author, f"Comment: {note}"))
 
     # One line per day, so a big sourcing day is one event, not a hundred.
-    days = {}
-    for s in r.sourced.select_related("sourced_by"):
-        day = timezone.localtime(s.created_at).date()
-        days.setdefault(day, []).append(s)
-    for rows in days.values():
-        n = len(rows)
+    per_day = (
+        r.sourced.annotate(day=TruncDate("created_at"))
+        .order_by()
+        .values("day")
+        .annotate(n=Count("id"), first=Min("created_at"))
+    )
+    for row in per_day:
+        n = row["n"]
         events.append(
-            (
-                rows[0].created_at,
-                None,
-                f"{n} number{'s' if n != 1 else ''} received",
-            )
+            (row["first"], None, f"{n} number{'s' if n != 1 else ''} received")
         )
 
     return sorted(events, key=lambda e: e[0], reverse=True)
@@ -159,22 +156,41 @@ def next_day():
     return day_start(timezone.localdate() + timedelta(days=1))
 
 
+def lock_numbers(company_id, keys):
+    """Hold the sourcing lock of these numbers until the transaction ends. Always
+    taken in sorted order, so two imports sharing numbers can't deadlock."""
+    with connection.cursor() as cursor:
+        for key in sorted(set(keys)):
+            cursor.execute(
+                "SELECT pg_advisory_xact_lock(hashtext(%s))", [f"{company_id}:{key}"]
+            )
+
+
+def _not_to_call(cards):
+    """Cards that must not get a recruiter call: asked not to be called, closed,
+    or holding an open or accepted offer (so also anyone already working)."""
+    return (
+        cards.exclude(contact_status=Person.ContactStatus.ACTIVE).exists()
+        or Offer.objects.filter(
+            person__in=cards, state__in=[Offer.State.OFFERED, Offer.State.ACCEPTED]
+        ).exists()
+    )
+
+
 def source_number(
     requisition, name, phone, user, source="", email="", address="", gender=""
 ):
     """Log a number received for a requisition. A new number makes a card; a
     number already on a card (last 10 digits, same company) links to the card used
     last instead."""
-    if len(phone_key(phone)) < 10:
+    key = phone_key(phone)
+    if len(key) < 10:
         raise ValueError("Enter a phone number with at least 10 digits.")
     with transaction.atomic():
-        person = (
-            Person.objects.filter(
-                company=requisition.company, phone_key=phone_key(phone)
-            )
-            .order_by("-pk")  # the card used last time
-            .first()
-        )
+        # One sourcing of a number at a time, so a double submit can't make two cards.
+        lock_numbers(requisition.company_id, [key])
+        cards = Person.objects.filter(company=requisition.company, phone_key=key)
+        person = cards.order_by("-pk").first()  # the card used last time
         duplicate = person is not None
         if not duplicate:
             person = Person.objects.create(
@@ -188,18 +204,28 @@ def source_number(
         # Every sourced number, new or repeat, is called tomorrow as a normal
         # follow-up, unless the candidate already has a call waiting (an interview
         # or an offer is never pushed around by a repeat). Any card with this
-        # number counts, not only the one chosen above.
-        if not FollowUp.objects.filter(
-            status=FollowUp.Status.PENDING,
-            person__company=requisition.company,
-            person__phone_key=phone_key(phone),
-        ).exists():
-            FollowUp.objects.create(
-                person=person,
-                requisition=requisition,
-                due=next_day(),
-                owner=user,
+        # number counts, not only the one chosen above. Nobody is called who asked
+        # not to be, or who has an offer or a job with us.
+        if not _not_to_call(cards):
+            waiting = FollowUp.objects.filter(
+                status=FollowUp.Status.PENDING, person__in=cards
             )
+            if not waiting.exists():
+                FollowUp.objects.create(
+                    person=person,
+                    requisition=requisition,
+                    due=next_day(),
+                    owner=user,
+                )
+            else:
+                # A call still waiting follows the latest requisition it was
+                # sourced for; an interview or offer keeps its own.
+                for f in waiting.filter(purpose=FollowUp.Purpose.CALL).exclude(
+                    requisition=requisition
+                ):
+                    f.requisition = requisition
+                    f.version += 1
+                    f.save(update_fields=["requisition", "version"])
         return SourcedNumber.objects.create(
             requisition=requisition,
             person=person,
@@ -230,6 +256,10 @@ def sources_in_use(companies):
 
 class FollowUpError(Exception):
     """The follow-up can't change that way; the message says why."""
+
+
+class NoSupervisor(FollowUpError):
+    """The call needs sending to a supervisor and the caller has none."""
 
 
 def visible_followups(user, companies):
@@ -290,7 +320,7 @@ def log_call(
     send = discuss or department_changed or mini_whereabout or major_whereabout
     boss = user.supervisor if send else None
     if send and not boss:
-        raise FollowUpError("You have no supervisor set to send this to.")
+        raise NoSupervisor("You have no supervisor set to send this to.")
     with transaction.atomic():
         current = _pending(followup) if followup else None
         person = current.person if current else person
@@ -390,11 +420,16 @@ def bulk_reassign(followups, owner, by):
     return len(rows)
 
 
-def bulk_move(followups, day, reason):
-    """Move many pending follow-ups to `day`, keeping each one's first date and
-    counting the move. One bulk write, not one save per follow-up."""
+def bulk_move(followups, day, reason, by=None):
+    """Move many pending calls to `day`, keeping each one's first date and
+    counting the move. Interviews, offers and joinings are other people's dates and
+    never move in bulk. One bulk write, not one save per follow-up."""
     with transaction.atomic():
-        rows = list(followups.select_related(None).select_for_update())
+        rows = list(
+            followups.filter(purpose=FollowUp.Purpose.CALL)
+            .select_related(None)
+            .select_for_update()
+        )
         for f in rows:
             f.original_due = f.original_due or f.due
             f.snoozed_until = None
@@ -414,6 +449,7 @@ def bulk_move(followups, day, reason):
                 "version",
             ],
             batch_size=1000,
+            default_user=by,
         )
     return len(rows)
 
@@ -504,7 +540,7 @@ def apply_to_person(interview, preference=None):
         "place_of_birth": a.get("place_of_birth"),
         "alternate_phone": a.get("alternate_phone"),
         "date_of_birth": whereabouts.parse_day(a.get("date_of_birth")),
-        "time_of_birth": parse_time(a.get("time_of_birth") or ""),
+        "time_of_birth": whereabouts.parse_clock(a.get("time_of_birth")),
         "priority": preference,
     }
     if a.get("experience_months") is not None:
@@ -519,20 +555,46 @@ def apply_to_person(interview, preference=None):
     person.save()
 
 
+def _live_offer(person):
+    """An offer that is open or accepted: no new offer task may start beside it."""
+    return person.offers.filter(
+        state__in=[Offer.State.OFFERED, Offer.State.ACCEPTED]
+    ).exists()
+
+
+def _offer_taken(interview):
+    """No offer task for this interview: an offer is open or accepted, or one was
+    already made after it (even if declined, so saving it again can't reopen it).
+    A new interview after a declined offer is a second chance and may."""
+    return (
+        _live_offer(interview.person)
+        or interview.person.offers.filter(created_at__gte=interview.created_at).exists()
+    )
+
+
 def _follow_up_after_assessment(interview, decision, answers):
     """An offer named in the HR form turns the candidate's pending call into an
-    offer call, and the next follow up date, if given, becomes its date."""
+    offer call, and the next follow up date, if given, becomes its date. A rejected
+    candidate, or one with an open or accepted offer, is never offered; saving the form
+    again never reopens an offer that was already made."""
     person = interview.person
     day = whereabouts.parse_day(answers.get("next_follow_up"))
     due = day_start(day) if day else None
-    offered = interview_form.offer_amount(answers.get("offer_given")) > 0
+    offered = (
+        decision != Interview.Result.REJECTED
+        and not _offer_taken(interview)
+        and interview_form.offer_amount(answers.get("offer_given")) > 0
+    )
     # Interview and joining reminders are other people's work; leave them be.
     pending = (
         person.followups.filter(status=FollowUp.Status.PENDING)
         .exclude(purpose__in=[FollowUp.Purpose.INTERVIEW, FollowUp.Purpose.JOINING])
         .order_by("-created_at", "-id")
     )
-    current = pending.first()
+    # An offer task already waiting is the one to use: a person has only one.
+    current = (
+        pending.filter(purpose=FollowUp.Purpose.OFFER).first() if offered else None
+    ) or pending.first()
     if not (offered or due):
         return
     if current is None:
@@ -556,6 +618,18 @@ def _follow_up_after_assessment(interview, decision, answers):
     current.save()
 
 
+def _set_preference(person_id, preference):
+    """HR's preference is the one thing an assessment writes on the card; the
+    interview's own answers are applied when the interview is saved, not again
+    here, or they would overwrite what was corrected on the card since."""
+    if not preference:
+        return
+    person = Person.objects.select_for_update().get(pk=person_id)
+    person.priority = preference
+    person.version += 1
+    person.save()
+
+
 def save_assessment(
     interview, decision, level, user, hold_tenure="", comments="", answers=None
 ):
@@ -574,7 +648,7 @@ def save_assessment(
                 assessor=user,
             ),
         )[0]
-        apply_to_person(interview, answers.get("preference"))
+        _set_preference(interview.person_id, answers.get("preference"))
         if interview.result != decision:
             edit_interview(interview, decision, interview.questions, interview.notes)
         _follow_up_after_assessment(interview, decision, answers)
@@ -601,6 +675,8 @@ def start_offer(followup, amount, user, note=""):
     """Make the first offer for a candidate whose interview went well."""
     with transaction.atomic():
         current = _pending(followup)
+        if _live_offer(current.person):
+            raise OfferError("This candidate already has an open or accepted offer.")
         offer = Offer.objects.create(
             person=current.person, requisition=current.requisition, made_by=user
         )
@@ -679,11 +755,31 @@ def mark_joined(offer, on, resources="", sim="", notes=""):
         current.save(
             update_fields=["joined_on", "resources", "sim_allotted", "onboarding_notes"]
         )
-        FollowUp.objects.filter(
-            person=current.person,
-            purpose=FollowUp.Purpose.JOINING,
-            status=FollowUp.Status.PENDING,
-        ).update(status=FollowUp.Status.COMPLETED)
+        _close_joining(current.person, FollowUp.Status.COMPLETED)
+        return current
+
+
+def _close_joining(person, status):
+    for f in FollowUp.objects.filter(
+        person=person, purpose=FollowUp.Purpose.JOINING, status=FollowUp.Status.PENDING
+    ):
+        f.status = status
+        f.version += 1
+        f.save(update_fields=["status", "version"])
+
+
+def did_not_join(offer, reason=""):
+    """They accepted but never turned up: the offer ends as declined, with the
+    reason, and the joining reminder is cancelled."""
+    with transaction.atomic():
+        current = Offer.objects.select_for_update().get(pk=offer.pk)
+        if current.state != Offer.State.ACCEPTED or current.joined_on:
+            raise OfferError("That candidate is not waiting to join.")
+        current.state = Offer.State.DECLINED
+        current.decline_reason = f"Did not join. {reason}".strip()
+        current.decided_at = timezone.now()
+        current.save()
+        _close_joining(current.person, FollowUp.Status.CANCELLED)
         return current
 
 
@@ -776,7 +872,7 @@ def timeline(person, with_hr=False):
                     (
                         rec.history_date,
                         rec.history_user,
-                        f"{label.capitalize()} given to {f.owner}",
+                        f"{label.capitalize()} given to {rec.owner}",
                     )
                 )
             if rec.status != prev.status and rec.status in ("cancelled", "not_done"):
@@ -860,9 +956,11 @@ def stage(person):
         return "Hiring"
     if "interview" in pending:
         return "Selecting"
-    if offers:
+    last = person.interviews.order_by("-created_at", "-id").first()
+    latest_offer = max(offers, key=lambda o: o.pk, default=None)
+    # An interview held after the offer was declined is the newer story.
+    if latest_offer and not (last and last.created_at > latest_offer.created_at):
         return "Offer declined"
-    last = person.interviews.first()
     if last:
         return "Not selected" if last.result == "rejected" else "Selecting"
     if person.calls.exists() or pending:
@@ -891,13 +989,11 @@ def schedule_call(person, due, user):
         )
 
 
-def shift_calls(followups, day, reason):
+def shift_calls(followups, day, reason, by=None):
     """Move pending calls (not interviews, offers or joinings) to `day`. For the
     days staff are out or the queue is too long to get through."""
     return bulk_move(
-        followups.filter(purpose=FollowUp.Purpose.CALL, status=FollowUp.Status.PENDING),
-        day,
-        reason,
+        followups.filter(status=FollowUp.Status.PENDING), day, reason, by=by
     )
 
 
@@ -964,9 +1060,10 @@ def snooze_call(followup, user, length):
 
 def edit_interview(interview, result, questions, notes, profile=None, answers=None):
     """Correct a saved interview. If it now reads "selected", the offer opens as
-    it would have the first time; a move away from selected leaves the offer
-    follow-up for someone to cancel."""
+    it would have the first time; a move away from selected cancels the offer
+    follow-up if no offer has been made yet."""
     with transaction.atomic():
+        was = interview.result
         interview.result = result
         interview.questions = questions
         interview.notes = notes
@@ -978,7 +1075,19 @@ def edit_interview(interview, result, questions, notes, profile=None, answers=No
             hr = getattr(interview, "hr", None)
             apply_to_person(interview, hr and hr.answers.get("preference"))
         person = interview.person
-        if result == Interview.Result.SELECTED and not person.offers.exists():
+        if (
+            was == Interview.Result.SELECTED
+            and result != was
+            and not _live_offer(person)
+        ):
+            # No longer selected, and no offer made yet: the offer task goes too.
+            for f in person.followups.filter(
+                status=FollowUp.Status.PENDING, purpose=FollowUp.Purpose.OFFER
+            ):
+                f.status = FollowUp.Status.CANCELLED
+                f.version += 1
+                f.save(update_fields=["status", "version"])
+        if result == Interview.Result.SELECTED and not _offer_taken(interview):
             FollowUp.objects.get_or_create(
                 person=person,
                 purpose=FollowUp.Purpose.OFFER,

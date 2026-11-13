@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
@@ -37,10 +38,28 @@ section = require_section("recruitment", "selecting")
 filed_section = require_section("recruitment", "selecting", "hiring")
 
 
-def _has_hr(request):
-    return (
+def _hr_companies(request):
+    """The active companies where this person holds the HR assessments grant."""
+    return set(
         companies_with_access(request.user, "recruitment", "assessments")
         .filter(pk__in=[c.pk for c in request.companies])
+        .values_list("pk", flat=True)
+    )
+
+
+def _has_hr(request, interview=None):
+    """Whether HR assessments are open to them: for one interview, in its company."""
+    held = _hr_companies(request)
+    return interview.person.company_id in held if interview else bool(held)
+
+
+def _can_edit(request, interview):
+    """Only the interviewer, or someone holding Selecting there, may change an
+    interview; Hiring opens it to read."""
+    return (
+        interview.interviewer_id == request.user.pk
+        or companies_with_access(request.user, "recruitment", "selecting")
+        .filter(pk=interview.person.company_id)
         .exists()
     )
 
@@ -80,7 +99,10 @@ def selecting(request):
 @section
 @require_GET
 def export_interviews(request):
-    return interviews_workbook(_filed(request), include_hr=_has_hr(request))
+    held = _hr_companies(request)
+    return interviews_workbook(
+        _filed(request), include_hr=bool(held), hr_companies=held
+    )
 
 
 def _initial(person):
@@ -209,9 +231,12 @@ def record(request, pk):
 def review(request, pk):
     """Open a filed interview: edit it, and (for those allowed) fill the HR form."""
     interview = get_object_or_404(_filed(request), pk=pk)
-    has_hr = _has_hr(request)
+    has_hr = _has_hr(request, interview)
     existing = getattr(interview, "hr", None)
     posted = request.method == "POST"
+    if posted and not (has_hr and request.POST.get("which") == "hr"):
+        if not _can_edit(request, interview):
+            raise PermissionDenied
     hr = bool(posted and has_hr and request.POST.get("which") == "hr")
     form = InterviewForm(
         request.POST if posted and not hr else None,
