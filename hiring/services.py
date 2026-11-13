@@ -898,8 +898,8 @@ def timeline(person, with_hr=False):
 
     for i in person.interviews.select_related("interviewer"):
         text = f"Interview: {i.get_result_display().lower()}"
-        if i.profile:
-            text += f" ({interview_form.PROFILES.get(i.profile, (i.profile,))[0]})"
+        if i.profile or i.answers.get("department"):
+            text += f" ({interview_form.label(i)})"
         events.append(
             (i.scheduled_at, i.interviewer, f"{text}. {i.notes}" if i.notes else text)
         )

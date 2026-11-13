@@ -12,13 +12,16 @@ from core.access import companies_with_access, require_section
 from core.pagination import paginate
 
 from . import interview_form
+from .departments import SUB_DEPARTMENTS
 from .export import interviews_workbook
 from .interview_form import (
     COLUMN_TYPES,
+    PROFILE_OF,
     SECTIONS,
     TABLES,
     AssessmentForm,
     InterviewForm,
+    profile_for,
     read_tables,
     table_shows,
 )
@@ -146,10 +149,12 @@ def interview_file(request, pk, name):
 
 def _tables(request, interview=None, saved=False):
     """Every table's rows: as posted, else as saved. Posted rows of a table the
-    chosen profile doesn't show are dropped."""
+    chosen department and sub-department don't show are dropped."""
     if request.method == "POST" and not saved:
-        profile = request.POST.get("profile", "")
-        got = read_tables(request.POST, profile)
+        post = request.POST
+        got = read_tables(
+            post, profile_for(post.get("department"), post.get("sub_department"))
+        )
         return {**{k: [] for k in TABLES}, **got}
     saved = interview.answers if interview else {}
     return {k: saved.get(k, []) for k in TABLES}
@@ -175,6 +180,8 @@ def _page(request, form, person, when, tables, **extra):
             "max_rows": interview_form.MAX_ROWS,
             "sections": _sections(form),
             "today": timezone.localdate().isoformat(),
+            "sub_departments": SUB_DEPARTMENTS,
+            "profile_of": {f"{d}|{s}": p for (d, s), p in PROFILE_OF.items()},
             "table_defs": [
                 {
                     "key": k,
@@ -205,8 +212,16 @@ def record(request, pk):
         interviews_waiting(request.user, request.companies), pk=pk
     )
     person = followup.person
+    req = followup.requisition
     form = InterviewForm(
-        request.POST or None, initial=_initial(person), user=request.user
+        request.POST or None,
+        initial={
+            **_initial(person),
+            # From the requisition; the interviewer can change both.
+            "department": req and req.department,
+            "sub_department": req and req.sub_department,
+        },
+        user=request.user,
     )
     tables = _tables(request)
     if request.method == "POST" and form.is_valid():
@@ -215,7 +230,7 @@ def record(request, pk):
                 followup,
                 Interview.Result.PENDING,
                 request.user,
-                profile=form.cleaned_data["profile"],
+                profile=form.profile,
                 answers={**form.answers(), **tables},
             )
         except FollowUpError as exc:
@@ -241,8 +256,10 @@ def review(request, pk):
     form = InterviewForm(
         request.POST if posted and not hr else None,
         initial={
+            "department": interview.requisition and interview.requisition.department,
+            "sub_department": interview.requisition
+            and interview.requisition.sub_department,
             **interview.answers,
-            "profile": interview.profile,
             "assessor": interview.answers.get("assessor_id"),
         },
         user=request.user,
@@ -282,7 +299,7 @@ def review(request, pk):
             interview.result,
             interview.questions,
             interview.notes,
-            profile=form.cleaned_data["profile"],
+            profile=form.profile,
             answers={**form.answers(), **tables},
         )
         _files(request, interview)

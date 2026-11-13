@@ -79,7 +79,8 @@ def test_an_interview_cannot_be_recorded_twice(booked, caller):
 
 
 FORM = {
-    "profile": "bo",
+    "department": "bo",
+    "sub_department": "Back Office Executive",
     "date": "2031-01-05",
     "place_of_assessment": "Pune",
     "temporary_address": "Flat 2, Baner",
@@ -111,6 +112,7 @@ def test_record_through_the_page(client, booked, caller, django_user_model):
     assert r.status_code == 302
     interview = Interview.objects.get()
     assert interview.result == "pending" and interview.profile == "bo"
+    assert interview.answers["department"] == "bo"
     edu = interview.answers["education"]
     assert (
         len(edu) == 1 and edu[0]["qualification"] == "ITI" and edu[0]["year"] == "2016"
@@ -129,7 +131,7 @@ def test_record_through_the_page(client, booked, caller, django_user_model):
 
 
 def test_the_form_needs_the_asterisked_answers(client, booked):
-    r = client.post(reverse("hiring:interview", args=[booked.pk]), {"profile": "bo"})
+    r = client.post(reverse("hiring:interview", args=[booked.pk]), {"department": "bo"})
     assert r.status_code == 200 and not Interview.objects.exists()
 
 
@@ -233,19 +235,39 @@ def test_photo_and_resume_are_kept_and_served_as_downloads(
     )
 
 
-def test_a_profile_brings_its_own_questions_and_tables(client, booked, caller):
+def test_department_and_sub_department_pick_the_questions(client, booked, caller):
     data = {
         **FORM,
         "assessor": caller.pk,
-        "profile": "apprentice",
-        "apprentice-internship": "6 months",
-        "proj_name": ["Robot arm"],
+        "department": "operations",
+        "sub_department": "Welder",
     }
     client.post(reverse("hiring:interview", args=[booked.pk]), data)
-    answers = Interview.objects.get().answers
-    assert answers["internship"] == "6 months"
-    assert answers["projects"][0]["name"] == "Robot arm"
-    assert answers["work"] == []  # BO's table is not this profile's
+    interview = Interview.objects.get()
+    assert interview.profile == "helper_welder"
+    assert interview.answers["sub_department"] == "Welder"
+    assert interview.answers["work"][0]["organization"] == "ABC Works"
+
+
+def test_an_unlisted_sub_department_still_files(client, booked, caller):
+    data = {**FORM, "assessor": caller.pk, "sub_department": "Something new"}
+    client.post(reverse("hiring:interview", args=[booked.pk]), data)
+    interview = Interview.objects.get()
+    assert interview.profile == "" and interview.answers["work"]
+
+
+def test_the_form_starts_from_the_requisition_and_can_be_changed(
+    client, booked, caller
+):
+    booked.requisition.department = "operations"
+    booked.requisition.sub_department = "Elec + Mech"
+    booked.requisition.save()
+    page = client.get(reverse("hiring:interview", args=[booked.pk])).content
+    assert b'<option value="operations" selected>' in page
+    assert b'value="Elec + Mech"' in page
+    data = {**FORM, "assessor": caller.pk, "department": "sales", "sub_department": ""}
+    client.post(reverse("hiring:interview", args=[booked.pk]), data)
+    assert Interview.objects.get().answers["department"] == "sales"
 
 
 def test_work_months_edge_cases():
@@ -309,7 +331,8 @@ def test_elec_mech_asks_only_the_chosen_departments_work(client, booked, caller)
     data = {
         **FORM,
         "assessor": caller.pk,
-        "profile": "elec_mech",
+        "department": "operations",
+        "sub_department": "Elec + Mech",
         "elec_mech-trade": "Electrical",
     }
     url = reverse("hiring:interview", args=[booked.pk])
@@ -327,7 +350,8 @@ def test_elec_mech_both_keeps_both_lists(client, booked, caller):
     data = {
         **FORM,
         "assessor": caller.pk,
-        "profile": "elec_mech",
+        "department": "operations",
+        "sub_department": "Elec + Mech",
         "elec_mech-trade": "Both",
         "elec_mech-elec_wiring_bunch": "Yes",
         "elec_mech-mech_roping": "No",
