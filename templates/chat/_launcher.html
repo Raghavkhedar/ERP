@@ -11,8 +11,8 @@
       <svg class="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M4.5 5.5h15a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4.5 3.5v-3.5h-1a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1Z"/>
       </svg>
-      <span x-show="unread" x-cloak x-text="unread > 99 ? '99+' : unread"
-            class="absolute -right-1 -top-1 h-5 min-w-5 rounded-full bg-rose-500 px-1.5 text-center text-xs font-semibold leading-5 text-white ring-2 ring-white"></span>
+      <span x-show="unread" x-cloak x-floor="unread"
+            class="floor absolute -right-1.5 -top-1.5 h-5 min-w-5 px-1.5 text-xs leading-5"></span>
     </a>
   {% endif %}
 </div>

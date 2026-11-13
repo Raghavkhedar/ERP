@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from plans.models import DailyPlan, PlanItem
 from plans.services import (
+    PANEL_HOUR_HEIGHT,
     PlanError,
     day_panel,
     has_plan_today,
@@ -180,8 +181,8 @@ def test_panel_places_work_by_time(alice):
     block = draft
     assert block["title"] == "Draft"
     assert block["top"] == 0  # the panel starts at 10:00, so this is cut
-    assert block["height"] == 56
-    assert call["top"] == 56 and call["height"] == 56
+    assert block["height"] == PANEL_HOUR_HEIGHT
+    assert call["top"] == PANEL_HOUR_HEIGHT and call["height"] == PANEL_HOUR_HEIGHT
     assert [hour.hour for hour, _ in panel["hours"]] == list(range(10, 19))
 
 

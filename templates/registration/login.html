@@ -3,7 +3,7 @@
 {% block title %}Log in · Senken ERP{% endblock %}
 
 {% block card %}
-  <form method="post" x-data="{ show: false, sending: false }" @submit="sending = true">
+  <form method="post" data-doors x-data="{ show: false, sending: false }" @submit="sending = true">
     {% csrf_token %}
     <input type="hidden" name="next" value="{{ next }}">
 

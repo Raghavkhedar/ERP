@@ -9,7 +9,10 @@
   <link rel="preload" href="{% static 'vendor/fonts/Geist-Variable.woff2' %}" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
   <script>try { if (localStorage.getItem("nav-rail")) document.documentElement.classList.add("nav-rail") } catch {}</script>
+  <script>try { if (sessionStorage.getItem("doors") && !matchMedia("(prefers-reduced-motion: reduce)").matches) document.documentElement.classList.add("doors-shut") } catch {}</script>
   <script src="{% static 'vendor/htmx.min.js' %}" defer></script>
+  <script src="{% static 'js/doors.js' %}" defer></script>
+  <script src="{% static 'js/floor.js' %}" defer></script>
   <script src="{% static 'vendor/alpine.min.js' %}" defer></script>
 </head>
 <body class="{% block body_class %}min-h-dvh bg-canvas text-gray-900 antialiased{% endblock %}">
@@ -72,5 +75,6 @@
     {% include "tasks/_alarms.html" %}
     {% include "core/_command_bar.html" %}
   {% endif %}
+<div class="doors" aria-hidden="true"><div class="door door-left"></div><div class="door door-right"></div></div>
 </body>
 </html>

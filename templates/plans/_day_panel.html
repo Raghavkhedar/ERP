@@ -2,24 +2,24 @@
 <div class="flex items-start justify-between gap-4">
   <div>
     <h2 class="title text-xl">Your day</h2>
-    <p class="text-sm text-gray-500">{{ panel.date|date:"l j F" }}</p>
+    <p class="mt-0.5 flex items-center gap-2 text-sm text-gray-500">{{ panel.date|date:"l j F" }}{% if panel.floor %}<span class="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">Floor {{ panel.floor }}</span>{% endif %}</p>
   </div>
-  <a href="{% url 'plans:today' %}" class="inline-flex h-9 shrink-0 items-center rounded-lg border border-ink bg-surface px-3 text-sm hover:bg-pop focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pop">{% if panel.goals %}Edit plan{% else %}Set your plan{% endif %}</a>
+  <a href="{% url 'plans:today' %}" class="inline-flex h-9 shrink-0 items-center rounded-full bg-white px-4 text-sm font-medium text-blue-700 ring-1 ring-blue-100 transition-colors hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600">{% if panel.goals %}Edit plan{% else %}Set your plan{% endif %}</a>
 </div>
 
 {% if panel.goals %}
-  <div class="mt-4 rounded-xl border border-ink bg-surface p-4 shadow-md">
+  <div class="mt-4 rounded-2xl bg-white p-4 ring-1 ring-blue-100">
     <div class="flex items-center gap-3">
-      <div class="h-2.5 flex-1 overflow-hidden rounded-full border border-ink bg-white" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ panel.percent }}">
-        <div class="h-full bg-pop" style="width: {{ panel.percent }}%"></div>
+      <div class="h-2 flex-1 overflow-hidden rounded-full bg-blue-50" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ panel.percent }}">
+        <div class="h-full rounded-full bg-blue-600" style="width: {{ panel.percent }}%"></div>
       </div>
       <p class="text-sm tabular-nums">{{ panel.done }} of {{ panel.total }} done</p>
     </div>
     <ul class="mt-3 space-y-2 text-sm">
       {% for goal in panel.goals %}
         <li class="flex items-start gap-2.5 {% if goal.done %}text-gray-400 line-through{% endif %}">
-          <span class="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded border border-ink {% if goal.done %}bg-pop{% endif %}">
-            {% if goal.done %}<svg viewBox="0 0 12 12" class="size-3 text-ink" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2.5 6.5 5 9l4.5-6"/></svg>{% endif %}
+          <span class="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full {% if goal.done %}bg-blue-600 text-white{% else %}ring-1 ring-gray-300{% endif %}">
+            {% if goal.done %}<svg viewBox="0 0 12 12" class="size-3" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2.5 6.5 5 9l4.5-6"/></svg>{% endif %}
           </span>
           {{ goal.text }}
         </li>
@@ -27,24 +27,34 @@
     </ul>
   </div>
 {% else %}
-  <p class="mt-4 rounded-xl border border-dashed border-ink bg-surface p-4 text-sm text-gray-500">You haven't set a plan for today.</p>
+  <p class="mt-4 rounded-2xl bg-white p-4 text-sm text-gray-500 ring-1 ring-blue-100">You haven't set a plan for today.</p>
 {% endif %}
 
 <p class="mt-6 text-sm text-gray-500">Click or double-tap the timeline to add a block. Drag to move it.</p>
 <div class="relative mb-3 mt-2" style="height: {{ panel.height }}px">
   {% for hour, top in panel.hours %}
-    <div class="absolute inset-x-0 border-t border-gray-200" style="top: {{ top }}px">
-      <span class="absolute -top-2 left-0 w-9 text-right text-xs tabular-nums text-gray-500">{{ hour|time:"H:i" }}</span>
+    <div class="absolute inset-x-0 border-t border-gray-100" style="top: {{ top }}px">
+      <span class="absolute -top-2.5 left-0 w-9 text-right text-sm tabular-nums text-gray-500">{{ hour|time:"H:i" }}</span>
     </div>
   {% endfor %}
 
-  <div x-ref="grid" @pointerup="tap($event)" class="absolute inset-y-0 left-12 right-0 cursor-cell">
+  {# The hoistway: a shaft beside the hours with the car sitting on the current time. #}
+  <div class="pointer-events-none absolute inset-y-0 left-10 w-3 border-x border-blue-100" aria-hidden="true">
+    {% if panel.now_top is not None %}
+      <span class="hoist-cable absolute left-1/2 top-0 -ml-px w-px bg-blue-200" style="height: {{ panel.now_top }}px"></span>
+      <span class="hoist-car absolute inset-x-px -mt-2.5 h-5 rounded bg-blue-600" style="top: {{ panel.now_top }}px; --to: {{ panel.now_top }}px">
+        <span class="absolute inset-y-0 left-1/2 -ml-px w-px bg-white/70"></span>
+      </span>
+    {% endif %}
+  </div>
+
+  <div x-ref="grid" @pointerup="tap($event)" class="absolute inset-y-0 left-14 right-0 cursor-cell">
     {% for block in panel.blocks %}
       <div data-ids="{{ block.ids|join:',' }}" data-title="{{ block.title }}" {% if block.ids %}tabindex="0" @pointerdown="down($event)" @keydown.enter.prevent="edit($el)"{% endif %} style="top: {{ block.top }}px; height: {{ block.height }}px; left: calc(100% * {{ block.lane }} / {{ block.lanes }}); width: calc(100% / {{ block.lanes }} - 4px)"
-           class="absolute mt-px overflow-hidden rounded-md border border-ink px-2 py-1 text-xs leading-tight {% if block.ids %}cursor-grab touch-none select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink{% endif %} {% if block.meeting %}bg-blue-100{% else %}bg-pop{% endif %} {% if block.done %}opacity-60 line-through{% endif %}">
-        {% if block.height >= 44 %}
+           class="absolute mt-px overflow-hidden rounded-xl px-3 py-1.5 text-sm leading-snug {% if block.ids %}cursor-grab touch-none select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600{% endif %} {% if block.meeting %}bg-blue-100/80{% else %}bg-pop/50{% endif %} {% if block.done %}opacity-60 line-through{% endif %}">
+        {% if block.height >= 52 %}
           <p class="truncate font-medium">{{ block.title }}</p>
-          <p class="tabular-nums">{{ block.start|time:"H:i" }}–{{ block.end|time:"H:i" }}</p>
+          <p class="tabular-nums text-gray-600">{{ block.start|time:"H:i" }}–{{ block.end|time:"H:i" }}</p>
         {% else %}
           <p class="flex items-baseline justify-between gap-2"><span class="truncate font-medium">{{ block.title }}</span><span class="shrink-0 tabular-nums">{{ block.start|time:"H:i" }}</span></p>
         {% endif %}
@@ -53,9 +63,7 @@
   </div>
 
   {% if panel.now_top is not None %}
-    <div class="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-ink" style="top: {{ panel.now_top }}px" aria-hidden="true">
-      <span class="absolute -top-1.5 left-10 size-2.5 rounded-full border border-ink bg-pop"></span>
-    </div>
+    <div class="pointer-events-none absolute inset-x-0 left-14 z-10 border-t-2 border-blue-600" style="top: {{ panel.now_top }}px" aria-hidden="true"></div>
   {% endif %}
 </div>
 
