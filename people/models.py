@@ -58,12 +58,39 @@ class Person(models.Model):
     priority = models.CharField(max_length=20, choices=Priority, blank=True)
     # Filled from the interview form, which updates them each time it is saved.
     alternate_phone = models.CharField(max_length=30, blank=True)
+    # More numbers some candidates gave (the first is `phone`, the second the
+    # alternate phone).
+    phone_3 = models.CharField(max_length=30, blank=True)
+    phone_4 = models.CharField(max_length=30, blank=True)
     permanent_address = models.TextField(blank=True)
     highest_education = models.CharField(max_length=200, blank=True)
     place_of_birth = models.CharField(max_length=200, blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
     time_of_birth = models.TimeField(null=True, blank=True)
-    zoho_id = models.CharField(max_length=40, blank=True)
+    # The old id (WJ123) the person had before the ERP; kept so cards can be traced.
+    candidate_id = models.CharField(max_length=40, blank=True)
+    # Earlier id some cards had before WJ ids.
+    legacy_id = models.CharField(max_length=40, blank=True)
+    # What the candidate was sourced for (new numbers copy it from the requisition)
+    # and what they were moved to after the call. Department keys are the
+    # Requisition.Department values.
+    department = models.CharField(max_length=20, blank=True)
+    sub_department = models.CharField(max_length=120, blank=True)
+    department_after_call = models.CharField(max_length=20, blank=True)
+    sub_department_after_call = models.CharField(max_length=120, blank=True)
+    source_reference = models.CharField(max_length=200, blank=True)
+    source_keyword = models.CharField(max_length=200, blank=True)
+    payment = models.CharField(
+        max_length=4, choices=[("Free", "Free"), ("Paid", "Paid")], blank=True
+    )
+    belongs_to = models.CharField(max_length=200, blank=True)
+    lead_received_on = models.DateField(null=True, blank=True)
+    repeated = models.CharField(max_length=3, blank=True)
+    reference_generated_by = models.CharField(max_length=200, blank=True)
+    skills = models.TextField(blank=True)
+    assessor_comments = models.TextField(blank=True)
+    resignation_on = models.DateField(null=True, blank=True)
+    resignation_reason = models.TextField(blank=True)
     # Bumped on every save; a form that carries an older number was opened
     # before someone else saved, and is rejected.
     version = models.PositiveIntegerField(default=1)
@@ -77,9 +104,9 @@ class Person(models.Model):
         ordering = ["name", "id"]
         constraints = [
             models.UniqueConstraint(
-                fields=["zoho_id"],
-                condition=~models.Q(zoho_id=""),
-                name="people_person_unique_zoho_id",
+                fields=["candidate_id"],
+                condition=~models.Q(candidate_id=""),
+                name="people_person_unique_candidate_id",
             ),
         ]
 

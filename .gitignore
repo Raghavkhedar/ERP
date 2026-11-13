@@ -20,3 +20,6 @@ bin/
 # Virtual environments
 .venv
 .superpowers/
+
+# Written by import_legacy: holds candidate phone numbers
+import-review.csv

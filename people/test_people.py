@@ -122,3 +122,12 @@ def test_sidebar_lists_empanelment_only_for_those_with_access(
 def test_sidebar_can_collapse_to_a_rail(client, caller):
     page = client.get(reverse("home")).content.decode()
     assert "nav-rail" in page and 'aria-label="Collapse or expand the sidebar"' in page
+
+
+def test_card_lists_archived_cards_that_share_its_number(client, caller, senken):
+    main = make(senken)
+    gone = make(senken, name="Old copy", phone="9876543210")
+    gone.archived_at = gone.created_at
+    gone.save()
+    page = client.get(reverse("people:detail", args=[main.pk])).content.decode()
+    assert "Old copy" in page

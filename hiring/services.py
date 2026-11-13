@@ -200,6 +200,9 @@ def source_number(
                 email=email,
                 address=address,
                 gender=gender,
+                department=requisition.department,
+                sub_department=requisition.sub_department,
+                source_reference=source,
             )
         # Every sourced number, new or repeat, is called tomorrow as a normal
         # follow-up, unless the candidate already has a call waiting (an interview
