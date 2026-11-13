@@ -73,7 +73,7 @@ ALIASES = {
     "nisu": "nishu",
     "nitn": "nitin",
     "amabala": "ambala",
-    "pinky": "prathiba",
+    "pinky": "pratibha",
     "usha": "usha p",
     "nishu": "nishu",
     "nitin": "nitin",

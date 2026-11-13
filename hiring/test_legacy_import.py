@@ -282,6 +282,14 @@ def test_second_number_goes_to_the_alternate_field(export):
     assert (p.phone, p.alternate_phone) == ("9876543201", "9811100001")
 
 
+def test_pinky_signs_as_the_existing_user_pratibha(django_user_model):
+    pratibha = django_user_model.objects.create_user(
+        username="S1", first_name="Pratibha", last_name="B"
+    )
+    assert legacy_import.Users().named("pratibha") == pratibha
+    assert legacy_import.ALIASES["pinky"] == "pratibha"
+
+
 def test_every_number_gets_its_own_field(export):
     run(export)
     p = Person.objects.get(candidate_id="WJ3")
