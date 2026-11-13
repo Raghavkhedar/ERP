@@ -23,6 +23,8 @@ def card_rows(person):
         ("Candidate ID", person.candidate_id),
         ("Phone", person.phone),
         ("Alternate phone", person.alternate_phone),
+        ("Phone 3", person.phone_3),
+        ("Phone 4", person.phone_4),
         ("Email", person.email),
         ("Gender", person.get_gender_display()),
         ("Address", person.address),

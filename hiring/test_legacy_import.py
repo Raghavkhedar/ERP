@@ -57,7 +57,13 @@ def export(tmp_path):
         card(1, Phone_No="9876543201/9811100001"),
         card(2, Phone_No="9876543201"),
         # a dated call with an assignee, then one with none
-        card(3, Next_Follow_Up_Date=NEXT, Assigned_To="Z:nishu.s@senkenindia.in"),
+        card(
+            3,
+            Next_Follow_Up_Date=NEXT,
+            Assigned_To="Z:nishu.s@senkenindia.in",
+            Phone_No="9876543203 / 9811100003, 9811100004;9811100005",
+            Alternate_No="9811100009",
+        ),
         card(4, Next_Follow_Up_Date=NEXT, Call_Type="Interview"),
         # a status code: the preference is the truth, the date goes
         card(
@@ -274,6 +280,17 @@ def test_second_number_goes_to_the_alternate_field(export):
     run(export)
     p = Person.objects.get(candidate_id="WJ1")
     assert (p.phone, p.alternate_phone) == ("9876543201", "9811100001")
+
+
+def test_every_number_gets_its_own_field(export):
+    run(export)
+    p = Person.objects.get(candidate_id="WJ3")
+    assert (p.phone, p.alternate_phone, p.phone_3, p.phone_4) == (
+        "9876543203",
+        "9811100009",
+        "9811100003",
+        "9811100004",
+    )
 
 
 def test_status_codes_become_status_and_the_date_goes(export):

@@ -494,12 +494,16 @@ def raw_signature(note):
 
 def person_row(row):
     """The fields of a card from a candidate master row."""
+    # Every number on its own field: phone, alternate phone, phone 3, phone 4.
+    # The Alternate No column comes second, then the rest of the Phone No field.
     numbered = numbers(row["Phone_No"])
-    phone = numbered[0] if numbered else row["Phone_No"].strip()
+    first = numbered[0] if numbered else row["Phone_No"].strip()
     alt = text(row["Alternate_No"])
-    if len(phone_key(alt)) < 10 or phone_key(alt) == phone_key(phone):
-        alt = ""
-    second = next((n for n in numbered[1:] if phone_key(n) != phone_key(phone)), "")
+    ordered = [first]
+    for n in [alt if len(phone_key(alt)) >= 10 else "", *numbered[1:]]:
+        if n and phone_key(n) not in {phone_key(o) for o in ordered}:
+            ordered.append(n)
+    phone, alt, third, fourth = [*ordered[:4], "", "", ""][:4]
     pref = PREFERENCE.get(row["Preference_Level"].strip(), ("active", ""))
     status, priority = pref
     if status == "active" and "Hold - FF" in (
@@ -516,7 +520,9 @@ def person_row(row):
         name=row["Name"].strip()[:200],
         phone=phone[:30],
         phone_key=phone_key(phone),
-        alternate_phone=(alt or second)[:30],
+        alternate_phone=alt[:30],
+        phone_3=third[:30],
+        phone_4=fourth[:30],
         gender=gender,
         address=text(row["Temporary_Address"]),
         permanent_address=text(row["Permanent_Address"]),
@@ -814,11 +820,18 @@ def _run(data, files, apply, stats, review, log):
         if r["ID"] != best[group_of[r["ID"]]] or group_of[r["ID"]] in existing:
             fields["archived_at"] = now
         rows.append(Person(**fields))
-        phones = numbers(r["Phone_No"])
-        if len(phones) > 2 or len(phone_key(fields["phone"])) < 10:
-            review.append(("phone", r["Candidate_ID"], r["Phone_No"]))
-        if len(phones) > 1:
+        if len(numbers(r["Phone_No"])) > 4 or len(phone_key(fields["phone"])) < 10:
+            review.append(
+                (
+                    "phone too short or more than four numbers",
+                    r["Candidate_ID"],
+                    r["Phone_No"],
+                )
+            )
+        if fields["alternate_phone"]:
             stats["cards with a second number"] += 1
+        if fields["phone_3"]:
+            stats["cards with a third number"] += 1
     with keep_dates((Person, "created_at")):
         Person.objects.bulk_create(rows, batch_size=BATCH)
     person_of = {r["ID"]: p for r, p in zip(cards, rows, strict=True)}
