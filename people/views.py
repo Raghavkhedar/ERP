@@ -63,7 +63,7 @@ def person_detail(request, pk):
         {
             "person": person,
             "rows": card_rows(person),
-            "same_number": person.same_number().filter(archived_at=None),
+            "same_number": person.same_number(),
             "stage": stage(person),
             "schedule_form": ScheduleCallForm(),
             "events": timeline(person, with_hr=_has_hr(request)),

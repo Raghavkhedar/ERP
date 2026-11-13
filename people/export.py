@@ -18,7 +18,7 @@ def people_workbook(people):
             p.get_contact_status_display(),
             p.get_priority_display(),
             p.company.name,
-            p.zoho_id,
+            p.candidate_id,
         )
         for p in people.select_related("company")
     ]
@@ -41,7 +41,7 @@ def people_workbook(people):
                     "Contact status",
                     "Priority",
                     "Company",
-                    "Zoho ID",
+                    "Candidate ID",
                 ),
                 rows,
             )

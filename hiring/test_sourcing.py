@@ -199,3 +199,15 @@ def test_a_repeat_adds_no_call_when_another_card_with_the_number_has_one(req, ca
     assert newer.pk > old.pk and old.followups.filter(status="pending").exists()
     source_number(req, "Asha", "9876543210", caller)
     assert FollowUp.objects.filter(status="pending").count() == 1
+
+
+def test_new_card_copies_department_and_source_from_the_requisition(req, caller):
+    req.sub_department = "Elec + Mech"
+    req.save()
+    made = source_number(req, "Asha", "9876543210", caller, source="Naukri")
+    p = made.person
+    assert (p.department, p.sub_department, p.source_reference) == (
+        "bo",
+        "Elec + Mech",
+        "Naukri",
+    )

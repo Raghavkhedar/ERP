@@ -326,7 +326,7 @@ class CallLog(models.Model):
     # Answers of the whereabout forms (see whereabouts.py); empty when not filled.
     mini_whereabout = models.JSONField(default=dict, blank=True)
     major_whereabout = models.JSONField(default=dict, blank=True)
-    # Bulk shifts and on-demand moves migrated from Zoho aren't real calls.
+    # Bulk shifts and on-demand moves imported from the old system aren't real calls.
     not_a_call = models.BooleanField(default=False)
 
     history = HistoricalRecords()
