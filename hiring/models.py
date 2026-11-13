@@ -1,3 +1,4 @@
+from datetime import datetime, time
 from pathlib import Path
 from uuid import uuid4
 
@@ -5,6 +6,11 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 from simple_history.models import HistoricalRecords
+
+
+def day_start(day):
+    """Follow-ups are dated, not timed: a date is kept as the start of that day."""
+    return timezone.make_aware(datetime.combine(day, time.min))
 
 
 def interview_file_path(interview, filename):
@@ -429,6 +435,12 @@ class Offer(models.Model):
     joining_date = models.DateField(null=True, blank=True)
     # The day they actually turned up, as opposed to the promised joining_date.
     joined_on = models.DateField(null=True, blank=True)
+    # Filled in when they join: what they were given, and whether they got a SIM.
+    resources = models.TextField(blank=True)
+    sim_allotted = models.CharField(
+        max_length=3, choices=[("Yes", "Yes"), ("No", "No")], blank=True
+    )
+    onboarding_notes = models.TextField(blank=True)
     decline_reason = models.CharField(max_length=200, blank=True)
     decided_at = models.DateTimeField(null=True, blank=True)
     made_by = models.ForeignKey(

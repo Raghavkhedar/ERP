@@ -80,7 +80,7 @@ def test_schedule_call_view(req, user, client):
     person = source_number(req, "Ravi", "99999 11111", user).person
     FollowUp.objects.filter(person=person).delete()
     client.post(
-        reverse("hiring:schedule_call", args=[person.pk]), {"due": "2031-01-02T10:00"}
+        reverse("hiring:schedule_call", args=[person.pk]), {"due": "2031-01-02"}
     )
     assert person.followups.get().purpose == "call"
 

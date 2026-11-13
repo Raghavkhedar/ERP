@@ -1,3 +1,5 @@
+from django.utils import timezone
+
 from core.export import stamp, workbook_response
 
 from . import interview_form, whereabouts
@@ -150,11 +152,11 @@ def followups_workbook(followups):
                         f.person.name,
                         f.person.phone,
                         f.get_purpose_display(),
-                        f.due,
+                        timezone.localtime(f.due).date(),
                         f.owner.get_full_name() or f.owner.get_username(),
                         str(f.requisition) if f.requisition else "",
                         f.reschedule_count,
-                        f.original_due,
+                        f.original_due and timezone.localtime(f.original_due).date(),
                     )
                     for f in followups
                 ],
@@ -323,6 +325,9 @@ def onboarding_workbook(expecting, joined):
             o.joining_date,
             o.joined_on,
             float(o.latest.amount),
+            o.resources,
+            o.sim_allotted,
+            o.onboarding_notes,
         )
 
     return workbook_response(
@@ -336,6 +341,9 @@ def onboarding_workbook(expecting, joined):
                     "Joining date",
                     "Joined on",
                     "Agreed offer",
+                    "Resources allotted",
+                    "SIM allotted",
+                    "Notes",
                 ),
                 [row(o) for o in [*expecting, *joined]],
             )

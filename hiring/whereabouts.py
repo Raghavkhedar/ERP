@@ -6,8 +6,28 @@ Answers are stored as plain dicts on the CallLog, so a question can change
 without a migration."""
 
 from django import forms
+from django.utils.dateparse import parse_date
 
 YESNO = ["Yes", "No"]
+
+
+def parse_day(value):
+    """A date from text, or None when it is blank or not a real date. Django's
+    parse_date raises on a date that looks right but doesn't exist (2031-02-30)."""
+    try:
+        return parse_date(value or "")
+    except ValueError:
+        return None
+
+
+class DayField(forms.CharField):
+    """A date kept as ISO text, so it can sit in the JSON answers."""
+
+    def validate(self, value):
+        super().validate(value)
+        if value and not parse_day(value):
+            raise forms.ValidationError("Enter a real date.")
+
 
 # key: (kind, label). kinds: text area int date yesno rate choice:A|B multi:A|B
 SPEC = {
@@ -193,7 +213,7 @@ def _field(key, spec=None):
     if kind == "int":
         return forms.IntegerField(min_value=0, **kw)
     if kind == "date":
-        return forms.CharField(widget=forms.DateInput(attrs={"type": "date"}), **kw)
+        return DayField(widget=forms.DateInput(attrs={"type": "date"}), **kw)
     if kind == "yesno":
         return forms.ChoiceField(choices=[("", "-")] + [(x, x) for x in YESNO], **kw)
     if kind == "rate":

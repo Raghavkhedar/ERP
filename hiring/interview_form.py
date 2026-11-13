@@ -3,10 +3,11 @@ questions of the chosen profile (PROFILES), and the HR assessment (PFA).
 Answers are stored as plain dicts on the Interview, so a question can change
 without a migration. Education and vehicle rows are lists of dicts."""
 
+import re
+
 from django import forms
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from django.utils.dateparse import parse_date
 
 from people.models import Person
 
@@ -46,7 +47,7 @@ SPEC = {
     "vehicle_status": ("choice:Has a vehicle|No vehicle", "Vehicle status", True),
     # The HR assessment (PFA). Interview status and level live on HRAssessment.
     "skills": ("area", "Skills after interview"),
-    "offer_given": ("text", "Offer given (if any)"),
+    "offer_given": ("int", "Offer given (monthly, if any)"),
     "salary_discussion": ("area", "Expected salary discussion"),
     "unique_id": ("text", "Unique identification"),
     "questions_asked": ("area", "Questions asked"),
@@ -261,8 +262,8 @@ def table_keys(profile):
 def work_months(start, end, current, today):
     """Whole months between two dates (to today while still working there), or
     None when a date is missing, the end is before the start, or it hasn't begun."""
-    began = parse_date(start or "")
-    left = today if current == "Yes" else parse_date(end or "")
+    began = whereabouts.parse_day(start)
+    left = today if current == "Yes" else whereabouts.parse_day(end)
     if not began or not left or left < began or began > today:
         return None
     return (
@@ -310,6 +311,9 @@ class AnswersForm(whereabouts.WhereaboutForm):
                 field.choices = [(x, x) for x in YESNO]
 
 
+MAX_ROWS = 50  # per table; the page stops adding rows here, the server keeps to it
+
+
 def rows(post, prefix, columns):
     """The filled rows of a repeating table: one input per column, same names."""
     lists = [post.getlist(f"{prefix}_{c}") for c in columns]
@@ -321,7 +325,16 @@ def rows(post, prefix, columns):
         }
         for i in range(n)
     ]
-    return [r for r in out if any(r.values())]
+    return [r for r in out if any(r.values())][:MAX_ROWS]
+
+
+def offer_amount(value):
+    """The monthly amount in an offer_given answer. It used to be free text, so
+    a saved "15000 + incentive" gives 15000 and anything without digits gives 0."""
+    if isinstance(value, int):
+        return value
+    found = re.search(r"\d[\d,]*", str(value or ""))
+    return int(found.group().replace(",", "")) if found else 0
 
 
 def summary(answers):

@@ -2,6 +2,7 @@ from datetime import timedelta
 from io import BytesIO
 
 import pytest
+from django.http import QueryDict
 from django.urls import reverse
 from django.utils import timezone
 from openpyxl import load_workbook
@@ -140,7 +141,10 @@ def test_review_and_hr_form_only_for_the_right_people(
     )
     pk = Interview.objects.get().pk
     url = reverse("hiring:interview_review", args=[pk])
-    assert client.get(url).status_code == 403  # selecting only
+    page = client.get(url)  # the interviewer (selecting only) can open and edit it
+    assert page.status_code == 200 and b"HR assessment" not in page.content
+    client.post(url, {"which": "hr", "decision": "selected"})
+    assert not HRAssessment.objects.exists()
     desk = member(django_user_model, senken, "S4", "hiring")
     client.force_login(desk)
     page = client.get(url)
@@ -199,7 +203,7 @@ def test_export_hides_hr_from_non_hr(client, booked, caller):
     assert book.sheetnames == ["Interviews"]
 
 
-def test_photo_and_resume_are_kept_and_served_only_to_the_hiring_tab(
+def test_photo_and_resume_are_kept_and_served_as_downloads(
     client, booked, caller, django_user_model, settings, tmp_path
 ):
     from django.core.files.uploadedfile import SimpleUploadedFile
@@ -216,7 +220,8 @@ def test_photo_and_resume_are_kept_and_served_only_to_the_hiring_tab(
     interview = Interview.objects.get()
     assert interview.resume and not interview.photo
     url = reverse("hiring:interview_file", args=[interview.pk, "resume"])
-    assert client.get(url).status_code == 403  # selecting only
+    r = client.get(url)  # selecting only: allowed, and sent as a download
+    assert r.status_code == 200 and "attachment" in r["Content-Disposition"]
     boss = django_user_model.objects.create_superuser("boss", password="pw")
     client.force_login(boss)
     assert client.get(url).status_code == 200
@@ -330,3 +335,166 @@ def test_elec_mech_both_keeps_both_lists(client, booked, caller):
     client.post(reverse("hiring:interview", args=[booked.pk]), data)
     answers = Interview.objects.get().answers
     assert answers["elec_wiring_bunch"] == "Yes" and answers["mech_roping"] == "No"
+
+
+def _filed(client, booked, caller, django_user_model):
+    client.post(
+        reverse("hiring:interview", args=[booked.pk]), {**FORM, "assessor": caller.pk}
+    )
+    boss = django_user_model.objects.create_superuser("boss", password="pw")
+    client.force_login(boss)
+    return reverse("hiring:interview_review", args=[Interview.objects.get().pk])
+
+
+def test_an_offer_in_the_hr_form_turns_the_call_into_an_offer_call(
+    client, booked, caller, django_user_model
+):
+    url = _filed(client, booked, caller, django_user_model)
+    FollowUp.objects.create(
+        person=Interview.objects.get().person,
+        purpose="call",
+        due=timezone.now(),
+        owner=caller,
+    )
+    client.post(
+        url,
+        {
+            "which": "hr",
+            "decision": "hold",
+            "offer_given": "25000",
+            "next_follow_up": "2031-03-04",
+        },
+    )
+    call = FollowUp.objects.get(status="pending")
+    assert call.purpose == "offer"
+    assert timezone.localtime(call.due).date().isoformat() == "2031-03-04"
+
+
+def test_the_next_follow_up_date_moves_the_pending_call(
+    client, booked, caller, django_user_model
+):
+    url = _filed(client, booked, caller, django_user_model)
+    person = Interview.objects.get().person
+    FollowUp.objects.create(
+        person=person, purpose="call", due=timezone.now(), owner=caller
+    )
+    client.post(
+        url, {"which": "hr", "decision": "hold", "next_follow_up": "2031-03-04"}
+    )
+    call = FollowUp.objects.get(status="pending")
+    assert call.purpose == "call"
+    assert timezone.localtime(call.due).date().isoformat() == "2031-03-04"
+
+
+def test_no_offer_amount_leaves_the_call_alone(
+    client, booked, caller, django_user_model
+):
+    url = _filed(client, booked, caller, django_user_model)
+    FollowUp.objects.create(
+        person=Interview.objects.get().person,
+        purpose="call",
+        due=timezone.now(),
+        owner=caller,
+    )
+    client.post(url, {"which": "hr", "decision": "hold", "offer_given": "0"})
+    assert FollowUp.objects.get(status="pending").purpose == "call"
+
+
+def test_the_hr_form_leaves_interview_and_joining_reminders_alone(
+    client, booked, caller, django_user_model
+):
+    url = _filed(client, booked, caller, django_user_model)
+    person = Interview.objects.get().person
+    FollowUp.objects.create(
+        person=person, purpose="joining", due=timezone.now(), owner=caller
+    )
+    kept_before = {
+        f.pk: f.due
+        for f in FollowUp.objects.filter(purpose__in=["interview", "joining"])
+    }
+    client.post(
+        url,
+        {
+            "which": "hr",
+            "decision": "hold",
+            "offer_given": "25000",
+            "next_follow_up": "2031-03-04",
+        },
+    )
+    kept = FollowUp.objects.filter(purpose__in=["interview", "joining"])
+    assert {f.pk: f.due for f in kept} == kept_before
+    assert FollowUp.objects.filter(purpose="offer", status="pending").count() == 1
+
+
+def test_selecting_users_open_only_their_own_filed_interviews(
+    client, booked, caller, django_user_model, senken
+):
+    client.post(
+        reverse("hiring:interview", args=[booked.pk]), {**FORM, "assessor": caller.pk}
+    )
+    pk = Interview.objects.get().pk
+    review = reverse("hiring:interview_review", args=[pk])
+    photo = reverse("hiring:interview_file", args=[pk, "photo"])
+    other = member(django_user_model, senken, "S5", "selecting")
+    client.force_login(other)
+    assert client.get(review).status_code == 404
+    assert client.get(photo).status_code == 404
+    assert b"Asha" not in client.get(reverse("hiring:selecting")).content
+    desk = member(django_user_model, senken, "S6", "hiring")
+    client.force_login(desk)
+    assert client.get(review).status_code == 200
+
+
+def test_offer_amount_reads_old_text_answers():
+    from hiring.interview_form import offer_amount
+
+    assert offer_amount(25000) == 25000
+    assert offer_amount("15000 + incentive") == 15000
+    assert offer_amount("1,50,000") == 150000
+    assert offer_amount("0") == 0
+    assert offer_amount("") == offer_amount(None) == offer_amount("none") == 0
+
+
+def test_an_old_text_offer_of_zero_does_not_open_an_offer_call(
+    client, booked, caller, django_user_model
+):
+    _filed(client, booked, caller, django_user_model)
+    interview = Interview.objects.get()
+    interview.answers["offer_given"] = "0"
+    interview.save()
+    FollowUp.objects.create(
+        person=interview.person, purpose="call", due=timezone.now(), owner=caller
+    )
+    from hiring.services import _follow_up_after_assessment
+
+    _follow_up_after_assessment(interview, "hold", {"offer_given": "0"})
+    assert FollowUp.objects.get(status="pending", purpose="call")
+
+
+def test_a_table_keeps_up_to_the_row_limit_and_the_page_stops_there(
+    client, booked, caller
+):
+    from hiring.interview_form import MAX_ROWS, rows
+
+    post = QueryDict("", mutable=True)
+    post.setlist("edu_degree", [f"d{i}" for i in range(MAX_ROWS + 5)])
+    assert len(rows(post, "edu", ["degree"])) == MAX_ROWS
+    page = client.get(reverse("hiring:interview", args=[booked.pk])).content.decode()
+    assert f">= {MAX_ROWS}" in page
+
+
+def test_a_date_that_does_not_exist_is_refused_not_a_crash(client, booked, caller):
+    url = reverse("hiring:interview", args=[booked.pk])
+    r = client.post(url, {**FORM, "assessor": caller.pk, "date_of_birth": "2031-02-30"})
+    assert r.status_code == 200 and not Interview.objects.exists()
+    r = client.post(  # a work row's dates are not checked, only ignored
+        url,
+        {
+            **FORM,
+            "assessor": caller.pk,
+            "work_start": "2031-02-30",
+            "work_organization": "X",
+        },
+    )
+    assert r.status_code == 302
+    assert Interview.objects.get().answers["work"][0]["duration"] == ""

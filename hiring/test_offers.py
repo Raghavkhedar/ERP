@@ -11,7 +11,7 @@ from openpyxl import load_workbook
 from core.access import MODULES
 from core.models import AccessGrant, Company
 
-from .models import FollowUp, Offer, Requisition
+from .models import CallLog, FollowUp, Offer, Requisition
 from .services import (
     OfferError,
     accept,
@@ -85,7 +85,7 @@ def test_accept_books_the_joining(offer, caller):
     offer.refresh_from_db()
     assert (offer.state, offer.joining_date) == ("accepted", date(2030, 1, 6))
     joining = FollowUp.objects.get(purpose="joining")
-    assert joining.due.date() == date(2030, 1, 6)
+    assert timezone.localtime(joining.due).date() == date(2030, 1, 6)
 
 
 def test_a_closed_offer_cannot_change_again(offer, caller):
@@ -131,28 +131,41 @@ def test_export(client, offer):
     assert len(list(book["Rounds"].values)) == 2
 
 
+JOINED = {
+    "joined_on": "2030-01-07",
+    "sim_allotted": "Yes",
+    "resources": "Laptop, ID card",
+    "notes": "On time",
+}
+
+
 def test_marking_joined_closes_the_joining_follow_up(client, offer, caller):
     accept(offer, date(2030, 1, 6), caller)
-    r = client.post(
-        reverse("hiring:joined", args=[offer.pk]), {"joined_on": "2030-01-07"}
-    )
+    r = client.post(reverse("hiring:joined", args=[offer.pk]), JOINED)
     assert r.status_code == 302
     offer.refresh_from_db()
     assert offer.joined_on == date(2030, 1, 7)
     assert not FollowUp.objects.filter(purpose="joining", status="pending").exists()
     page = client.get(reverse("hiring:onboarding")).content.decode()
     assert "joined 7 Jan 2030" in page and "coming soon" in page
+    assert (offer.resources, offer.sim_allotted) == ("Laptop, ID card", "Yes")
+    assert "SIM: Yes" in page and "Laptop, ID card" in page
+
+
+def test_joining_needs_the_sim_answer(client, offer, caller):
+    accept(offer, date(2030, 1, 6), caller)
+    client.post(reverse("hiring:joined", args=[offer.pk]), {"joined_on": "2030-01-07"})
+    offer.refresh_from_db()
+    assert offer.joined_on is None
 
 
 def test_only_accepted_unjoined_offers_can_join(client, offer, caller):
-    client.post(reverse("hiring:joined", args=[offer.pk]), {"joined_on": "2030-01-07"})
+    client.post(reverse("hiring:joined", args=[offer.pk]), JOINED)
     offer.refresh_from_db()
     assert offer.joined_on is None
     accept(offer, date(2030, 1, 6), caller)
     for _ in range(2):
-        client.post(
-            reverse("hiring:joined", args=[offer.pk]), {"joined_on": "2030-01-07"}
-        )
+        client.post(reverse("hiring:joined", args=[offer.pk]), JOINED)
     offer.refresh_from_db()
     assert offer.joined_on == date(2030, 1, 7)
 
@@ -163,3 +176,33 @@ def test_onboarding_export(client, offer, caller):
         BytesIO(client.get(reverse("hiring:onboarding_export")).content)
     )
     assert list(book["On-Boarding"].values)[1][0] == "Asha"
+
+
+def test_joining_cannot_be_before_the_offer_was_accepted(client, offer, caller):
+    accept(offer, date(2030, 1, 6), caller)
+    client.post(
+        reverse("hiring:joined", args=[offer.pk]), JOINED | {"joined_on": "2020-01-01"}
+    )
+    offer.refresh_from_db()
+    assert offer.joined_on is None
+
+
+def test_a_later_call_does_not_block_the_joining_date(client, offer, caller):
+    accept(offer, date(2030, 1, 6), caller)
+    CallLog.objects.create(person=offer.person, caller=caller, outcome="call")
+    today = timezone.localdate().isoformat()
+    client.post(
+        reverse("hiring:joined", args=[offer.pk]), JOINED | {"joined_on": today}
+    )
+    offer.refresh_from_db()
+    assert offer.joined_on == timezone.localdate()
+
+
+def test_the_sim_choice_is_required_in_the_page_and_ids_do_not_repeat(
+    client, offer, caller
+):
+    accept(offer, date(2030, 1, 6), caller)
+    page = client.get(reverse("hiring:onboarding")).content.decode()
+    assert page.count('name="sim_allotted"') == 2  # Yes and No
+    assert page.count('name="sim_allotted" value="Yes" required') == 1
+    assert 'id="id_sim_allotted' not in page

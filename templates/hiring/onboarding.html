@@ -13,11 +13,19 @@
           <p class="truncate font-medium">{{ o.person.name }}</p>
           <p class="truncate text-sm text-gray-500">{{ o.person.phone }} · joins {{ o.joining_date|date:"j M Y" }}{% if o.requisition %} · {{ o.requisition }}{% endif %}</p>
         </div>
-        <form method="post" action="{% url 'hiring:joined' o.pk %}" class="fields flex items-center gap-2">
-          {% csrf_token %}
-          <input type="date" name="joined_on" value="{% now 'Y-m-d' %}" aria-label="Joined on" class="h-9">
-          <button type="submit" class="h-9 rounded-lg bg-blue-600 px-3 text-sm font-medium">Joined</button>
-        </form>
+        <details class="w-full">
+          <summary class="inline-flex h-9 cursor-pointer items-center rounded-lg bg-blue-600 px-3 text-sm font-medium">Record joining</summary>
+          <form method="post" action="{% url 'hiring:joined' o.pk %}" class="fields mt-3 grid max-w-2xl gap-3 sm:grid-cols-2 [&_input[type=date]]:w-full [&_textarea]:w-full">
+            {% csrf_token %}
+            <label class="text-sm">Joining date<input type="date" name="joined_on" value="{% now 'Y-m-d' %}" required class="mt-1"></label>
+            <fieldset class="text-sm"><legend class="mb-1">SIM allotted</legend>
+              <span class="flex gap-1.5">{% for radio in form.sim_allotted %}<label class="cursor-pointer rounded-full border border-ink bg-surface px-3 py-0.5 has-[:checked]:bg-pop has-[:checked]:shadow-md has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-pop"><span class="sr-only"><input type="radio" name="sim_allotted" value="{{ radio.data.value }}" required></span>{{ radio.choice_label }}</label>{% endfor %}</span>
+            </fieldset>
+            <label class="text-sm sm:col-span-2">Resources allotted<textarea name="resources" rows="2" placeholder="Laptop, ID card, uniform, tools" class="mt-1"></textarea></label>
+            <label class="text-sm sm:col-span-2">Notes<textarea name="notes" rows="2" class="mt-1"></textarea></label>
+            <div class="sm:col-span-2"><button type="submit" class="h-10 rounded-lg bg-blue-600 px-4 font-medium">Save joining</button></div>
+          </form>
+        </details>
       </li>
     {% empty %}<li class="py-4 text-sm text-gray-500">No one waiting. Accepted offers from Hiring land here.</li>{% endfor %}
   </ul>
@@ -27,6 +35,7 @@
     {% for o in joined %}
       <li class="py-3">
         <p class="truncate font-medium">{{ o.person.name }} <span class="text-sm font-normal text-gray-500">· joined {{ o.joined_on|date:"j M Y" }}</span></p>
+        {% if o.resources or o.sim_allotted or o.onboarding_notes %}<p class="mt-1 text-sm text-gray-600">{% if o.resources %}Given: {{ o.resources }}. {% endif %}{% if o.sim_allotted %}SIM: {{ o.sim_allotted }}. {% endif %}{{ o.onboarding_notes }}</p>{% endif %}
         {# The three-day assessment form isn't ready yet; this is its place. #}
         <p class="mt-1 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-500">Three-day assessment: coming soon.</p>
       </li>

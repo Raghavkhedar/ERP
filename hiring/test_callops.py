@@ -41,7 +41,7 @@ def req(senken, user):
 def test_shift_calls_keeps_time_and_counts_the_move(req, user):
     for n in range(2):
         source_number(req, f"P{n}", f"99999 0000{n}", user)
-    rows = list(FollowUp.objects.all())
+    rows = FollowUp.objects.all()
     original = {f.pk: timezone.localtime(f.due).time() for f in rows}
     assert shift_calls(rows, date(2031, 5, 1), "holiday") == 2
     for f in FollowUp.objects.all():
@@ -55,7 +55,12 @@ def test_shift_leaves_interviews_alone(req, user):
     interview = FollowUp.objects.create(
         person=person, purpose="interview", due=timezone.now(), owner=user
     )
-    assert shift_calls([interview], date(2031, 5, 1), "holiday") == 0
+    assert (
+        shift_calls(
+            FollowUp.objects.filter(pk=interview.pk), date(2031, 5, 1), "holiday"
+        )
+        == 0
+    )
     interview.refresh_from_db()
     assert interview.reschedule_count == 0
 
@@ -66,7 +71,7 @@ def test_shift_view_moves_a_group(req, user, client):
     assert b"Move all calls" in page.content
     client.post(
         reverse("hiring:shift"),
-        {"group": "today", "day": "2031-05-01", "reason": "shortage"},
+        {"group": "later", "day": "2031-05-01", "reason": "shortage"},
     )
     due = FollowUp.objects.get().due
     assert timezone.localtime(due).date() == date(2031, 5, 1)
@@ -155,3 +160,28 @@ def test_shift_preview_narrows_by_preference_and_department(req, user, client):
     data["department"] = "no-such-department"
     page = client.post(reverse("hiring:shift"), data)
     assert b"0 calls will move" in page.content
+
+
+def test_confirming_with_the_popups_filters_replaces_the_page_filters(
+    req, user, client
+):
+    source_number(req, "Ravi", "99999 11111", user)
+    source_number(req, "Asha", "99999 22222", user)
+    Person.objects.filter(name="Ravi").update(priority="preferred")
+    client.post(
+        reverse("hiring:shift"),
+        {
+            "group": "all",
+            "day": "2031-05-01",
+            "reason": "shortage",
+            "filters": "q=Asha",  # the page's filter, replaced by the dialog's
+            "refined": "1",
+            "priority": "preferred",
+        },
+    )
+
+    def moved(name):
+        due = FollowUp.objects.get(person__name=name).due
+        return timezone.localtime(due).date() == date(2031, 5, 1)
+
+    assert moved("Ravi") and not moved("Asha")
