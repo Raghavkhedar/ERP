@@ -300,17 +300,28 @@ def test_block_endpoint_is_only_for_your_own_plan(client, alice, django_user_mod
     assert client.get(reverse("plans:panel")).status_code == 200
 
 
-def test_toggle_goal_crosses_it_out_and_back(alice):
-    from django.utils import timezone
-
-    from plans.services import plan_for, toggle_goal
-
-    today = timezone.localdate()
-    plan = plan_for(alice, today) or DailyPlan.objects.create(user=alice, date=today)
-    goal = PlanItem.objects.create(plan=plan, kind=PlanItem.Kind.GOAL, text="Ship it")
-    toggle_goal(alice, today, goal.pk)
-    goal.refresh_from_db()
-    assert goal.done
-    toggle_goal(alice, today, goal.pk)
+def test_goal_endpoint_sets_done_and_guards_ownership(client, alice, django_user_model):
+    plan = DailyPlan.objects.get(user=alice, date=_today_plan(alice))
+    goal = plan.items.get(kind=PlanItem.Kind.GOAL)
+    work = PlanItem.objects.create(plan=plan, kind=PlanItem.Kind.WORK, text="Calls")
+    url = reverse("plans:block")
+    client.force_login(alice)
+    for _ in range(2):  # repeating the same click leaves it done
+        assert (
+            client.post(
+                url, {"action": "toggle_goal", "id": goal.pk, "done": "1"}
+            ).status_code
+            == 200
+        )
+        goal.refresh_from_db()
+        assert goal.done
+    client.post(url, {"action": "toggle_goal", "id": goal.pk, "done": "0"})
     goal.refresh_from_db()
     assert not goal.done
+    for bad in ({"id": work.pk}, {"id": "x"}, {}):
+        r = client.post(url, {"action": "toggle_goal", "done": "1", **bad})
+        assert r.status_code == 400 and "goal is gone" in r.json()["error"]
+    client.force_login(django_user_model.objects.create_user("bob3", password="x"))
+    r = client.post(url, {"action": "toggle_goal", "id": goal.pk, "done": "1"})
+    goal.refresh_from_db()
+    assert r.status_code == 400 and not goal.done

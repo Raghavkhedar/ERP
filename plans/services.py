@@ -252,14 +252,22 @@ def rename_blocks(user, date, ids, title):
 
 
 @transaction.atomic
-def toggle_goal(user, date, goal_id):
+def toggle_goal(user, date, goal_id, done):
+    """Set a goal done or not; the caller says which, so a repeat click is harmless."""
     plan = plan_for(user, date)
-    item = plan and plan.items.filter(kind=PlanItem.Kind.GOAL, pk=goal_id).first()
+    if plan is None:
+        raise PlanError("Set your plan for today first.")
+    item = (
+        plan.items.select_for_update()
+        .filter(kind=PlanItem.Kind.GOAL, pk=goal_id)
+        .first()
+    )
     if not item:
         raise PlanError("That goal is gone. Refresh and try again.")
-    item.done = not item.done
-    item.save()
-    plan.save()
+    if item.done != done:
+        item.done = done
+        item.save()
+        plan.save()
 
 
 @transaction.atomic

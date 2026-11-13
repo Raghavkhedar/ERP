@@ -186,7 +186,9 @@ def block(request):
         elif action == "rename":
             rename_blocks(request.user, today, ids, post.get("title", ""))
         elif action == "toggle_goal":
-            toggle_goal(request.user, today, int(post.get("id", "")))
+            if not post.get("id", "").isdigit():
+                raise PlanError("That goal is gone. Refresh and try again.")
+            toggle_goal(request.user, today, int(post["id"]), post.get("done") == "1")
         elif action == "delete":
             delete_blocks(request.user, today, ids)
         else:
