@@ -45,6 +45,8 @@ def todo(senken, caller):
         company=senken, opened_by=caller, department="bo", profile="Fitter", headcount=3
     )
     source_number(req, "Asha", "9876543210", caller)
+    # Sourced numbers are called tomorrow; these tests start from a call due now.
+    FollowUp.objects.update(due=timezone.now())
     return FollowUp.objects.get()
 
 
@@ -103,7 +105,7 @@ def test_reschedule_keeps_the_original_date(client, todo):
     first = todo.due
     client.post(
         reverse("hiring:followup_reschedule", args=[todo.pk]),
-        {"due": "2030-01-02T10:00", "reason": "holiday"},
+        {"due": "2030-01-02", "reason": "holiday"},
     )
     todo.refresh_from_db()
     assert (todo.original_due, todo.reschedule_count) == (first, 1)
@@ -351,7 +353,7 @@ def test_filter_limits_what_all_matching_touches(client, todo, caller, boss):
     ) == ["Bulk 1"]
 
 
-def test_bulk_move_keeps_time_and_first_date(client, todo, caller, boss):
+def test_bulk_move_sets_the_day_and_keeps_the_first_date(client, todo, caller, boss):
     due = todo.due
     client.force_login(boss)
     client.post(
@@ -366,7 +368,7 @@ def test_bulk_move_keeps_time_and_first_date(client, todo, caller, boss):
     )
     todo.refresh_from_db()
     assert timezone.localtime(todo.due).date().isoformat() == "2031-05-01"
-    assert timezone.localtime(todo.due).time() == timezone.localtime(due).time()
+    assert not timezone.localtime(todo.due).time().hour  # a date, no time
     assert (todo.original_due, todo.reschedule_count) == (due, 1)
 
 

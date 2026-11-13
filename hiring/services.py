@@ -34,6 +34,7 @@ from .models import (
     OfferRound,
     Requisition,
     SourcedNumber,
+    day_start,
 )
 
 
@@ -149,11 +150,21 @@ def requisition_timeline(r):
     return sorted(events, key=lambda e: e[0], reverse=True)
 
 
+def today():
+    return day_start(timezone.localdate())
+
+
+def next_day():
+    """Tomorrow: when a sourced candidate is first called."""
+    return day_start(timezone.localdate() + timedelta(days=1))
+
+
 def source_number(
     requisition, name, phone, user, source="", email="", address="", gender=""
 ):
     """Log a number received for a requisition. A new number makes a card; a
-    number already on a card (last 10 digits, same company) links to it instead."""
+    number already on a card (last 10 digits, same company) links to the card used
+    last instead."""
     if len(phone_key(phone)) < 10:
         raise ValueError("Enter a phone number with at least 10 digits.")
     with transaction.atomic():
@@ -161,7 +172,7 @@ def source_number(
             Person.objects.filter(
                 company=requisition.company, phone_key=phone_key(phone)
             )
-            .order_by("pk")
+            .order_by("-pk")  # the card used last time
             .first()
         )
         duplicate = person is not None
@@ -174,10 +185,20 @@ def source_number(
                 address=address,
                 gender=gender,
             )
-        if not duplicate:
-            # A new card goes straight into the sourcer's call queue.
+        # Every sourced number, new or repeat, is called tomorrow as a normal
+        # follow-up, unless the candidate already has a call waiting (an interview
+        # or an offer is never pushed around by a repeat). Any card with this
+        # number counts, not only the one chosen above.
+        if not FollowUp.objects.filter(
+            status=FollowUp.Status.PENDING,
+            person__company=requisition.company,
+            person__phone_key=phone_key(phone),
+        ).exists():
             FollowUp.objects.create(
-                person=person, requisition=requisition, due=timezone.now(), owner=user
+                person=person,
+                requisition=requisition,
+                due=next_day(),
+                owner=user,
             )
         return SourcedNumber.objects.create(
             requisition=requisition,
@@ -370,15 +391,14 @@ def bulk_reassign(followups, owner, by):
 
 
 def bulk_move(followups, day, reason):
-    """Move many pending follow-ups to `day`, each keeping its time of day and
-    its first date, and counting the move."""
+    """Move many pending follow-ups to `day`, keeping each one's first date and
+    counting the move. One bulk write, not one save per follow-up."""
     with transaction.atomic():
         rows = list(followups.select_related(None).select_for_update())
         for f in rows:
-            at = timezone.localtime(f.due).time()
             f.original_due = f.original_due or f.due
             f.snoozed_until = None
-            f.due = timezone.make_aware(datetime.combine(day, at))
+            f.due = day_start(day)
             f.reschedule_reason = reason
             f.reschedule_count += 1
             f.version += 1
@@ -456,7 +476,7 @@ def record_interview(
         current.version += 1
         current.save(update_fields=["status", "version"])
         nxt = {
-            Interview.Result.SELECTED: (FollowUp.Purpose.OFFER, timezone.now()),
+            Interview.Result.SELECTED: (FollowUp.Purpose.OFFER, today()),
             Interview.Result.HOLD: (FollowUp.Purpose.CALL, next_due),
         }.get(result)
         if nxt and nxt[1]:
@@ -499,6 +519,43 @@ def apply_to_person(interview, preference=None):
     person.save()
 
 
+def _follow_up_after_assessment(interview, decision, answers):
+    """An offer named in the HR form turns the candidate's pending call into an
+    offer call, and the next follow up date, if given, becomes its date."""
+    person = interview.person
+    day = parse_date(answers.get("next_follow_up", ""))
+    due = day_start(day) if day else None
+    offered = interview_form.offer_amount(answers.get("offer_given")) > 0
+    # Interview and joining reminders are other people's work; leave them be.
+    pending = (
+        person.followups.filter(status=FollowUp.Status.PENDING)
+        .exclude(purpose__in=[FollowUp.Purpose.INTERVIEW, FollowUp.Purpose.JOINING])
+        .order_by("-created_at", "-id")
+    )
+    current = pending.first()
+    if not (offered or due):
+        return
+    if current is None:
+        if offered or decision == Interview.Result.HOLD:
+            FollowUp.objects.create(
+                person=person,
+                requisition=interview.requisition,
+                purpose=FollowUp.Purpose.OFFER if offered else FollowUp.Purpose.CALL,
+                due=due or today(),
+                owner=interview.followup.owner
+                if interview.followup_id
+                else interview.interviewer,
+            )
+        return
+    if offered:
+        current.purpose, current.purpose_other = FollowUp.Purpose.OFFER, ""
+    if due:
+        current.original_due = current.original_due or current.due
+        current.due, current.snoozed_until = due, None
+    current.version += 1
+    current.save()
+
+
 def save_assessment(
     interview, decision, level, user, hold_tenure="", comments="", answers=None
 ):
@@ -520,13 +577,7 @@ def save_assessment(
         apply_to_person(interview, answers.get("preference"))
         if interview.result != decision:
             edit_interview(interview, decision, interview.questions, interview.notes)
-        due = parse_date(answers.get("next_follow_up", ""))
-        if decision == Interview.Result.HOLD and due and interview.followup_id:
-            _open(
-                interview.followup,
-                FollowUp.Purpose.CALL,
-                timezone.make_aware(datetime.combine(due, time(10, 0))),
-            )
+        _follow_up_after_assessment(interview, decision, answers)
         return hr
 
 
@@ -589,7 +640,7 @@ def accept(offer, joining_date, user):
             status=FollowUp.Status.PENDING,
             defaults=dict(
                 requisition=current.requisition,
-                due=timezone.make_aware(datetime.combine(joining_date, time(9))),
+                due=day_start(joining_date),
                 owner=user,
             ),
         )
@@ -615,14 +666,19 @@ def onboarding(companies):
     )
 
 
-def mark_joined(offer, on):
-    """They turned up. Records the day and closes the joining follow-up."""
+def mark_joined(offer, on, resources="", sim="", notes=""):
+    """They turned up. Records the day, what they were given and whether they got
+    a SIM, and closes the joining follow-up."""
     with transaction.atomic():
         current = Offer.objects.select_for_update().get(pk=offer.pk)
         if current.state != Offer.State.ACCEPTED or current.joined_on:
             raise OfferError("That candidate is not waiting to join.")
         current.joined_on = on
-        current.save(update_fields=["joined_on"])
+        current.resources, current.sim_allotted = resources, sim
+        current.onboarding_notes = notes
+        current.save(
+            update_fields=["joined_on", "resources", "sim_allotted", "onboarding_notes"]
+        )
         FollowUp.objects.filter(
             person=current.person,
             purpose=FollowUp.Purpose.JOINING,
@@ -664,7 +720,7 @@ def funnel(companies):
 
 
 def _at(when):
-    return f"{timezone.localtime(when):%d %b %H:%M}"
+    return f"{timezone.localtime(when):%d %b}"
 
 
 def timeline(person, with_hr=False):
@@ -836,17 +892,13 @@ def schedule_call(person, due, user):
 
 
 def shift_calls(followups, day, reason):
-    """Move pending calls to `day`, each keeping its time of day. For the days
-    staff are out or the queue is too long to get through."""
-    moved = 0
-    with transaction.atomic():
-        for f in followups:
-            if f.purpose != FollowUp.Purpose.CALL:
-                continue
-            at = timezone.localtime(f.due).time()
-            reschedule(f, timezone.make_aware(datetime.combine(day, at)), reason)
-            moved += 1
-    return moved
+    """Move pending calls (not interviews, offers or joinings) to `day`. For the
+    days staff are out or the queue is too long to get through."""
+    return bulk_move(
+        followups.filter(purpose=FollowUp.Purpose.CALL, status=FollowUp.Status.PENDING),
+        day,
+        reason,
+    )
 
 
 RINGING = (FollowUp.Purpose.CALL, FollowUp.Purpose.INTERVIEW)
@@ -933,7 +985,7 @@ def edit_interview(interview, result, questions, notes, profile=None, answers=No
                 status=FollowUp.Status.PENDING,
                 defaults=dict(
                     requisition=interview.requisition,
-                    due=timezone.now(),
+                    due=today(),
                     owner=interview.interviewer,
                 ),
             )

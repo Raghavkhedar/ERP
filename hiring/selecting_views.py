@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from django.contrib import messages
+from django.db.models import Q
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -9,6 +10,7 @@ from django.views.decorators.http import require_GET
 from core.access import companies_with_access, require_section
 from core.pagination import paginate
 
+from . import interview_form
 from .export import interviews_workbook
 from .interview_form import (
     COLUMN_TYPES,
@@ -30,7 +32,9 @@ from .services import (
 )
 
 section = require_section("recruitment", "selecting")
-hiring_section = require_section("recruitment", "hiring")
+# A filed form opens from Selecting (the interviewers) or Hiring; the HR panel on
+# it is still only for those with the assessments grant (see _has_hr).
+filed_section = require_section("recruitment", "selecting", "hiring")
 
 
 def _has_hr(request):
@@ -38,6 +42,22 @@ def _has_hr(request):
         companies_with_access(request.user, "recruitment", "assessments")
         .filter(pk__in=[c.pk for c in request.companies])
         .exists()
+    )
+
+
+def _filed(request):
+    """Filed interviews this person may open: every one in the companies where
+    they hold Hiring or Assessments, and otherwise only the ones they conducted."""
+    mine = [c.pk for c in request.companies]
+    wide = [
+        pk
+        for name in ("hiring", "assessments")
+        for pk in companies_with_access(request.user, "recruitment", name)
+        .filter(pk__in=mine)
+        .values_list("pk", flat=True)
+    ]
+    return visible_interviews(request.companies).filter(
+        Q(interviewer=request.user) | Q(person__company__in=wide)
     )
 
 
@@ -52,7 +72,7 @@ def selecting(request):
                 interviews_waiting(request.user, request.companies),
                 param="wpage",
             ),
-            "done": visible_interviews(request.companies)[:100],
+            "done": _filed(request)[:100],
         },
     )
 
@@ -60,9 +80,7 @@ def selecting(request):
 @section
 @require_GET
 def export_interviews(request):
-    return interviews_workbook(
-        visible_interviews(request.companies), include_hr=_has_hr(request)
-    )
+    return interviews_workbook(_filed(request), include_hr=_has_hr(request))
 
 
 def _initial(person):
@@ -93,13 +111,15 @@ def _files(request, interview):
     interview.save(update_fields=["photo", "resume"])
 
 
-@hiring_section
+@filed_section
 def interview_file(request, pk, name):
-    interview = get_object_or_404(visible_interviews(request.companies), pk=pk)
+    interview = get_object_or_404(_filed(request), pk=pk)
     file = getattr(interview, name, None) if name in ("photo", "resume") else None
     if not file:
         raise Http404
-    return FileResponse(file.open("rb"), filename=Path(file.name).name)
+    return FileResponse(
+        file.open("rb"), filename=Path(file.name).name, as_attachment=True
+    )
 
 
 def _tables(request, interview=None, saved=False):
@@ -130,6 +150,7 @@ def _page(request, form, person, when, tables, **extra):
             "when": when,
             "form": form,
             "tables": tables,
+            "max_rows": interview_form.MAX_ROWS,
             "sections": _sections(form),
             "today": timezone.localdate().isoformat(),
             "table_defs": [
@@ -184,10 +205,10 @@ def record(request, pk):
     return _page(request, form, person, followup.due, tables)
 
 
-@hiring_section
+@filed_section
 def review(request, pk):
     """Open a filed interview: edit it, and (for those allowed) fill the HR form."""
-    interview = get_object_or_404(visible_interviews(request.companies), pk=pk)
+    interview = get_object_or_404(_filed(request), pk=pk)
     has_hr = _has_hr(request)
     existing = getattr(interview, "hr", None)
     posted = request.method == "POST"
@@ -209,6 +230,9 @@ def review(request, pk):
                 "level": existing and existing.level,
                 "comments": existing and existing.comments,
                 **(existing.answers if existing else {}),
+                "offer_given": existing
+                and interview_form.offer_amount(existing.answers.get("offer_given"))
+                or None,
             },
         )
         if has_hr

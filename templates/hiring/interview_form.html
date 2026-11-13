@@ -108,7 +108,7 @@
             <button type="button" @click="drop(t.{{ d.key }}, i)" class="mt-2 text-sm text-gray-500 underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pop">Remove this row</button>
           </div>
         </template>
-        <button type="button" @click="t.{{ d.key }}.push(row())" class="mt-4 h-9 rounded-lg border border-ink px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pop">Add a row</button>
+        <button type="button" @click="t.{{ d.key }}.push(row())" :disabled="t.{{ d.key }}.length >= {{ max_rows }}" class="mt-4 h-9 rounded-lg border border-ink px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pop disabled:opacity-50">Add a row</button>
         </div>
       </section>
     {% endfor %}

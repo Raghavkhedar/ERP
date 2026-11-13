@@ -8,7 +8,7 @@ from openpyxl import Workbook, load_workbook
 from core.models import AccessGrant, Company
 from people.models import Person
 
-from .models import Requisition, SourcedNumber
+from .models import FollowUp, Requisition, SourcedNumber
 from .services import source_number
 
 pytestmark = pytest.mark.django_db
@@ -171,3 +171,31 @@ def test_gender_is_kept_on_a_new_card(client, req):
     assert person.gender == "F"
     page = client.get(reverse("people:detail", args=[person.pk])).content.decode()
     assert "Female" in page
+
+
+def test_sourced_numbers_are_called_tomorrow_and_a_repeat_reuses_the_last_card(
+    req, caller
+):
+    from .services import next_day
+
+    first = source_number(req, "Asha", "98765 43210", caller)
+    call = FollowUp.objects.get()
+    assert (call.purpose, call.due) == ("call", next_day())
+    again = source_number(req, "Asha K", "9876543210", caller)
+    assert again.is_duplicate and again.person == first.person
+    assert FollowUp.objects.count() == 1  # already has a call waiting
+    FollowUp.objects.update(status="completed")
+    source_number(req, "Asha", "9876543210", caller)
+    assert FollowUp.objects.filter(status="pending").count() == 1
+
+
+def test_a_repeat_adds_no_call_when_another_card_with_the_number_has_one(req, caller):
+    from people.models import Person
+
+    old = source_number(req, "Asha", "9876543210", caller).person
+    newer = Person.objects.create(
+        company=req.company, name="Asha K", phone="9876543210"
+    )
+    assert newer.pk > old.pk and old.followups.filter(status="pending").exists()
+    source_number(req, "Asha", "9876543210", caller)
+    assert FollowUp.objects.filter(status="pending").count() == 1

@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from core.access import require_section
@@ -148,14 +149,28 @@ def onboarding_page(request):
 @onboarding_section
 @require_POST
 def joined(request, pk):
-    form = JoinedForm(request.POST)
+    offer = _offer(request, pk)
+    form = JoinedForm(
+        request.POST,
+        floor=offer.decided_at and timezone.localtime(offer.decided_at).date(),
+    )
     if form.is_valid():
         try:
-            mark_joined(_offer(request, pk), form.cleaned_data["joined_on"])
+            d = form.cleaned_data
+            mark_joined(
+                offer,
+                d["joined_on"],
+                d["resources"],
+                d["sim_allotted"],
+                d["notes"],
+            )
         except FollowUpError as exc:
             messages.error(request, str(exc))
         else:
             messages.success(request, "Marked as joined.")
+    else:
+        for errors in form.errors.values():
+            messages.error(request, errors[0])
     return redirect("hiring:onboarding")
 
 
