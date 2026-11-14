@@ -11,7 +11,7 @@
       <li class="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
         <div class="min-w-[12rem] flex-1">
           <p class="truncate font-medium">{{ o.person.name }}</p>
-          <p class="truncate text-sm text-gray-500">{{ o.person.phone }} · joins {{ o.joining_date|date:"j M Y" }}{% if o.requisition %} · {{ o.requisition }}{% endif %}</p>
+          <p class="truncate text-sm text-gray-500">{{ o.person.phone }} · joins {{ o.joining_date|date:"d/m/Y" }}{% if o.requisition %} · {{ o.requisition }}{% endif %}</p>
         </div>
         <details class="w-full">
           <summary class="inline-flex h-9 cursor-pointer items-center rounded-lg bg-blue-600 px-3 text-sm font-medium">Record joining</summary>
@@ -39,7 +39,7 @@
   <ul class="mt-1 divide-y divide-gray-100 border-y border-gray-100">
     {% for o in joined %}
       <li class="py-3">
-        <p class="truncate font-medium">{{ o.person.name }} <span class="text-sm font-normal text-gray-500">· joined {{ o.joined_on|date:"j M Y" }}</span></p>
+        <p class="truncate font-medium">{{ o.person.name }} <span class="text-sm font-normal text-gray-500">· joined {{ o.joined_on|date:"d/m/Y" }}</span></p>
         {% if o.resources or o.sim_allotted or o.onboarding_notes %}<p class="mt-1 text-sm text-gray-600">{% if o.resources %}Given: {{ o.resources }}. {% endif %}{% if o.sim_allotted %}SIM: {{ o.sim_allotted }}. {% endif %}{{ o.onboarding_notes }}</p>{% endif %}
         {# The three-day assessment form isn't ready yet; this is its place. #}
         <p class="mt-1 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-500">Three-day assessment: coming soon.</p>

@@ -37,7 +37,7 @@
           <a href="{% url 'people:detail' s.person_id %}" class="flex items-center gap-4 py-3 hover:bg-canvas/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pop">
             <div class="min-w-0 flex-1">
               <p class="truncate font-medium">{{ s.person.name }}</p>
-              <p class="truncate text-sm text-gray-500">{{ s.person.phone }} · {{ s.requisition }}{% if s.source %} · {{ s.source }}{% endif %} · {{ s.created_at|date:"j M" }}</p>
+              <p class="truncate text-sm text-gray-500">{{ s.person.phone }} · {{ s.requisition }}{% if s.source %} · {{ s.source }}{% endif %} · {{ s.created_at|date:"d/m/Y" }}</p>
             </div>
             <span class="shrink-0 rounded-full border border-ink px-2.5 py-0.5 text-xs {% if s.is_duplicate %}bg-pop{% endif %}">{% if s.is_duplicate %}Duplicate{% else %}New{% endif %}</span>
           </a>

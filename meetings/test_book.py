@@ -77,7 +77,7 @@ def test_asking_tells_the_host_in_their_dm(slot, alice, bob):
 
 
 def test_describe_uses_local_time(slot, tomorrow):
-    assert describe(slot) == f"{tomorrow:%a} {tomorrow.day} {tomorrow:%b}, 10:00–10:30"
+    assert describe(slot) == f"{tomorrow:%a %d/%m/%Y}, 10:00–10:30"
 
 
 @pytest.mark.parametrize("topic", ["", "   "])

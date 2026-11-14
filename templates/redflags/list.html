@@ -23,7 +23,7 @@
               <p class="truncate font-medium">{{ item.raised_against_name }}</p>
               <p class="mt-1 truncate text-sm text-gray-500">{{ item.summary }}</p>
               <p class="mt-1 text-sm text-gray-500">
-                By {{ item.raised_by_name }} · incident {{ item.incident_date|date:"j M Y" }} · raised <time datetime="{{ item.created_at|date:'c' }}">{{ item.created_at|date:"j M, H:i" }}</time>
+                By {{ item.raised_by_name }} · incident {{ item.incident_date|date:"d/m/Y" }} · raised <time datetime="{{ item.created_at|date:'c' }}">{{ item.created_at|date:"d/m/Y, H:i" }}</time>
               </p>
             </div>
             <div class="shrink-0 pt-0.5">{% include "redflags/_status.html" with status=item.status label=item.get_status_display %}</div>

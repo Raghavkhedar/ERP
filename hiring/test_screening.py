@@ -475,6 +475,8 @@ def test_sheet_and_calling_show_the_last_calls_status(client, todo, caller):
         notes="Wants Pune, calls back Monday",
         next_due=tomorrow(),
     )
+    # Called today they are off the calling list; tomorrow they are back.
+    CallLog.objects.update(called_at=timezone.now() - timedelta(days=1))
     for name in ("hiring:screening", "hiring:calling"):
         assert b"Wants Pune" in client.get(reverse(name)).content
 
@@ -491,3 +493,37 @@ def test_status_keeps_the_last_written_one_after_a_call_without_notes(
     )
     rows = client.get(reverse("hiring:screening")).context["rows"]
     assert [f.last_status for f in rows] == ["Wants Pune"]
+
+
+def test_tbd_logs_the_call_without_opening_a_next_one(client, todo):
+    r = client.post(
+        reverse("hiring:followup_call", args=[todo.pk]), {**CALL, "tbd": "on"}
+    )
+    assert r.status_code == 302
+    assert CallLog.objects.count() == 1
+    assert not FollowUp.objects.filter(status="pending").exists()
+
+
+def test_a_date_is_required_unless_tbd(client, todo):
+    r = client.post(reverse("hiring:followup_call", args=[todo.pk]), CALL)
+    assert r.status_code == 200 and not CallLog.objects.exists()
+
+
+def test_a_logged_call_leaves_my_calling_list_until_its_next_day(client, todo):
+    client.post(
+        reverse("hiring:followup_call", args=[todo.pk]),
+        {
+            **CALL,
+            "next_due": (timezone.localdate() + timedelta(days=1)).isoformat(),
+            "intention": "call",
+        },
+    )
+    assert client.get(reverse("hiring:calling")).context["rows"] == []
+
+
+def test_tbd_ignores_a_stale_date(client, todo):
+    r = client.post(
+        reverse("hiring:followup_call", args=[todo.pk]),
+        {**CALL, "tbd": "on", "next_due": "2001-01-01"},
+    )
+    assert r.status_code == 302 and CallLog.objects.count() == 1

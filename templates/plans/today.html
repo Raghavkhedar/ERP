@@ -34,7 +34,7 @@
   <form method="post" class="rounded-2xl border border-ink bg-surface p-5 animate-rise motion-reduce:animate-none sm:p-8"
         x-data="planForm('{{ goal }}', '{{ work }}')" @submit="sending = true">
     {% csrf_token %}
-    <p class="text-sm text-gray-500">{{ date|date:"l, j F" }}</p>
+    <p class="text-sm text-gray-500">{{ date|date:"l, d/m/Y" }}</p>
     <div class="mt-1 flex items-center gap-3">
       <h1 class="title text-3xl">{% if locked %}Plan your day{% else %}Today's plan{% endif %}</h1>
       <button type="button" @click="help = !help" :aria-expanded="help" aria-controls="import-help" aria-label="How to import from Excel"

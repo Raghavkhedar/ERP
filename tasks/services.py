@@ -53,7 +53,7 @@ def visible_tasks(user):
 
 def short_date(day):
     """'Fri 30 Oct'."""
-    return f"{day:%a} {day.day} {day:%b}"
+    return f"{day:%a} {day:%d/%m/%Y}"
 
 
 def is_personal(task):

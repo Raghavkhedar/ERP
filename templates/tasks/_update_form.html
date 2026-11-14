@@ -8,7 +8,7 @@
   {% csrf_token %}
   {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
   <h2 id="task-dialog-title" class="title text-2xl">{{ heading }}</h2>
-  <p class="mt-1 text-sm text-gray-500">For today, {{ today|date:"D j M" }}</p>
+  <p class="mt-1 text-sm text-gray-500">For today, {{ today|date:"D d/m/Y" }}</p>
 
   <p data-request-error hidden role="alert" class="mt-4 text-sm text-red-600">That didn't go through. Try again, or reload the page.</p>
   {% for error in form.non_field_errors %}

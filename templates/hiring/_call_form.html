@@ -1,5 +1,5 @@
   <form id="call-form" method="post" action="{{ action }}"
-        x-data="{ mini: {{ call_form.mini_on.value|yesno:'true,false' }}, major: {{ call_form.major_on.value|yesno:'true,false' }}, dept: '{{ call_form.major.department.value|default:'' }}', moved: {{ call_form.rescheduled.value|yesno:'true,false' }}, other: '{{ call_form.intention.value|default:'' }}' === 'other' }"
+        x-data="{ mini: {{ call_form.mini_on.value|yesno:'true,false' }}, major: {{ call_form.major_on.value|yesno:'true,false' }}, dept: '{{ call_form.major.department.value|default:'' }}', moved: {{ call_form.rescheduled.value|yesno:'true,false' }}, other: '{{ call_form.intention.value|default:'' }}' === 'other', tbd: {{ call_form.tbd.value|yesno:'true,false' }} }"
         class="fields mt-4 max-w-4xl [&_input[type=date]]:w-full [&_input[type=text]]:w-full [&_input[type=number]]:w-full [&_select]:w-full [&_textarea]:w-full">
     {% csrf_token %}
     {% for error in call_form.non_field_errors %}<p role="alert" class="mb-4 text-sm text-red-600">{{ error }}</p>{% endfor %}
@@ -23,17 +23,22 @@
       <div class="min-w-0 space-y-4">
         <div class="grid gap-4 sm:grid-cols-[13rem_minmax(0,1fr)]">
           <div class="flex items-end gap-2">
-            <div class="min-w-0 flex-1">{% include "tasks/_field.html" with field=call_form.next_due %}</div>
+            <div class="min-w-0 flex-1" :class="tbd && 'opacity-50'" @input="tbd = false">{% include "tasks/_field.html" with field=call_form.next_due %}</div>
+            <label title="{{ call_form.tbd.label }}" class="grid size-10 shrink-0 cursor-pointer place-items-center rounded-full border border-gray-300 bg-white text-xs font-bold has-[:checked]:border-ink has-[:checked]:bg-pop has-[:checked]:shadow-md has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-blue-600">
+              <input type="checkbox" name="tbd" x-model="tbd" class="sr-only" {% if call_form.tbd.value %}checked{% endif %}>
+              <span class="sr-only">{{ call_form.tbd.label }}</span>
+              <span aria-hidden="true">TBD</span>
+            </label>
             <label title="{{ call_form.rescheduled.label }}" class="grid size-10 shrink-0 cursor-pointer place-items-center rounded-full border border-gray-300 bg-white has-[:checked]:border-ink has-[:checked]:bg-pop has-[:checked]:shadow-md has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-blue-600">
               <input type="checkbox" name="rescheduled" x-model="moved" class="sr-only" {% if call_form.rescheduled.value %}checked{% endif %}>
               <span class="sr-only">{{ call_form.rescheduled.label }}</span>
               <svg aria-hidden="true" viewBox="0 0 24 24" class="size-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6M12 2v3"/></svg>
             </label>
           </div>
-          <div @change="other = $event.target.value === 'other'">{% include "tasks/_field.html" with field=call_form.intention %}</div>
+          <div x-show="!tbd" @change="other = $event.target.value === 'other'">{% include "tasks/_field.html" with field=call_form.intention %}</div>
         </div>
         <div x-show="moved" x-cloak>{% include "tasks/_field.html" with field=call_form.reschedule_reason %}</div>
-        <div x-show="other" x-cloak>{% include "tasks/_field.html" with field=call_form.intention_other %}</div>
+        <div x-show="other && !tbd" x-cloak>{% include "tasks/_field.html" with field=call_form.intention_other %}</div>
         <div class="flex flex-wrap items-center gap-2 text-sm">
           <span class="mr-1 text-gray-500">{{ call_form.call_type.label }}</span>
           {% for radio in call_form.call_type %}<label class="cursor-pointer rounded-full border border-gray-300 bg-white px-3 py-1 text-sm has-[:checked]:border-ink has-[:checked]:bg-pop has-[:checked]:shadow-md has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-blue-600"><span class="sr-only">{{ radio.tag }}</span>{{ radio.choice_label }}</label>{% endfor %}

@@ -18,7 +18,7 @@
         {% for f in rows %}
           <tr class="border-b border-gray-100">
             <td class="p-2 tabular-nums text-gray-500">{{ page.start_index|add:forloop.counter0 }}</td>
-            <td class="p-2 font-medium">{{ f.person.name }}<br><span class="font-normal {% if f.overdue %}text-red-600{% else %}text-gray-500{% endif %}">{{ f.due|date:"j M" }}</span></td>
+            <td class="p-2 font-medium">{{ f.person.name }}<br><span class="font-normal {% if f.overdue %}text-red-600{% else %}text-gray-500{% endif %}">{{ f.due|date:"d/m/Y" }}</span></td>
             <td class="p-2">{{ f.person.phone }}</td>
             <td class="p-2">{{ f.dept_label|default:"—" }}</td>
             <td class="p-2">{{ f.intention }}</td>
@@ -27,7 +27,7 @@
             <td class="p-2 text-right"><a href="{% url 'hiring:followup' f.pk %}" class="inline-flex h-9 items-center rounded-lg bg-blue-600 px-3 font-medium">Call</a></td>
           </tr>
         {% empty %}
-          <tr><td colspan="8" class="p-6 text-gray-500">No calls are assigned to you.</td></tr>
+          <tr><td colspan="8" class="p-6 text-gray-500">No calls left for today.</td></tr>
         {% endfor %}
       </tbody>
     </table>

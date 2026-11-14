@@ -148,7 +148,7 @@ def test_marking_joined_closes_the_joining_follow_up(client, offer, caller):
     assert offer.joined_on == timezone.localdate()
     assert not FollowUp.objects.filter(purpose="joining", status="pending").exists()
     page = client.get(reverse("hiring:onboarding")).content.decode()
-    assert f"joined {timezone.localdate():%-d %b %Y}" in page and "coming soon" in page
+    assert f"joined {timezone.localdate():%d/%m/%Y}" in page and "coming soon" in page
     assert (offer.resources, offer.sim_allotted) == ("Laptop, ID card", "Yes")
     assert "SIM: Yes" in page and "Laptop, ID card" in page
 

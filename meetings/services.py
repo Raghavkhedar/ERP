@@ -282,7 +282,7 @@ def _remind_conferences(now):
 def describe(slot):
     """'Thu 22 Oct, 10:30–11:00' in local time."""
     start = timezone.localtime(slot.starts_at)
-    day = f"{start:%a} {start.day} {start:%b}"
+    day = f"{start:%a} {start:%d/%m/%Y}"
     return f"{day}, {local_time(slot.starts_at)}–{local_time(slot.ends_at)}"
 
 

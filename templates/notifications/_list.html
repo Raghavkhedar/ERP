@@ -18,7 +18,7 @@
               <span class="mt-1.5 size-1.5 shrink-0 rounded-full {% if n.read_at %}bg-transparent{% else %}bg-blue-600{% endif %}"></span>
               <div class="min-w-0">
                 <p class="{% if n.read_at %}text-gray-500{% else %}text-gray-900{% endif %}">{{ n.text }}</p>
-                <p class="mt-0.5 text-xs text-gray-400"><time datetime="{{ n.created_at|date:'c' }}">{{ n.created_at|date:"D j M, H:i" }}</time></p>
+                <p class="mt-0.5 text-xs text-gray-400"><time datetime="{{ n.created_at|date:'c' }}">{{ n.created_at|date:"D d/m/Y, H:i" }}</time></p>
               </div>
             </div>
           </a>

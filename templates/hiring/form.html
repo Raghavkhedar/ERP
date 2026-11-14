@@ -75,7 +75,7 @@
         <p class="font-medium text-pop">Superadmin details</p>
         <dl class="mt-3 grid gap-4 sm:grid-cols-3">
           <div><dt class="text-sm text-white/70">Name and signature</dt><dd class="title">{% firstof requisition.opened_by.get_full_name requisition.opened_by.get_username user.get_full_name user.get_username %}</dd></div>
-          <div><dt class="text-sm text-white/70">Date</dt><dd class="title">{% if requisition %}{{ requisition.created_at|date:"j M Y" }}{% else %}{% now "j M Y" %}{% endif %}</dd></div>
+          <div><dt class="text-sm text-white/70">Date</dt><dd class="title">{% if requisition %}{{ requisition.created_at|date:"d/m/Y" }}{% else %}{% now "j M Y" %}{% endif %}</dd></div>
           <div><dt class="text-sm text-white/70">Requested by</dt><dd class="title">{% firstof requisition.opened_by.get_full_name requisition.opened_by.get_username user.get_full_name user.get_username %}</dd></div>
         </dl>
         <p class="mt-2 text-xs text-white/70">Filled in automatically.</p>

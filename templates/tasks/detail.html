@@ -35,11 +35,11 @@
     </div>
     <div>
       <dt class="text-gray-500">Received</dt>
-      <dd class="mt-1 font-medium">{{ task.received_at|date:"D j M, H:i" }}</dd>
+      <dd class="mt-1 font-medium">{{ task.received_at|date:"D d/m/Y, H:i" }}</dd>
     </div>
     <div>
       <dt class="text-gray-500">Completion date</dt>
-      <dd class="mt-1 font-medium {% if task.is_overdue %}text-red-600{% endif %}">{{ task.due_date|date:"D j M Y" }}{% if task.is_overdue %}, overdue{% endif %}</dd>
+      <dd class="mt-1 font-medium {% if task.is_overdue %}text-red-600{% endif %}">{{ task.due_date|date:"D d/m/Y" }}{% if task.is_overdue %}, overdue{% endif %}</dd>
     </div>
     <div>
       <dt class="text-gray-500">Assigned by</dt>
@@ -63,7 +63,7 @@
       <h2 class="text-sm font-medium text-gray-500">Date changes</h2>
       <ul class="mt-2 space-y-2 text-sm">
         {% for change in date_changes %}
-          <li><span class="tabular-nums">{{ change.old_date|date:"D j M Y" }} → {{ change.new_date|date:"D j M Y" }}</span>, {{ change.changed_by.display_name }}, {{ change.created_at|date:"j M, H:i" }}<br><span class="whitespace-pre-line text-gray-600">{{ change.reason }}</span></li>
+          <li><span class="tabular-nums">{{ change.old_date|date:"D d/m/Y" }} → {{ change.new_date|date:"D d/m/Y" }}</span>, {{ change.changed_by.display_name }}, {{ change.created_at|date:"d/m/Y, H:i" }}<br><span class="whitespace-pre-line text-gray-600">{{ change.reason }}</span></li>
         {% endfor %}
       </ul>
     </section>
@@ -127,7 +127,7 @@
         <button type="submit" name="action" value="set" class="h-10 rounded-lg border border-ink px-4 text-sm font-medium transition duration-150 hover:border-ink hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/10">Set alarm</button>
         {% if task.remind_at %}<button type="submit" name="action" value="clear" class="h-10 px-2 text-sm text-gray-500 hover:text-gray-900">Clear</button>{% endif %}
       </form>
-      <p class="mt-2 text-xs text-gray-500">{% if task.remind_at %}Next rings {{ task.remind_at|date:"D j M, H:i" }}{% if task.remind_every %}, {{ task.get_remind_every_display|lower }}{% endif %}. {% endif %}Rings in the ERP for {{ task.assigned_to.display_name }} until the task is done.</p>
+      <p class="mt-2 text-xs text-gray-500">{% if task.remind_at %}Next rings {{ task.remind_at|date:"D d/m/Y, H:i" }}{% if task.remind_every %}, {{ task.get_remind_every_display|lower }}{% endif %}. {% endif %}Rings in the ERP for {{ task.assigned_to.display_name }} until the task is done.</p>
     </section>
   {% endif %}
 
@@ -139,7 +139,7 @@
           <li id="update-{{ update.pk }}" class="relative scroll-mt-24 pb-8 pl-6 last:pb-0 target:[&>div]:bg-blue-50/60">
             <span class="absolute -left-1.25 top-1.5 size-2.5 rounded-full border-2 border-white bg-blue-600 ring-1 ring-blue-600" aria-hidden="true"></span>
             <div class="-my-1 rounded-lg py-1 transition-colors">
-              <p class="text-sm text-gray-500"><time datetime="{{ update.created_at|date:'c' }}">{{ update.created_at|date:"D j M, H:i" }}</time>{% if update.author_id != task.assigned_to_id %}, {{ update.author.display_name }}{% endif %}</p>
+              <p class="text-sm text-gray-500"><time datetime="{{ update.created_at|date:'c' }}">{{ update.created_at|date:"D d/m/Y, H:i" }}</time>{% if update.author_id != task.assigned_to_id %}, {{ update.author.display_name }}{% endif %}</p>
               <p class="mt-1 whitespace-pre-line leading-relaxed">{{ update.body }}</p>
               {% include "tasks/_attachments.html" with files=update.attachments.all %}
             </div>

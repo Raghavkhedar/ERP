@@ -6,7 +6,7 @@
 {% block band %}
   <div class="relative overflow-hidden bg-canvas text-gray-800">
     <div class="relative mx-auto max-w-7xl px-6 pb-28 pt-12 sm:pt-16 animate-rise motion-reduce:animate-none">
-      <p class="sticker inline-block rounded border-2 border-ink bg-pop px-3 py-1 text-sm font-bold text-ink shadow-md" style="--tilt:-2deg">{{ today|date:"l, j F" }}</p>
+      <p class="sticker inline-block rounded border-2 border-ink bg-pop px-3 py-1 text-sm font-bold text-ink shadow-md" style="--tilt:-2deg">{{ today|date:"l, d/m/Y" }}</p>
       <h1 class="title mt-3 text-3xl sm:text-5xl">{{ greeting }}, {{ user.first_name|default:user.display_name }}</h1>
     </div>
   </div>
@@ -44,7 +44,7 @@
             <li class="flex items-center gap-4 py-3.5">
               <div class="w-24 shrink-0 text-sm">
                 <div class="inline-block rounded border border-ink bg-pop/60 px-1.5 font-bold tabular-nums">{{ slot.starts_at|time:"H:i" }}</div>
-                <div class="text-gray-500">{% if slot.days_away == 0 %}Today{% elif slot.days_away == 1 %}Tomorrow{% else %}{{ slot.starts_at|date:"D j M" }}{% endif %}</div>
+                <div class="text-gray-500">{% if slot.days_away == 0 %}Today{% elif slot.days_away == 1 %}Tomorrow{% else %}{{ slot.starts_at|date:"D d/m/Y" }}{% endif %}</div>
               </div>
               {% include "chat/_avatar.html" with name=slot.avatar.display_name size="size-8 text-sm" %}
               <div class="min-w-0">

@@ -97,7 +97,7 @@
       {% for e in history %}
         <li class="flex flex-wrap justify-between gap-x-4 gap-y-1 py-2">
           <span><b>{{ e.actor_name|default:"System" }}</b> · {{ e.get_action_display }}{% if e.section %} <b>{{ e.section }}</b>{% endif %} · {{ e.subject_name }}{% if e.note %} <span class="text-gray-500">({{ e.note }})</span>{% endif %}</span>
-          <time datetime="{{ e.created_at|date:'c' }}" class="text-gray-500">{{ e.created_at|date:"j M, H:i" }}</time>
+          <time datetime="{{ e.created_at|date:'c' }}" class="text-gray-500">{{ e.created_at|date:"d/m/Y, H:i" }}</time>
         </li>
       {% empty %}
         <li class="py-3 text-gray-500">Nothing has changed yet.</li>

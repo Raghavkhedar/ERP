@@ -66,7 +66,7 @@ class Slot(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.host} {self.starts_at:%d %b %H:%M}"
+        return f"{self.host} {self.starts_at:%d/%m/%Y %H:%M}"
 
     @property
     def is_booked(self):
@@ -115,7 +115,7 @@ class Conference(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.title} {self.starts_at:%d %b %H:%M}"
+        return f"{self.title} {self.starts_at:%d/%m/%Y %H:%M}"
 
     @property
     def is_cancelled(self):

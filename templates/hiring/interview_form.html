@@ -39,7 +39,7 @@
 
     <header class="rounded-xl border border-ink bg-ink p-5 text-white shadow-xl">
       <h2 class="title text-2xl text-pop">{{ person.name }}</h2>
-      <p class="mt-1 text-sm">{{ person.phone }}, interview on {{ when|date:"j M Y" }}{% if editing and interview.requisition %}, for {{ interview.requisition }}{% endif %}{% if editing %}, filed by {{ interview.interviewer.display_name }}{% endif %}</p>
+      <p class="mt-1 text-sm">{{ person.phone }}, interview on {{ when|date:"d/m/Y" }}{% if editing and interview.requisition %}, for {{ interview.requisition }}{% endif %}{% if editing %}, filed by {{ interview.interviewer.display_name }}{% endif %}</p>
     </header>
 
     {% if form.errors %}
@@ -104,10 +104,10 @@
                   {% elif d.key == "work" and c.key == "duration" %}
                     <input type="text" readonly name="{{ d.prefix }}_{{ c.key }}" :value="r.duration" placeholder="Worked out from the dates" class="mt-1">
                   {% elif d.key == "work" and c.key == "end" %}
-                    <input type="date" name="{{ d.prefix }}_{{ c.key }}" x-model="r.end" :readonly="r.current === 'Yes'" :placeholder="r.current === 'Yes' ? 'Still working here' : ''" :max="today" @change="calc(r)" class="mt-1">
+                    <input type="date" data-native name="{{ d.prefix }}_{{ c.key }}" x-model="r.end" :readonly="r.current === 'Yes'" :placeholder="r.current === 'Yes' ? 'Still working here' : ''" :max="today" @change="calc(r)" class="mt-1">
                     <span x-show="r.current === 'Yes'" class="text-xs text-gray-500">Still working here, so no end date.</span>
                   {% elif d.key == "work" and c.key == "start" %}
-                    <input type="date" name="{{ d.prefix }}_{{ c.key }}" x-model="r.start" :max="today" @change="calc(r)" class="mt-1">
+                    <input type="date" data-native name="{{ d.prefix }}_{{ c.key }}" x-model="r.start" :max="today" @change="calc(r)" class="mt-1">
                   {% else %}
                     <input type="{{ c.type }}"{% if c.type == "number" %} min="0"{% endif %} name="{{ d.prefix }}_{{ c.key }}" x-model="r.{{ c.key }}" class="mt-1">
                   {% endif %}
