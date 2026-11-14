@@ -101,8 +101,11 @@ def _sheet(rows, get):
                 :1
             ]
         ),
+        # The latest status someone wrote: a quick call without one doesn't blank it.
         last_status=Subquery(
-            CallLog.objects.filter(person=person, not_a_call=False).values("notes")[:1]
+            CallLog.objects.filter(person=person, not_a_call=False)
+            .exclude(notes="")
+            .values("notes")[:1]
         ),
         offer_state=Subquery(
             Offer.objects.filter(person=person)
@@ -195,12 +198,11 @@ def _summary(rows, today):
 @section
 def screening(request):
     base = visible_followups(request.user, request.companies)
-    tags, stages = dict(TAGS), dict(STAGES)
+    tags = dict(TAGS)
     page = paginate(request, _sheet(base, request.GET))
     rows = list(page)
     for f in rows:
         f.tag_label = tags.get(f.last_tag or "none")
-        f.stage_label = stages[f.stage]
         f.overdue = _day(f) < timezone.localdate()
     return render(
         request,
@@ -212,7 +214,6 @@ def screening(request):
             "owners": get_user_model().objects.filter(pk__in=base.values("owner")),
             "purposes": FollowUp.Purpose.choices,
             "tags": TAGS,
-            "stages": STAGES,
             "get": request.GET,
             "picked": {k: request.GET.getlist(k) for k in ("purpose", "tag", "stage")},
             "dept_data": _dept_data(base, request.GET),
@@ -236,12 +237,11 @@ def _mine(request):
 
 @calling_section
 def calling(request):
-    stages, tags = dict(STAGES), dict(TAGS)
+    tags = dict(TAGS)
     page = paginate(request, _sheet(_mine(request), QueryDict()))
     rows = list(page)
     for f in rows:
         f.tag_label = tags.get(f.last_tag or "none")
-        f.stage_label = stages[f.stage]
         f.overdue = _day(f) < timezone.localdate()
     return render(request, "hiring/calling.html", {"rows": rows, "page": page})
 

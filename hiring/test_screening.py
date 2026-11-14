@@ -479,13 +479,15 @@ def test_sheet_and_calling_show_the_last_calls_status(client, todo, caller):
         assert b"Wants Pune" in client.get(reverse(name)).content
 
 
-def test_status_column_shows_the_last_calls_status(client, todo, caller):
+def test_status_keeps_the_last_written_one_after_a_call_without_notes(
+    client, todo, caller
+):
+    log_call(todo, "reg_touch", caller, notes="Wants Pune", next_due=tomorrow())
     log_call(
-        todo,
-        "reg_touch",
+        FollowUp.objects.get(status="pending"),
+        "reg_not_attended",
         caller,
-        notes="Wants Pune, calls back Monday",
         next_due=tomorrow(),
     )
-    for name in ("hiring:screening", "hiring:calling"):
-        assert b"Wants Pune" in client.get(reverse(name)).content
+    rows = client.get(reverse("hiring:screening")).context["rows"]
+    assert [f.last_status for f in rows] == ["Wants Pune"]
