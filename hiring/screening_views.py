@@ -101,6 +101,9 @@ def _sheet(rows, get):
                 :1
             ]
         ),
+        last_status=Subquery(
+            CallLog.objects.filter(person=person, not_a_call=False).values("notes")[:1]
+        ),
         offer_state=Subquery(
             Offer.objects.filter(person=person)
             .order_by("-created_at", "-id")

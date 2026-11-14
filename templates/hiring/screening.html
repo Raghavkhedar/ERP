@@ -149,10 +149,7 @@
             <div x-ref="panel" x-show="o" x-cloak class="fixed z-20 w-56 rounded-lg border border-ink bg-surface p-3 text-ink shadow-md">
               {% for value, name in tags %}<label class="flex items-center gap-2 py-0.5"><input type="checkbox" name="tag" value="{{ value }}" {% if value in get.tag %}checked{% endif %}> {{ name }}</label>{% endfor %}
               </div></div></th>
-          <th class="p-2"><div x-data="filterPanel" class="relative" @click.outside="o = false" @scroll.window="o = false" @resize.window="o = false">Status <button type="button" x-ref="btn" @click="toggle()" class="rounded px-1 text-pop" :class="has('stage') && 'bg-pop! text-ink!'" aria-label="Filter by status">▾</button>
-            <div x-ref="panel" x-show="o" x-cloak class="fixed z-20 w-48 rounded-lg border border-ink bg-surface p-3 text-ink shadow-md">
-              {% for value, name in stages %}<label class="flex items-center gap-2 py-0.5"><input type="checkbox" name="stage" value="{{ value }}" {% if value in get.stage %}checked{% endif %}> {{ name }}</label>{% endfor %}
-              </div></div></th>
+          <th class="p-2">Status</th>
           <th class="p-2"><div x-data="filterPanel" class="relative" @click.outside="o = false" @scroll.window="o = false" @resize.window="o = false">Assigned to <button type="button" x-ref="btn" @click="toggle()" class="rounded px-1 text-pop" :class="has('owner') && 'bg-pop! text-ink!'" aria-label="Filter by person">▾</button>
             <div x-ref="panel" x-show="o" x-cloak class="fixed z-20 w-56 rounded-lg border border-ink bg-surface p-3 text-ink shadow-md fields">
               <select name="owner" class="w-full"><option value="">Everyone</option>{% for o in owners %}<option value="{{ o.pk }}" {% if get.owner == o.pk|stringformat:"s" %}selected{% endif %}>{{ o.display_name }}</option>{% endfor %}</select>
@@ -167,7 +164,7 @@
             <td class="p-2 whitespace-nowrap {% if f.overdue %}text-red-600{% endif %}">{{ f.due|date:"j M" }}</td>
             <td class="p-2">{{ f.intention }}</td>
             <td class="p-2">{{ f.tag_label }}</td>
-            <td class="p-2">{{ f.stage_label }}</td>
+            <td class="max-w-xs p-2"><span class="line-clamp-2 cursor-help" title="{{ f.last_status }}">{{ f.last_status|default:"—" }}</span></td>
             <td class="p-2">{{ f.owner.display_name }}</td>
           </tr>
         {% empty %}
