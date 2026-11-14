@@ -1,0 +1,48 @@
+{% extends "people/base_people.html" %}
+
+{% block title %}Call logs · Senken ERP{% endblock %}
+{% block heading %}Call logs{% endblock %}
+{% block actions %}<a href="{% url 'hiring:calling' %}" class="text-gray-500 hover:text-gray-900">Back to calling</a>{% endblock %}
+
+{% block page %}
+  <div class="overflow-x-auto rounded-xl border border-ink bg-surface p-4 shadow-xl">
+    <form method="get" class="mb-3 flex flex-wrap items-center gap-2 text-sm">
+      <label for="day" class="text-gray-500">Day</label>
+      <input type="date" id="day" name="day" value="{{ day|date:'Y-m-d' }}" class="rounded-md border border-ink bg-white px-2 py-1">
+      <button class="inline-flex h-9 items-center rounded-lg bg-blue-600 px-3 font-medium">Show</button>
+      {# formaction submits the picked date, so Export always matches the input #}
+      <button formaction="{% url 'hiring:call_logs_export' %}" class="text-gray-500 hover:text-gray-900">Export</button>
+      <span class="text-gray-500">{{ day|date:"d/m/Y" }} · {{ page.paginator.count }} call{{ page.paginator.count|pluralize }}</span>
+    </form>
+    <table class="w-full min-w-[56rem] text-left text-sm">
+      <thead>
+        <tr class="bg-ink text-white">
+          <th class="p-2">Time</th><th class="p-2">Caller</th><th class="p-2">Candidate</th><th class="p-2">Tag</th>
+          <th class="p-2">Type</th><th class="p-2">Status</th><th class="p-2">Details</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in rows %}
+          <tr class="border-b border-gray-100 align-top">
+            <td class="p-2 tabular-nums">{{ c.called_at|time:"H:i" }}</td>
+            <td class="p-2">{{ c.caller.get_full_name|default:c.caller.get_username }}</td>
+            <td class="p-2 font-medium">{{ c.person.name }}<br><span class="font-normal text-gray-500">{{ c.person.phone }}</span></td>
+            <td class="p-2">{{ c.get_outcome_display }}</td>
+            <td class="p-2">{{ c.get_call_type_display }}</td>
+            <td class="p-2">{{ c.notes|default:"—" }}</td>
+            <td class="p-2 text-gray-600">
+              {% if c.rescheduled %}Rescheduled{% if c.reschedule_reason %}: {{ c.reschedule_reason }}{% endif %}<br>{% endif %}
+              {% if c.department_changed %}Department changed<br>{% endif %}
+              {% if c.discussed %}Discuss with manager<br>{% endif %}
+              {% if c.mini %}Mini whereabout: {{ c.mini }}<br>{% endif %}
+              {% if c.major %}Major whereabout: {{ c.major }}{% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="7" class="p-6 text-gray-500">No calls were logged on this day.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% include "_pager.html" %}
+  </div>
+{% endblock %}

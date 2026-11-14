@@ -527,3 +527,67 @@ def test_tbd_ignores_a_stale_date(client, todo):
         {**CALL, "tbd": "on", "next_due": "2001-01-01"},
     )
     assert r.status_code == 302 and CallLog.objects.count() == 1
+
+
+def test_call_logs_show_a_days_calls_to_supervisors_only(
+    client, django_user_model, senken, todo, caller
+):
+    log_call(todo, user=caller, **{"outcome": "reg_touch", "notes": "spoke"})
+    boss = member(django_user_model, senken, "Boss")
+    caller.supervisor = boss
+    caller.save()
+    old = CallLog.objects.get()
+    CallLog.objects.create(
+        person=old.person, caller=caller, outcome="reg_touch", notes="old call"
+    )
+    CallLog.objects.filter(notes="old call").update(
+        called_at=timezone.now() - timedelta(days=3)
+    )
+    url = reverse("hiring:call_logs")
+
+    assert client.get(url).status_code == 403
+    assert client.get(reverse("hiring:call_logs_export")).status_code == 403
+    assert "Call logs" not in client.get(reverse("hiring:calling")).content.decode()
+
+    client.force_login(boss)
+    body = client.get(url).content.decode()
+    assert "spoke" in body and "old call" not in body
+    assert "Call logs" in client.get(reverse("hiring:calling")).content.decode()
+    past = (timezone.localdate() - timedelta(days=3)).isoformat()
+    assert "old call" in client.get(url, {"day": past}).content.decode()
+    export = client.get(reverse("hiring:call_logs_export"))
+    assert export.status_code == 200
+    rows = list(load_workbook(BytesIO(export.content)).active.values)
+    assert [r[2] for r in rows[1:]] == ["Asha"]
+
+
+def test_call_logs_skip_other_companies_and_non_calls(
+    client, django_user_model, senken, todo, caller
+):
+    boss = member(django_user_model, senken, "Boss")
+    caller.supervisor = boss
+    caller.save()
+    other = Company.objects.create(name="Other Co", slug="other-co")
+    stranger = Person.objects.create(company=other, name="Zed", phone="9000000001")
+    CallLog.objects.create(
+        person=stranger, caller=caller, outcome="reg_touch", notes="elsewhere"
+    )
+    CallLog.objects.create(
+        person=todo.person,
+        caller=caller,
+        outcome="reg_touch",
+        notes="bulk move",
+        not_a_call=True,
+    )
+    CallLog.objects.create(
+        person=todo.person, caller=caller, outcome="reg_touch", notes="real call"
+    )
+    client.force_login(boss)
+
+    body = client.get(reverse("hiring:call_logs")).content.decode()
+    assert "real call" in body
+    assert "elsewhere" not in body and "bulk move" not in body
+
+    day = "2026-02-03"
+    export = client.get(reverse("hiring:call_logs_export"), {"day": day})
+    assert "call-logs-2026-02-03" in export["Content-Disposition"]
