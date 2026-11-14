@@ -401,7 +401,9 @@ def bulk_reassign(followups, owner, by):
     """Give many pending follow-ups to `owner` at once; they get one notice."""
     with transaction.atomic():
         rows = list(
-            followups.select_related(None).exclude(owner=owner).select_for_update()
+            followups.select_related(None)
+            .exclude(owner=owner)
+            .select_for_update(of=("self",))
         )
         for f in rows:
             f.reassigned_from_id = f.owner_id
@@ -431,7 +433,7 @@ def bulk_move(followups, day, reason, by=None):
         rows = list(
             followups.filter(purpose=FollowUp.Purpose.CALL)
             .select_related(None)
-            .select_for_update()
+            .select_for_update(of=("self",))
         )
         for f in rows:
             f.original_due = f.original_due or f.due

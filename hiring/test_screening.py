@@ -429,3 +429,14 @@ def test_a_major_whereabout_needs_its_department(client, todo):
     r = post_call(client, todo, major_on="on")
     assert r.status_code == 200 and not CallLog.objects.exists()
     assert "Pick the department." in r.content.decode()
+
+
+def test_imported_call_shows_the_candidates_department(client, todo):
+    todo.requisition.department = "others"
+    todo.requisition.save()
+    todo.person.department, todo.person.sub_department = "bo", "Data Analyst"
+    todo.person.save()
+    sheet = client.get(reverse("hiring:screening"), {"sub": "Data Analyst"})
+    assert len(sheet.context["rows"]) == 1
+    page = client.get(reverse("hiring:followup", args=[todo.pk]))
+    assert b"Data Analyst" in page.content

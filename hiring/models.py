@@ -275,6 +275,16 @@ class FollowUp(models.Model):
         return f"{self.get_purpose_display()} {self.person}"
 
     @property
+    def dept_name(self):
+        """Department as shown (needs _with_dept)."""
+        return dict(Requisition.Department.choices).get(self.dept, self.dept)
+
+    @property
+    def dept_label(self):
+        """Department · sub-department as the sheet shows it (needs _with_dept)."""
+        return " · ".join(x for x in (self.dept_name, self.sub) if x)
+
+    @property
     def intention(self):
         return self.purpose_other or self.get_purpose_display()
 

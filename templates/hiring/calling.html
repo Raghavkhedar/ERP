@@ -20,7 +20,7 @@
             <td class="p-2 tabular-nums text-gray-500">{{ page.start_index|add:forloop.counter0 }}</td>
             <td class="p-2 font-medium">{{ f.person.name }}<br><span class="font-normal {% if f.overdue %}text-red-600{% else %}text-gray-500{% endif %}">{{ f.due|date:"j M" }}</span></td>
             <td class="p-2">{{ f.person.phone }}</td>
-            <td class="p-2">{{ f.requisition.get_department_display|default:"—" }}</td>
+            <td class="p-2">{{ f.dept_label|default:"—" }}</td>
             <td class="p-2">{{ f.intention }}</td>
             <td class="p-2">{{ f.tag_label }}</td>
             <td class="p-2">{{ f.stage_label }}</td>

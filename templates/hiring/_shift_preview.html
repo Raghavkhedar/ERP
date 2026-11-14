@@ -28,7 +28,7 @@
       <thead class="sticky top-0 bg-ink text-white"><tr><th class="p-2">Name</th><th class="p-2">Now due</th><th class="p-2">Assigned to</th><th class="p-2">Department</th></tr></thead>
       <tbody>
         {% for f in rows %}
-          <tr class="border-b border-gray-100"><td class="p-2"><span class="font-medium">{{ f.person.name }}</span><br><span class="text-gray-500">{{ f.person.phone }}</span></td><td class="p-2 whitespace-nowrap">{{ f.due|date:"j M" }}</td><td class="p-2">{{ f.owner.display_name }}</td><td class="p-2">{{ f.requisition.get_department_display }}{% if f.requisition.sub_department %} · {{ f.requisition.sub_department }}{% endif %}</td></tr>
+          <tr class="border-b border-gray-100"><td class="p-2"><span class="font-medium">{{ f.person.name }}</span><br><span class="text-gray-500">{{ f.person.phone }}</span></td><td class="p-2 whitespace-nowrap">{{ f.due|date:"j M" }}</td><td class="p-2">{{ f.owner.display_name }}</td><td class="p-2">{{ f.dept_label }}</td></tr>
         {% endfor %}
       </tbody>
     </table>
