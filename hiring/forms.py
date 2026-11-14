@@ -191,6 +191,7 @@ class CallForm(forms.Form):
     )
     next_due = forms.DateField(
         label="Next follow-up date",
+        required=False,
         widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
     )
     call_type = forms.ChoiceField(
@@ -199,8 +200,10 @@ class CallForm(forms.Form):
         widget=forms.RadioSelect,
     )
     intention = forms.ChoiceField(
-        label="Next call intention", choices=FollowUp.Purpose.choices
+        label="Next call intention", choices=FollowUp.Purpose.choices, required=False
     )
+    # Candidate on hold / CTLF: no date yet, so no next follow-up is opened.
+    tbd = forms.BooleanField(label="Date to be decided", required=False)
     intention_other = forms.CharField(
         label="What is the intention?", required=False, max_length=200
     )
@@ -234,12 +237,20 @@ class CallForm(forms.Form):
 
     def clean_next_due(self):
         day = self.cleaned_data["next_due"]
+        if not day:
+            return None
         if day < timezone.localdate():
             raise forms.ValidationError("The next follow-up can't be before today.")
         return day_start(day)
 
     def clean(self):
         data = super().clean()
+        if data.get("tbd"):
+            data["next_due"], data["intention"] = None, FollowUp.Purpose.CALL
+        else:
+            for name in ("next_due", "intention"):
+                if not data.get(name) and name not in self.errors:
+                    self.add_error(name, "This field is required.")
         for flag, text, message in (
             (
                 "rescheduled",

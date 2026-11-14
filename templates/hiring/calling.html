@@ -27,7 +27,7 @@
             <td class="p-2 text-right"><a href="{% url 'hiring:followup' f.pk %}" class="inline-flex h-9 items-center rounded-lg bg-blue-600 px-3 font-medium">Call</a></td>
           </tr>
         {% empty %}
-          <tr><td colspan="8" class="p-6 text-gray-500">No calls are assigned to you.</td></tr>
+          <tr><td colspan="8" class="p-6 text-gray-500">No calls left for today.</td></tr>
         {% endfor %}
       </tbody>
     </table>

@@ -232,7 +232,19 @@ def screening(request):
 
 
 def _mine(request):
-    return visible_followups(request.user, request.companies).filter(owner=request.user)
+    # A candidate I already called today is done for the day: their next
+    # follow-up shows from its own date.
+    called = CallLog.objects.filter(
+        caller=request.user,
+        not_a_call=False,
+        called_at__date=timezone.localdate(),
+        person=OuterRef("person"),
+    )
+    return (
+        visible_followups(request.user, request.companies)
+        .filter(owner=request.user)
+        .exclude(Exists(called))
+    )
 
 
 @calling_section
