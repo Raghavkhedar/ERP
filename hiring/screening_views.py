@@ -49,9 +49,7 @@ followup_section = require_section("recruitment", "screening", "calling")
 
 
 def _followup(request, pk):
-    return get_object_or_404(
-        _with_dept(visible_followups(request.user, request.companies)), pk=pk
-    )
+    return get_object_or_404(visible_followups(request.user, request.companies), pk=pk)
 
 
 def _can_reassign(user):
@@ -94,48 +92,26 @@ SHIFT_FILTERS = (
 TAGS = [*CallLog.Outcome.choices, ("none", "Not called yet")]
 
 
-def _with_dept(rows):
-    """dept/sub: the requisition's. Only the one bulk "Others" requisition the legacy
-    import made has no sub-department; its calls show the candidate's own instead."""
-    card = Q(requisition__department="others", requisition__sub_department="") & ~Q(
-        person__department=""
-    )
-    return rows.annotate(
-        dept=Case(
-            When(card, then=F("person__department")),
-            default=F("requisition__department"),
-        ),
-        sub=Case(
-            When(card, then=F("person__sub_department")),
-            default=F("requisition__sub_department"),
-        ),
-    )
-
-
 def _sheet(rows, get):
     """Every pending follow-up as a spreadsheet row, narrowed by the column filters."""
     person = OuterRef("person")
-    rows = (
-        _with_dept(rows)
-        .annotate(
-            last_tag=Subquery(
-                CallLog.objects.filter(person=person, not_a_call=False).values(
-                    "outcome"
-                )[:1]
-            ),
-            offer_state=Subquery(
-                Offer.objects.filter(person=person)
-                .order_by("-created_at", "-id")
-                .values("state")[:1]
-            ),
-            interviewed=Exists(Interview.objects.filter(person=person)),
-        )
-        .annotate(
-            stage=Case(
-                When(offer_state__isnull=False, then=F("offer_state")),
-                When(interviewed=True, then=Value("interviewed")),
-                default=Value("screening"),
-            )
+    rows = rows.annotate(
+        last_tag=Subquery(
+            CallLog.objects.filter(person=person, not_a_call=False).values("outcome")[
+                :1
+            ]
+        ),
+        offer_state=Subquery(
+            Offer.objects.filter(person=person)
+            .order_by("-created_at", "-id")
+            .values("state")[:1]
+        ),
+        interviewed=Exists(Interview.objects.filter(person=person)),
+    ).annotate(
+        stage=Case(
+            When(offer_state__isnull=False, then=F("offer_state")),
+            When(interviewed=True, then=Value("interviewed")),
+            default=Value("screening"),
         )
     )
     if q := get.get("q", "").strip():
@@ -168,7 +144,7 @@ def _dept_data(base, get):
     """What the department filters offer: each department with its sub-departments
     (the fixed list plus any other value typed on a requisition), and what is ticked."""
     typed = {}
-    for dept, name in _with_dept(base).values_list("dept", "sub").distinct():
+    for dept, name in base.values_list("dept", "sub").distinct():
         if name:
             typed.setdefault(dept, set()).add(name)
     groups = []

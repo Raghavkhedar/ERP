@@ -25,6 +25,7 @@ from tasks.services import can_assign
 
 from . import interview_form, whereabouts
 from .models import (
+    LEGACY_REQUISITION,
     CallLog,
     FollowUp,
     HRAssessment,
@@ -270,6 +271,18 @@ def visible_followups(user, companies):
     rows = FollowUp.objects.filter(
         status=FollowUp.Status.PENDING, person__company__in=companies
     ).select_related("person", "requisition", "owner")
+    # dept/sub filter by the same rule as models.department_of.
+    card = Q(requisition__profile=LEGACY_REQUISITION) & ~Q(person__department="")
+    rows = rows.annotate(
+        dept=Case(
+            When(card, then=F("person__department")),
+            default=F("requisition__department"),
+        ),
+        sub=Case(
+            When(card, then=F("person__sub_department")),
+            default=F("requisition__sub_department"),
+        ),
+    )
     if user.is_superuser or can_assign(user):
         return rows
     return rows.filter(owner=user)

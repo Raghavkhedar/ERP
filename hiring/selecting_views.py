@@ -26,7 +26,7 @@ from .interview_form import (
     read_tables,
     table_shows,
 )
-from .models import Interview
+from .models import Interview, department_of
 from .services import (
     FollowUpError,
     edit_interview,
@@ -283,9 +283,8 @@ def review(request, pk):
     form = InterviewForm(
         request.POST if posted and not hr else None,
         initial={
-            "department": interview.requisition and interview.requisition.department,
-            "sub_department": interview.requisition
-            and interview.requisition.sub_department,
+            "department": department_of(interview.requisition, interview.person)[0],
+            "sub_department": department_of(interview.requisition, interview.person)[1],
             **interview.answers,
             "assessor": interview.answers.get("assessor_id")
             or interview.interviewer_id,

@@ -11,7 +11,7 @@ from core.models import AccessGrant, Company
 from notifications.models import Notification
 from people.models import Person
 
-from .models import CallLog, FollowUp, Requisition
+from .models import LEGACY_REQUISITION, CallLog, FollowUp, Requisition
 from .services import FollowUpError, log_call, source_number
 
 pytestmark = pytest.mark.django_db
@@ -431,12 +431,36 @@ def test_a_major_whereabout_needs_its_department(client, todo):
     assert "Pick the department." in r.content.decode()
 
 
-def test_imported_call_shows_the_candidates_department(client, todo):
+def _imported(todo, dept="bo", sub="Data Analyst"):
     todo.requisition.department = "others"
+    todo.requisition.profile = LEGACY_REQUISITION
     todo.requisition.save()
-    todo.person.department, todo.person.sub_department = "bo", "Data Analyst"
+    todo.person.department, todo.person.sub_department = dept, sub
     todo.person.save()
-    sheet = client.get(reverse("hiring:screening"), {"sub": "Data Analyst"})
-    assert len(sheet.context["rows"]) == 1
+
+
+def _subs(client, **get):
+    return len(client.get(reverse("hiring:screening"), get).context["rows"])
+
+
+def test_imported_call_shows_the_candidates_department(client, todo):
+    _imported(todo)
+    assert _subs(client, sub="Data Analyst") == 1
+    assert _subs(client, department="bo") == 1
+    assert _subs(client, department="others") == 0
     page = client.get(reverse("hiring:followup", args=[todo.pk]))
     assert b"Data Analyst" in page.content
+
+
+def test_imported_call_without_a_card_department_keeps_the_requisition(client, todo):
+    _imported(todo, dept="", sub="")
+    assert _subs(client, department="others") == 1
+
+
+def test_a_normal_others_requisition_is_not_overridden(client, todo):
+    todo.requisition.department = "others"
+    todo.requisition.save()
+    todo.person.department = "bo"
+    todo.person.save()
+    assert _subs(client, department="others") == 1
+    assert _subs(client, department="bo") == 0

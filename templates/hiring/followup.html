@@ -10,7 +10,7 @@
     <div class="flex flex-wrap gap-x-8 gap-y-2">
       <div><dt class="text-xs text-gray-500">Phone</dt><dd class="text-sm">{{ f.person.phone }}</dd></div>
       <div><dt class="text-xs text-gray-500">Department</dt><dd class="text-sm">{{ f.dept_name|default:"—" }}</dd></div>
-      <div><dt class="text-xs text-gray-500">Sub-department</dt><dd class="text-sm">{{ f.sub|default:"—" }}</dd></div>
+      <div><dt class="text-xs text-gray-500">Sub-department</dt><dd class="text-sm">{{ f.sub_name|default:"—" }}</dd></div>
     </div>
     <details class="text-sm"><summary class="cursor-pointer text-gray-500 hover:text-gray-900">Move this call to another day</summary>
       <form method="post" action="{% url 'hiring:followup_reschedule' f.pk %}" class="fields mt-2 flex flex-wrap items-end gap-3">

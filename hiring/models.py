@@ -19,6 +19,20 @@ def interview_file_path(interview, filename):
     return f"interviews/{timezone.now():%Y/%m}/{uuid4().hex}{suffix}"
 
 
+# The one requisition the legacy import hung every old call on.
+LEGACY_REQUISITION = "Data 13th Nov 26"
+
+
+def department_of(requisition, person):
+    """(department key, sub-department): the requisition's, except for the legacy
+    import's bulk requisition, whose calls take the candidate's own."""
+    if requisition and not (
+        requisition.profile == LEGACY_REQUISITION and person.department
+    ):
+        return requisition.department, requisition.sub_department
+    return person.department, person.sub_department
+
+
 class Requisition(models.Model):
     """A request for people, e.g. three MECH fitters for a site by a date.
     Sourced, screened and joined counts are worked out when shown, never stored."""
@@ -276,13 +290,22 @@ class FollowUp(models.Model):
 
     @property
     def dept_name(self):
-        """Department as shown (needs _with_dept)."""
-        return dict(Requisition.Department.choices).get(self.dept, self.dept)
+        return dict(Requisition.Department.choices).get(
+            self.dept_sub[0], self.dept_sub[0]
+        )
+
+    @property
+    def sub_name(self):
+        return self.dept_sub[1]
+
+    @property
+    def dept_sub(self):
+        return department_of(self.requisition, self.person)
 
     @property
     def dept_label(self):
-        """Department · sub-department as the sheet shows it (needs _with_dept)."""
-        return " · ".join(x for x in (self.dept_name, self.sub) if x)
+        """Department · sub-department as the sheet shows it."""
+        return " · ".join(x for x in (self.dept_name, self.sub_name) if x)
 
     @property
     def intention(self):
