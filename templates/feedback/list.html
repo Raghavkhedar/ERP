@@ -28,7 +28,7 @@
             <div class="min-w-0 flex-1">
               <p class="truncate font-medium">{{ item.summary }}</p>
               <p class="mt-1 text-sm text-gray-500">
-                {{ item.get_kind_display }} · {{ item.get_area_display }}{% if is_reader %} · {{ item.submitter.display_name }}{% endif %} · <time datetime="{{ item.created_at|date:'c' }}">{{ item.created_at|date:"j M, H:i" }}</time>
+                {{ item.get_kind_display }} · {{ item.get_area_display }}{% if is_reader %} · {{ item.submitter.display_name }}{% endif %} · <time datetime="{{ item.created_at|date:'c' }}">{{ item.created_at|date:"d/m/Y, H:i" }}</time>
               </p>
             </div>
             <div class="shrink-0 pt-0.5">{% include "feedback/_status.html" with status=item.status label=item.get_status_display %}</div>

@@ -838,7 +838,7 @@ def funnel(companies):
 
 
 def _at(when):
-    return f"{timezone.localtime(when):%d %b}"
+    return f"{timezone.localtime(when):%d/%m/%Y}"
 
 
 def timeline(person, with_hr=False):
@@ -945,7 +945,7 @@ def timeline(person, with_hr=False):
             events.append((r.created_at, r.by, text))
         if o.decided_at:
             text = (
-                "Offer accepted, joining " + f"{o.joining_date:%d %b %Y}"
+                "Offer accepted, joining " + f"{o.joining_date:%d/%m/%Y}"
                 if o.state == "accepted"
                 else "Offer declined"
             )

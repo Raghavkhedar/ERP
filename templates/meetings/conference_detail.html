@@ -6,7 +6,7 @@
 {% block page %}
   <div class="max-w-xl">
     <h2 class="title text-2xl">{{ conference.title }}</h2>
-    <p class="mt-1 text-gray-500">{{ conference.starts_at|date:"l, j F" }}, {{ conference.starts_at|time:"H:i" }}–{{ conference.ends_at|time:"H:i" }}</p>
+    <p class="mt-1 text-gray-500">{{ conference.starts_at|date:"l, d/m/Y" }}, {{ conference.starts_at|time:"H:i" }}–{{ conference.ends_at|time:"H:i" }}</p>
     <p class="mt-1 text-sm text-gray-500">Hosted by {% if conference.i_am_host %}you{% else %}{{ conference.host.display_name }}{% endif %}{% if conference.location %} · {{ conference.location }}{% endif %}</p>
 
     {% if conference.agenda %}<p class="mt-5 whitespace-pre-line text-sm">{{ conference.agenda }}</p>{% endif %}

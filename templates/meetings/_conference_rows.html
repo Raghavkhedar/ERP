@@ -3,7 +3,7 @@
     <li>
       <a href="{% url 'meetings:conference_detail' conference.pk %}" class="flex items-center gap-4 py-3.5 transition-colors hover:bg-gray-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600">
         <div class="w-24 shrink-0 text-sm tabular-nums text-gray-500">
-          <p class="text-gray-900">{{ conference.starts_at|date:"D j M" }}</p>
+          <p class="text-gray-900">{{ conference.starts_at|date:"D d/m/Y" }}</p>
           <p>{{ conference.starts_at|time:"H:i" }}–{{ conference.ends_at|time:"H:i" }}</p>
         </div>
         <div class="min-w-0 flex-1">

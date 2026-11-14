@@ -8,7 +8,7 @@
   {% csrf_token %}
   {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
   <h2 id="task-dialog-title" class="title text-2xl">{% if task %}Edit task{% else %}New task{% endif %}</h2>
-  <p class="mt-1 text-sm text-gray-500">Received {% if task %}{{ received|date:"D j M, H:i" }}{% else %}now, {{ received|date:"D j M, H:i" }}{% endif %}</p>
+  <p class="mt-1 text-sm text-gray-500">Received {% if task %}{{ received|date:"D d/m/Y, H:i" }}{% else %}now, {{ received|date:"D d/m/Y, H:i" }}{% endif %}</p>
 
   <p data-request-error hidden role="alert" class="mt-4 text-sm text-red-600">That didn't go through. Try again, or reload the page.</p>
   {% for error in form.non_field_errors %}

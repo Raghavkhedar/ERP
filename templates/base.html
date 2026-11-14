@@ -7,9 +7,12 @@
   <title>{% block title %}Senken ERP{% endblock %}</title>
   <link rel="icon" type="image/png" href="{% static 'img/favicon.png' %}">
   <link rel="preload" href="{% static 'vendor/fonts/Geist-Variable.woff2' %}" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="{% static 'vendor/flatpickr.min.css' %}">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
   <script>try { if (localStorage.getItem("nav-rail")) document.documentElement.classList.add("nav-rail") } catch {}</script>
   <script>try { if (sessionStorage.getItem("doors") && !matchMedia("(prefers-reduced-motion: reduce)").matches) document.documentElement.classList.add("doors-shut") } catch {}</script>
+  <script src="{% static 'vendor/flatpickr.min.js' %}" defer></script>
+  <script src="{% static 'js/dates.js' %}" defer></script>
   <script src="{% static 'vendor/htmx.min.js' %}" defer></script>
   <script src="{% static 'js/doors.js' %}" defer></script>
   <script src="{% static 'js/floor.js' %}" defer></script>

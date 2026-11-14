@@ -161,7 +161,7 @@
           <tr class="border-b border-gray-100">
             {% if can_bulk %}<td class="p-2"><input type="checkbox" name="ids" value="{{ f.pk }}" form="bulk-form" x-model="picked" aria-label="Select {{ f.person.name }}"></td>{% endif %}
             <td class="p-2"><span class="font-medium">{{ f.person.name }}</span><br><span class="text-gray-500">{{ f.person.phone }}</span></td>
-            <td class="p-2 whitespace-nowrap {% if f.overdue %}text-red-600{% endif %}">{{ f.due|date:"j M" }}</td>
+            <td class="p-2 whitespace-nowrap {% if f.overdue %}text-red-600{% endif %}">{{ f.due|date:"d/m/Y" }}</td>
             <td class="p-2">{{ f.intention }}</td>
             <td class="p-2">{{ f.tag_label }}</td>
             {% include "hiring/_status.html" %}

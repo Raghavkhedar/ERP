@@ -433,3 +433,14 @@ html.doors-shut .doors {
 @media (prefers-reduced-motion: reduce) {
   .hoist-cable, .hoist-car { animation: none; }
 }
+
+/* flatpickr date fields: the shown text field fills its box like the date input it replaced. */
+.fields .dp { width: 100%; }
+.flatpickr-calendar {
+  border: 2px solid var(--color-ink);
+  border-radius: var(--radius-lg);
+  box-shadow: 4px 4px 0 var(--color-ink);
+  font-family: inherit;
+}
+.flatpickr-day.selected, .flatpickr-day.selected:hover { background: var(--color-pop); border-color: var(--color-ink); color: var(--color-ink); }
+.flatpickr-day.today { border-color: var(--color-ink); }

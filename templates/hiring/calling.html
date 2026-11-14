@@ -18,7 +18,7 @@
         {% for f in rows %}
           <tr class="border-b border-gray-100">
             <td class="p-2 tabular-nums text-gray-500">{{ page.start_index|add:forloop.counter0 }}</td>
-            <td class="p-2 font-medium">{{ f.person.name }}<br><span class="font-normal {% if f.overdue %}text-red-600{% else %}text-gray-500{% endif %}">{{ f.due|date:"j M" }}</span></td>
+            <td class="p-2 font-medium">{{ f.person.name }}<br><span class="font-normal {% if f.overdue %}text-red-600{% else %}text-gray-500{% endif %}">{{ f.due|date:"d/m/Y" }}</span></td>
             <td class="p-2">{{ f.person.phone }}</td>
             <td class="p-2">{{ f.dept_label|default:"—" }}</td>
             <td class="p-2">{{ f.intention }}</td>

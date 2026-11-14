@@ -12,7 +12,7 @@
         <li class="flex items-center gap-4 py-3">
           <div class="min-w-0 flex-1">
             <p class="truncate font-medium">{{ f.person.name }}</p>
-            <p class="truncate text-sm text-gray-500">{{ f.person.phone }} · {{ f.due|date:"j M" }}{% if f.requisition %} · {{ f.requisition }}{% endif %}</p>
+            <p class="truncate text-sm text-gray-500">{{ f.person.phone }} · {{ f.due|date:"d/m/Y" }}{% if f.requisition %} · {{ f.requisition }}{% endif %}</p>
           </div>
           <a href="{% url 'hiring:interview' f.pk %}" class="inline-flex h-9 shrink-0 items-center rounded-lg bg-blue-600 px-3 text-sm font-medium">Record</a>
         </li>
@@ -30,7 +30,7 @@
         <li class="flex items-center gap-4 py-3">
           <div class="min-w-0 flex-1">
             <p class="truncate font-medium">{{ i.person.name }}</p>
-            <p class="truncate text-sm text-gray-500">{{ i.scheduled_at|date:"j M" }}{% if i.requisition %} · {{ i.requisition }}{% endif %}</p>
+            <p class="truncate text-sm text-gray-500">{{ i.scheduled_at|date:"d/m/Y" }}{% if i.requisition %} · {{ i.requisition }}{% endif %}</p>
           </div>
           <span class="shrink-0 rounded-full border border-ink px-2.5 py-0.5 text-xs {% if i.result == 'selected' %}bg-pop{% endif %}">{{ i.get_result_display }}</span>
         </li>

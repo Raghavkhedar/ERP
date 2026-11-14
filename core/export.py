@@ -44,6 +44,11 @@ def workbook_response(filename, sheets):
         sheet.append(list(headers))
         for row in rows:
             sheet.append([cell(value) for value in row])
+            for c in sheet[sheet.max_row]:
+                if isinstance(c.value, datetime):
+                    c.number_format = "DD/MM/YYYY HH:MM"
+                elif isinstance(c.value, date):
+                    c.number_format = "DD/MM/YYYY"
         for head in sheet[1]:
             head.font = Font(bold=True)
         sheet.freeze_panes = "A2"

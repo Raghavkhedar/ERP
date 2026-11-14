@@ -423,7 +423,7 @@ class JoinedForm(forms.Form):
             raise forms.ValidationError("They can't have joined in the future.")
         if self.floor and day < self.floor:
             raise forms.ValidationError(
-                f"They accepted on {self.floor:%d %b %Y}; join on or after it."
+                f"They accepted on {self.floor:%d/%m/%Y}; join on or after it."
             )
         return day
 

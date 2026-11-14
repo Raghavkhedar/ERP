@@ -1,13 +1,13 @@
 {% extends "meetings/base_meetings.html" %}
 
-{% block title %}Block time · {{ day|date:"j F" }} · Schedule{% endblock %}
+{% block title %}Block time · {{ day|date:"d/m/Y" }} · Schedule{% endblock %}
 
 {% block toolbar %}
   {% url 'meetings:block_day' previous.year previous.month previous.day as previous_url %}
   {% url 'meetings:block_day' following.year following.month following.day as next_url %}
   {% url 'meetings:block_time' as today_url %}
   {% include "meetings/_calendar_nav.html" with previous_label="Previous day" next_label="Next day" %}
-  <h1 class="title text-3xl">{{ day|date:"l, j F" }}</h1>
+  <h1 class="title text-3xl">{{ day|date:"l, d/m/Y" }}</h1>
   <input type="date" value="{{ day|date:'Y-m-d' }}" aria-label="Go to a date"
          onchange="if (this.value) location = '{{ today_url }}' + this.value.replaceAll('-', '/') + '/'"
          class="h-9 rounded-lg border border-ink px-2.5 text-sm text-gray-600 outline-none transition focus:border-blue-600 focus:ring-4 focus:ring-blue-600/10">
@@ -173,7 +173,7 @@
           <form method="post">
             {% csrf_token %}
             <h3 class="title text-xl">Block the whole day</h3>
-            <p class="mt-1 text-sm text-gray-500">{{ day|date:"l j F" }}. Only you can see the reason. Booked meetings stay as they are.</p>
+            <p class="mt-1 text-sm text-gray-500">{{ day|date:"l d/m/Y" }}. Only you can see the reason. Booked meetings stay as they are.</p>
             <label class="mt-5 block text-sm">
               <span class="mb-1.5 block font-medium">Why?</span>
               <input type="text" name="reason_day" required maxlength="200" placeholder="e.g. Out of office"

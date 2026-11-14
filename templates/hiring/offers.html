@@ -13,7 +13,7 @@
           <a href="{% url 'hiring:interview_review' i.pk %}" class="flex items-center gap-4 py-3 hover:bg-canvas/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pop">
             <div class="min-w-0 flex-1">
               <p class="truncate font-medium">{{ i.person.name }}</p>
-              <p class="truncate text-sm text-gray-500">{{ i.person.phone }} · {{ i.scheduled_at|date:"j M" }}{% if i.requisition %} · {{ i.requisition }}{% endif %} · filed by {{ i.interviewer.display_name }}</p>
+              <p class="truncate text-sm text-gray-500">{{ i.person.phone }} · {{ i.scheduled_at|date:"d/m/Y" }}{% if i.requisition %} · {{ i.requisition }}{% endif %} · filed by {{ i.interviewer.display_name }}</p>
             </div>
             <span class="shrink-0 rounded-full border border-ink px-2.5 py-0.5 text-xs {% if i.result == 'pending' %}bg-pop{% endif %}">{{ i.get_result_display }}</span>
           </a>
@@ -63,7 +63,7 @@
           <a href="{% url 'hiring:offer' o.pk %}" class="flex items-center gap-4 py-3 hover:bg-canvas/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pop">
             <div class="min-w-0 flex-1">
               <p class="truncate font-medium">{{ o.person.name }}</p>
-              <p class="truncate text-sm text-gray-500">{{ o.latest.amount }}{% if o.joining_date %} · joins {{ o.joining_date|date:"j M Y" }}{% endif %}{% if o.decline_reason %} · {{ o.decline_reason }}{% endif %}</p>
+              <p class="truncate text-sm text-gray-500">{{ o.latest.amount }}{% if o.joining_date %} · joins {{ o.joining_date|date:"d/m/Y" }}{% endif %}{% if o.decline_reason %} · {{ o.decline_reason }}{% endif %}</p>
             </div>
             <span class="shrink-0 rounded-full border border-ink px-2.5 py-0.5 text-xs {% if o.state == 'accepted' %}bg-pop{% endif %}">{{ o.get_state_display }}</span>
           </a>

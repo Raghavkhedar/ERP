@@ -305,7 +305,7 @@ def bulk(request):
         if n:
             messages.success(
                 request,
-                f"Moved {n} call{'s' if n != 1 else ''} to {d['day']:%-d %b}.{note}",
+                f"Moved {n} call{'s' if n != 1 else ''} to {d['day']:%d/%m/%Y}.{note}",
             )
         else:
             messages.error(request, f"No calls to move.{note}")
