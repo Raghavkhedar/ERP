@@ -23,7 +23,7 @@
             <td class="p-2">{{ f.dept_label|default:"—" }}</td>
             <td class="p-2">{{ f.intention }}</td>
             <td class="p-2">{{ f.tag_label }}</td>
-            <td class="p-2">{{ f.stage_label }}</td>
+            {% include "hiring/_status.html" %}
             <td class="p-2 text-right"><a href="{% url 'hiring:followup' f.pk %}" class="inline-flex h-9 items-center rounded-lg bg-blue-600 px-3 font-medium">Call</a></td>
           </tr>
         {% empty %}

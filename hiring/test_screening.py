@@ -157,6 +157,7 @@ def test_sheet_shows_summary_and_filters_by_column(client, todo):
     assert page.context["summary"]["today"] == 1
     assert [f.stage for f in page.context["rows"]] == ["screening"]
     assert [f.tag_label for f in page.context["rows"]] == ["Not called yet"]
+    assert [f.last_status for f in page.context["rows"]] == [None]
     assert len(client.get(url, {"q": "zzz"}).context["rows"]) == 0
     assert (
         len(
@@ -464,3 +465,29 @@ def test_a_normal_others_requisition_is_not_overridden(client, todo):
     todo.person.save()
     assert _subs(client, department="others") == 1
     assert _subs(client, department="bo") == 0
+
+
+def test_sheet_and_calling_show_the_last_calls_status(client, todo, caller):
+    log_call(
+        todo,
+        "reg_touch",
+        caller,
+        notes="Wants Pune, calls back Monday",
+        next_due=tomorrow(),
+    )
+    for name in ("hiring:screening", "hiring:calling"):
+        assert b"Wants Pune" in client.get(reverse(name)).content
+
+
+def test_status_keeps_the_last_written_one_after_a_call_without_notes(
+    client, todo, caller
+):
+    log_call(todo, "reg_touch", caller, notes="Wants Pune", next_due=tomorrow())
+    log_call(
+        FollowUp.objects.get(status="pending"),
+        "reg_not_attended",
+        caller,
+        next_due=tomorrow(),
+    )
+    rows = client.get(reverse("hiring:screening")).context["rows"]
+    assert [f.last_status for f in rows] == ["Wants Pune"]
