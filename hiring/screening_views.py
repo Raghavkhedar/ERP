@@ -130,9 +130,9 @@ def _sheet(rows, get):
             match |= Q(last_tag__isnull=True)
         rows = rows.filter(match)
     if departments := get.getlist("department"):
-        rows = rows.filter(requisition__department__in=departments)
+        rows = rows.filter(dept__in=departments)
     if subs := get.getlist("sub"):
-        rows = rows.filter(requisition__sub_department__in=subs)
+        rows = rows.filter(sub__in=subs)
     if priorities := get.getlist("priority"):
         rows = rows.filter(person__priority__in=priorities)
     if get.get("owner", "").isdigit():
@@ -144,9 +144,7 @@ def _dept_data(base, get):
     """What the department filters offer: each department with its sub-departments
     (the fixed list plus any other value typed on a requisition), and what is ticked."""
     typed = {}
-    for dept, name in base.values_list(
-        "requisition__department", "requisition__sub_department"
-    ).distinct():
+    for dept, name in base.values_list("dept", "sub").distinct():
         if name:
             typed.setdefault(dept, set()).add(name)
     groups = []

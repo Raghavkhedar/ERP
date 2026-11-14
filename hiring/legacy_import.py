@@ -28,6 +28,7 @@ from people.models import Person, phone_key
 
 from . import interview_form, whereabouts
 from .models import (
+    LEGACY_REQUISITION,
     CallLog,
     FollowUp,
     HRAssessment,
@@ -42,7 +43,7 @@ from .services import apply_to_person
 
 csv.field_size_limit(10**9)
 
-REQUISITION = "Data 13th Nov 26"
+REQUISITION = LEGACY_REQUISITION
 SOURCE = "Data 13th Nov 26"
 BATCH = 5000
 # A signature at the end of a note is a person when this many notes carry it.
