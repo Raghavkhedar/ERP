@@ -237,7 +237,7 @@ class CallForm(forms.Form):
 
     def clean_next_due(self):
         day = self.cleaned_data["next_due"]
-        if not day:
+        if not day or self.data.get("tbd"):
             return None
         if day < timezone.localdate():
             raise forms.ValidationError("The next follow-up can't be before today.")

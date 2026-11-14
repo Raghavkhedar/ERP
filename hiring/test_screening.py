@@ -519,3 +519,11 @@ def test_a_logged_call_leaves_my_calling_list_until_its_next_day(client, todo):
         },
     )
     assert client.get(reverse("hiring:calling")).context["rows"] == []
+
+
+def test_tbd_ignores_a_stale_date(client, todo):
+    r = client.post(
+        reverse("hiring:followup_call", args=[todo.pk]),
+        {**CALL, "tbd": "on", "next_due": "2001-01-01"},
+    )
+    assert r.status_code == 302 and CallLog.objects.count() == 1

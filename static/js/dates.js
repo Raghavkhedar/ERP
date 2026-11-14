@@ -8,7 +8,8 @@
   };
   const enhance = (root) => {
     if (!window.flatpickr) return;
-    root.querySelectorAll('input[type="date"]:not([data-native]), input[type="datetime-local"]:not([data-native])').forEach((el) => {
+    const pick = 'input[type="date"]:not([data-native]), input[type="datetime-local"]:not([data-native])';
+    [...(root.matches?.(pick) ? [root] : []), ...root.querySelectorAll(pick)].forEach((el) => {
       window.flatpickr(el, {
         ...kinds[el.type],
         altInput: true,
