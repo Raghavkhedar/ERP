@@ -559,3 +559,35 @@ def test_call_logs_show_a_days_calls_to_supervisors_only(
     assert export.status_code == 200
     rows = list(load_workbook(BytesIO(export.content)).active.values)
     assert [r[2] for r in rows[1:]] == ["Asha"]
+
+
+def test_call_logs_skip_other_companies_and_non_calls(
+    client, django_user_model, senken, todo, caller
+):
+    boss = member(django_user_model, senken, "Boss")
+    caller.supervisor = boss
+    caller.save()
+    other = Company.objects.create(name="Other Co", slug="other-co")
+    stranger = Person.objects.create(company=other, name="Zed", phone="9000000001")
+    CallLog.objects.create(
+        person=stranger, caller=caller, outcome="reg_touch", notes="elsewhere"
+    )
+    CallLog.objects.create(
+        person=todo.person,
+        caller=caller,
+        outcome="reg_touch",
+        notes="bulk move",
+        not_a_call=True,
+    )
+    CallLog.objects.create(
+        person=todo.person, caller=caller, outcome="reg_touch", notes="real call"
+    )
+    client.force_login(boss)
+
+    body = client.get(reverse("hiring:call_logs")).content.decode()
+    assert "real call" in body
+    assert "elsewhere" not in body and "bulk move" not in body
+
+    day = "2026-02-03"
+    export = client.get(reverse("hiring:call_logs_export"), {"day": day})
+    assert "call-logs-2026-02-03" in export["Content-Disposition"]

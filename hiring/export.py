@@ -202,7 +202,7 @@ def followups_workbook(followups):
 
 def call_logs_workbook(logs, day):
     return workbook_response(
-        stamp(f"call-logs-{day:%d-%m-%Y}"),
+        f"call-logs-{day:%Y-%m-%d}",
         {
             "Call logs": (
                 (

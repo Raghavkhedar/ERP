@@ -2,7 +2,7 @@
 
 {% block title %}Call logs · Senken ERP{% endblock %}
 {% block heading %}Call logs{% endblock %}
-{% block actions %}<a href="{% url 'hiring:calling' %}" class="text-gray-500 hover:text-gray-900">Back to calling</a><a href="{% url 'hiring:call_logs_export' %}?day={{ day|date:'Y-m-d' }}" class="text-gray-500 hover:text-gray-900">Export</a>{% endblock %}
+{% block actions %}<a href="{% url 'hiring:calling' %}" class="text-gray-500 hover:text-gray-900">Back to calling</a>{% endblock %}
 
 {% block page %}
   <div class="overflow-x-auto rounded-xl border border-ink bg-surface p-4 shadow-xl">
@@ -10,6 +10,8 @@
       <label for="day" class="text-gray-500">Day</label>
       <input type="date" id="day" name="day" value="{{ day|date:'Y-m-d' }}" class="rounded-md border border-ink bg-white px-2 py-1">
       <button class="inline-flex h-9 items-center rounded-lg bg-blue-600 px-3 font-medium">Show</button>
+      {# formaction submits the picked date, so Export always matches the input #}
+      <button formaction="{% url 'hiring:call_logs_export' %}" class="text-gray-500 hover:text-gray-900">Export</button>
       <span class="text-gray-500">{{ day|date:"d/m/Y" }} · {{ page.paginator.count }} call{{ page.paginator.count|pluralize }}</span>
     </form>
     <table class="w-full min-w-[56rem] text-left text-sm">
