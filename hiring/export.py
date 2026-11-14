@@ -200,6 +200,49 @@ def followups_workbook(followups):
     )
 
 
+def call_logs_workbook(logs, day):
+    return workbook_response(
+        stamp(f"call-logs-{day:%d-%m-%Y}"),
+        {
+            "Call logs": (
+                (
+                    "Time",
+                    "Caller",
+                    "Candidate",
+                    "Phone",
+                    "Tag",
+                    "Call type",
+                    "Status",
+                    "Rescheduled",
+                    "Reschedule reason",
+                    "Department change",
+                    "Discuss with manager",
+                    "Mini whereabout",
+                    "Major whereabout",
+                ),
+                [
+                    (
+                        c.called_at,
+                        c.caller.get_full_name() or c.caller.get_username(),
+                        c.person.name,
+                        c.person.phone,
+                        c.get_outcome_display(),
+                        c.get_call_type_display(),
+                        c.notes,
+                        c.rescheduled,
+                        c.reschedule_reason,
+                        c.department_changed,
+                        c.discussed,
+                        whereabouts.summary(c.mini_whereabout),
+                        whereabouts.summary(c.major_whereabout),
+                    )
+                    for c in logs
+                ],
+            )
+        },
+    )
+
+
 def interviews_workbook(interviews, include_hr=False, hr_companies=None):
     def who(u):
         return u.get_full_name() or u.get_username()

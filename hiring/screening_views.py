@@ -14,8 +14,9 @@ from people.models import Person
 from people.services import visible_people
 from tasks.services import can_assign
 
+from . import whereabouts
 from .departments import SUB_DEPARTMENTS
-from .export import followups_workbook
+from .export import call_logs_workbook, followups_workbook
 from .forms import (
     BulkForm,
     CallForm,
@@ -255,13 +256,57 @@ def calling(request):
     for f in rows:
         f.tag_label = tags.get(f.last_tag or "none")
         f.overdue = _day(f) < timezone.localdate()
-    return render(request, "hiring/calling.html", {"rows": rows, "page": page})
+    return render(
+        request,
+        "hiring/calling.html",
+        {"rows": rows, "page": page, "can_see_logs": _can_reassign(request.user)},
+    )
 
 
 @calling_section
 @require_GET
 def export_calling(request):
     return followups_workbook(_mine(request))
+
+
+def _logs(request):
+    """That day's calls (default today), for admins and supervisors."""
+    if not _can_reassign(request.user):
+        raise PermissionDenied
+    day = parse_day(request.GET.get("day")) or timezone.localdate()
+    logs = (
+        CallLog.objects.filter(
+            called_at__date=day,
+            person__company__in=request.companies,
+            not_a_call=False,
+        )
+        .select_related("person", "caller")
+        .order_by("-called_at", "-id")
+    )
+    return day, logs
+
+
+@calling_section
+@require_GET
+def call_logs(request):
+    day, logs = _logs(request)
+    page = paginate(request, logs)
+    rows = list(page)
+    for c in rows:
+        c.mini = whereabouts.summary(c.mini_whereabout)
+        c.major = whereabouts.summary(c.major_whereabout)
+    return render(
+        request,
+        "hiring/call_logs.html",
+        {"rows": rows, "page": page, "day": day},
+    )
+
+
+@calling_section
+@require_GET
+def export_call_logs(request):
+    day, logs = _logs(request)
+    return call_logs_workbook(logs, day)
 
 
 @section
