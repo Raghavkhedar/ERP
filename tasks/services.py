@@ -7,7 +7,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from chat.services import post_notice
-from core.dates import skip_sunday
+from core.dates import SUNDAY_MESSAGE, is_sunday, skip_sunday
 
 from .models import Attachment, DateChange, Repeat, Status, Task, TaskUpdate
 
@@ -77,10 +77,12 @@ def assign(
         raise TaskError("Describe the report or job.")
     if due_date < timezone.localdate():
         raise TaskError("The completion date can't be in the past.")
-    if due_date.weekday() == 6:
-        raise TaskError("Sunday is a non-working day. Pick another date.")
+    if is_sunday(due_date):
+        raise TaskError(SUNDAY_MESSAGE)
     if remind_at and remind_at <= timezone.now():
         raise TaskError("Set the alarm for a time that hasn't passed.")
+    if remind_at and is_sunday(remind_at):
+        raise TaskError(SUNDAY_MESSAGE)
 
     task = Task.objects.create(
         assigned_to=to,
@@ -174,8 +176,8 @@ def reschedule(task, user, due_date, reason):
         raise TaskError("That is already the completion date.")
     if due_date < timezone.localdate(task.received_at):
         raise TaskError("The completion date can't be before the task was received.")
-    if due_date.weekday() == 6:
-        raise TaskError("Sunday is a non-working day. Pick another date.")
+    if is_sunday(due_date):
+        raise TaskError(SUNDAY_MESSAGE)
 
     change = DateChange.objects.create(
         task=task,
@@ -334,6 +336,8 @@ def set_alarm(task, user, remind_at, every=""):
     task = _own_alarm(task, user)
     if remind_at and remind_at <= timezone.now():
         raise TaskError("Set the alarm for a time that hasn't passed.")
+    if remind_at and is_sunday(remind_at):
+        raise TaskError(SUNDAY_MESSAGE)
     task.remind_at = remind_at
     task.remind_every = every if remind_at else ""
     task.save(update_fields=["remind_at", "remind_every"])

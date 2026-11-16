@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.db.models import F, Q
 from django.utils import timezone
 
-from core.dates import no_sunday, skip_sunday
+from core.dates import SUNDAY_MESSAGE, is_sunday, no_sunday, skip_sunday
 from core.models import AccessGrant, Company
 from people.models import Person, phone_key
 from people.services import visible_people
@@ -380,8 +380,8 @@ class BulkForm(ReassignForm):
         if data.get("do") == "move":
             if not data.get("day") or data["day"] < timezone.localdate():
                 self.add_error("day", "Pick a day that is not before today.")
-            elif data["day"].weekday() == 6:
-                self.add_error("day", "Sunday is a non-working day. Pick another date.")
+            elif is_sunday(data["day"]):
+                self.add_error("day", SUNDAY_MESSAGE)
             if not data.get("reason"):
                 self.add_error("reason", "Pick a reason for the move.")
         return data

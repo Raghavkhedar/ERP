@@ -76,13 +76,18 @@ class AlarmForm(forms.Form):
         label="Alarm",
         required=False,
         widget=forms.DateTimeInput(
-            attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"
+            attrs={"type": "datetime-local", "data-no-sunday": ""},
+            format="%Y-%m-%dT%H:%M",
         ),
         help_text="Rings in the ERP at this time until the task is done.",
     )
     remind_every = forms.ChoiceField(
         label="Repeat", choices=Repeat.choices, required=False
     )
+
+    def clean_remind_at(self):
+        when = self.cleaned_data["remind_at"]
+        return no_sunday(when) if when else when
 
 
 class TaskForm(FilesMixin, AlarmForm, forms.ModelForm):
