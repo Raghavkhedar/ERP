@@ -551,14 +551,23 @@ def test_call_logs_show_a_days_calls_to_supervisors_only(
 
     client.force_login(boss)
     body = client.get(url).content.decode()
-    assert "spoke" in body and "old call" not in body
+    assert "spoke" in body and "old call" in body
+    assert body.index("spoke") < body.index("old call")  # newest first
     assert "Call logs" in client.get(reverse("hiring:calling")).content.decode()
     past = (timezone.localdate() - timedelta(days=3)).isoformat()
-    assert "old call" in client.get(url, {"day": past}).content.decode()
+    narrowed = client.get(url, {"from": past, "to": past}).content.decode()
+    assert "old call" in narrowed and "spoke" not in narrowed
+    only = client.get(url, {"q": "nobody"}).content.decode()
+    assert "spoke" not in only and "old call" not in only
+    assert (
+        "spoke"
+        in client.get(url, {"caller": caller.pk, "tag": "reg_touch"}).content.decode()
+    )
+    assert "spoke" not in client.get(url, {"tag": "reg_ff"}).content.decode()
     export = client.get(reverse("hiring:call_logs_export"))
     assert export.status_code == 200
     rows = list(load_workbook(BytesIO(export.content)).active.values)
-    assert [r[2] for r in rows[1:]] == ["Asha"]
+    assert [r[2] for r in rows[1:]] == ["Asha", "Asha"]
 
 
 def test_call_logs_skip_other_companies_and_non_calls(
@@ -588,6 +597,5 @@ def test_call_logs_skip_other_companies_and_non_calls(
     assert "real call" in body
     assert "elsewhere" not in body and "bulk move" not in body
 
-    day = "2026-02-03"
-    export = client.get(reverse("hiring:call_logs_export"), {"day": day})
-    assert "call-logs-2026-02-03" in export["Content-Disposition"]
+    export = client.get(reverse("hiring:call_logs_export"))
+    assert "call-logs" in export["Content-Disposition"]

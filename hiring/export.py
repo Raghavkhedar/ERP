@@ -200,9 +200,9 @@ def followups_workbook(followups):
     )
 
 
-def call_logs_workbook(logs, day):
+def call_logs_workbook(logs):
     return workbook_response(
-        f"call-logs-{day:%Y-%m-%d}",
+        "call-logs",
         {
             "Call logs": (
                 (

@@ -270,26 +270,47 @@ def export_calling(request):
 
 
 def _logs(request):
-    """That day's calls (default today), for admins and supervisors."""
+    """Every call, newest first, for admins and supervisors; narrowed by the
+    from/to dates, caller, tag, type and a name/phone search in the address."""
     if not _can_reassign(request.user):
         raise PermissionDenied
-    day = parse_day(request.GET.get("day")) or timezone.localdate()
+    g = request.GET
     logs = (
-        CallLog.objects.filter(
-            called_at__date=day,
-            person__company__in=request.companies,
-            not_a_call=False,
-        )
+        CallLog.objects.filter(person__company__in=request.companies, not_a_call=False)
         .select_related("person", "caller")
         .order_by("-called_at", "-id")
     )
-    return day, logs
+    start, end = parse_day(g.get("from")), parse_day(g.get("to"))
+    if start:
+        logs = logs.filter(called_at__date__gte=start)
+    if end:
+        logs = logs.filter(called_at__date__lte=end)
+    if g.get("caller", "").isdigit():
+        logs = logs.filter(caller_id=g["caller"])
+    if g.get("tag") in CallLog.Outcome.values:
+        logs = logs.filter(outcome=g["tag"])
+    if g.get("type") in CallLog.Kind.values:
+        logs = logs.filter(call_type=g["type"])
+    q = g.get("q", "").strip()
+    if q:
+        logs = logs.filter(Q(person__name__icontains=q) | Q(person__phone__icontains=q))
+    return logs
 
 
 @calling_section
 @require_GET
 def call_logs(request):
-    day, logs = _logs(request)
+    logs = _logs(request)
+    # Callers who appear in the unfiltered list, so the dropdown stays in scope.
+    callers = (
+        get_user_model()
+        .objects.filter(
+            pk__in=CallLog.objects.filter(
+                person__company__in=request.companies, not_a_call=False
+            ).values("caller")
+        )
+        .order_by("first_name", "username")
+    )
     page = paginate(request, logs)
     rows = list(page)
     for c in rows:
@@ -298,15 +319,21 @@ def call_logs(request):
     return render(
         request,
         "hiring/call_logs.html",
-        {"rows": rows, "page": page, "day": day},
+        {
+            "rows": rows,
+            "page": page,
+            "callers": callers,
+            "tags": CallLog.Outcome.choices,
+            "kinds": CallLog.Kind.choices,
+            "f": request.GET,
+        },
     )
 
 
 @calling_section
 @require_GET
 def export_call_logs(request):
-    day, logs = _logs(request)
-    return call_logs_workbook(logs, day)
+    return call_logs_workbook(_logs(request))
 
 
 @section

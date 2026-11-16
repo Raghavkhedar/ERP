@@ -6,25 +6,39 @@
 
 {% block page %}
   <div class="overflow-x-auto rounded-xl border border-ink bg-surface p-4 shadow-xl">
-    <form method="get" class="mb-3 flex flex-wrap items-center gap-2 text-sm">
-      <label for="day" class="text-gray-500">Day</label>
-      <input type="date" id="day" name="day" value="{{ day|date:'Y-m-d' }}" class="rounded-md border border-ink bg-white px-2 py-1">
-      <button class="inline-flex h-9 items-center rounded-lg bg-blue-600 px-3 font-medium">Show</button>
-      {# formaction submits the picked date, so Export always matches the input #}
+    <form method="get" class="mb-3 flex flex-wrap items-end gap-2 text-sm">
+      <input type="search" name="q" value="{{ f.q }}" placeholder="Candidate or phone" aria-label="Search" class="rounded-md border border-ink bg-white px-2 py-1">
+      <label class="text-gray-500">From <input type="date" name="from" value="{{ f.from }}" class="rounded-md border border-ink bg-white px-2 py-1"></label>
+      <label class="text-gray-500">To <input type="date" name="to" value="{{ f.to }}" class="rounded-md border border-ink bg-white px-2 py-1"></label>
+      <select name="caller" aria-label="Caller" class="rounded-md border border-ink bg-white px-2 py-1">
+        <option value="">All callers</option>
+        {% for u in callers %}<option value="{{ u.pk }}"{% if f.caller == u.pk|stringformat:"s" %} selected{% endif %}>{{ u.get_full_name|default:u.get_username }}</option>{% endfor %}
+      </select>
+      <select name="tag" aria-label="Tag" class="rounded-md border border-ink bg-white px-2 py-1">
+        <option value="">All tags</option>
+        {% for v, l in tags %}<option value="{{ v }}"{% if f.tag == v %} selected{% endif %}>{{ l }}</option>{% endfor %}
+      </select>
+      <select name="type" aria-label="Type" class="rounded-md border border-ink bg-white px-2 py-1">
+        <option value="">All types</option>
+        {% for v, l in kinds %}<option value="{{ v }}"{% if f.type == v %} selected{% endif %}>{{ l }}</option>{% endfor %}
+      </select>
+      <button class="inline-flex h-9 items-center rounded-lg bg-blue-600 px-3 font-medium">Filter</button>
+      <a href="{% url 'hiring:call_logs' %}" class="text-gray-500 hover:text-gray-900">Clear</a>
+      {# formaction submits the same filters, so Export always matches the page #}
       <button formaction="{% url 'hiring:call_logs_export' %}" class="text-gray-500 hover:text-gray-900">Export</button>
-      <span class="text-gray-500">{{ day|date:"d/m/Y" }} · {{ page.paginator.count }} call{{ page.paginator.count|pluralize }}</span>
+      <span class="text-gray-500">{{ page.paginator.count }} call{{ page.paginator.count|pluralize }}</span>
     </form>
     <table class="w-full min-w-[56rem] text-left text-sm">
       <thead>
         <tr class="bg-ink text-white">
-          <th class="p-2">Time</th><th class="p-2">Caller</th><th class="p-2">Candidate</th><th class="p-2">Tag</th>
+          <th class="p-2">When</th><th class="p-2">Caller</th><th class="p-2">Candidate</th><th class="p-2">Tag</th>
           <th class="p-2">Type</th><th class="p-2">Status</th><th class="p-2">Details</th>
         </tr>
       </thead>
       <tbody>
         {% for c in rows %}
           <tr class="border-b border-gray-100 align-top">
-            <td class="p-2 tabular-nums">{{ c.called_at|time:"H:i" }}</td>
+            <td class="p-2 tabular-nums">{{ c.called_at|date:"d/m/Y H:i" }}</td>
             <td class="p-2">{{ c.caller.get_full_name|default:c.caller.get_username }}</td>
             <td class="p-2 font-medium">{{ c.person.name }}<br><span class="font-normal text-gray-500">{{ c.person.phone }}</span></td>
             <td class="p-2">{{ c.get_outcome_display }}</td>
@@ -39,7 +53,7 @@
             </td>
           </tr>
         {% empty %}
-          <tr><td colspan="7" class="p-6 text-gray-500">No calls were logged on this day.</td></tr>
+          <tr><td colspan="7" class="p-6 text-gray-500">No calls match.</td></tr>
         {% endfor %}
       </tbody>
     </table>
