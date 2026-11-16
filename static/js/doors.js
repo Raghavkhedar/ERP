@@ -20,6 +20,7 @@
     const form = event.target;
     if (calm || !form.matches("form[data-doors]") || form.dataset.plain) return;
     event.preventDefault();
+    if (root.classList.contains("doors-wait")) return; // a login is already being checked
     root.classList.add("doors-wait");
     try {
       const [res] = await Promise.all([
