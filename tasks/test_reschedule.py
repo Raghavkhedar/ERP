@@ -74,3 +74,14 @@ def test_the_view_refuses_a_missing_reason(client, task, boss):
     )
     task.refresh_from_db()
     assert task.due_date == old
+
+
+def test_a_sunday_completion_date_is_refused(task, boss):
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    today = timezone.localdate()
+    sunday = today + timedelta(days=(6 - today.weekday()) % 7 or 7)
+    with pytest.raises(TaskError):
+        reschedule(task, boss, sunday, "Slipped")

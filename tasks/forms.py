@@ -5,6 +5,8 @@ from django.contrib.auth import get_user_model
 from django.template.defaultfilters import filesizeformat
 from django.utils import timezone
 
+from core.dates import no_sunday
+
 from .models import PRIORITIES, Repeat, Status, Task
 
 
@@ -74,13 +76,24 @@ class AlarmForm(forms.Form):
         label="Alarm",
         required=False,
         widget=forms.DateTimeInput(
-            attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"
+            attrs={"type": "datetime-local", "data-no-sunday": ""},
+            format="%Y-%m-%dT%H:%M",
         ),
         help_text="Rings in the ERP at this time until the task is done.",
     )
     remind_every = forms.ChoiceField(
         label="Repeat", choices=Repeat.choices, required=False
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # The server refuses a time that has passed; the picker greys those out.
+        now = timezone.localtime().strftime("%Y-%m-%dT%H:%M")
+        self.fields["remind_at"].widget.attrs["min"] = now
+
+    def clean_remind_at(self):
+        when = self.cleaned_data["remind_at"]
+        return no_sunday(when) if when else when
 
 
 class TaskForm(FilesMixin, AlarmForm, forms.ModelForm):
@@ -107,7 +120,9 @@ class TaskForm(FilesMixin, AlarmForm, forms.ModelForm):
             "description": forms.Textarea(
                 attrs={"rows": 4, "placeholder": "What is the report or job?"}
             ),
-            "due_date": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+            "due_date": forms.DateInput(
+                attrs={"type": "date", "data-no-sunday": ""}, format="%Y-%m-%d"
+            ),
         }
         error_messages = {
             "description": {"required": "Describe the report or job."},
@@ -144,15 +159,21 @@ class TaskForm(FilesMixin, AlarmForm, forms.ModelForm):
             raise forms.ValidationError(
                 "The completion date can't be before the task was received."
             )
-        return due_date
+        return no_sunday(due_date)
 
 
 class DateChangeForm(forms.Form):
     due_date = forms.DateField(
         label="New completion date",
-        widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+        widget=forms.DateInput(
+            attrs={"type": "date", "data-no-sunday": ""}, format="%Y-%m-%d"
+        ),
         error_messages={"required": "Pick the new completion date."},
     )
+
+    def clean_due_date(self):
+        return no_sunday(self.cleaned_data["due_date"])
+
     reason = forms.CharField(
         label="Reason",
         max_length=1000,

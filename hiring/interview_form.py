@@ -10,6 +10,7 @@ from django import forms
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
+from core.dates import SUNDAY_MESSAGE, is_sunday
 from people.models import Person
 
 from . import whereabouts
@@ -440,6 +441,8 @@ class AssessmentForm(forms.Form):
         super().__init__(*args, **kwargs)
         for key in PFA:
             self.fields[key] = whereabouts._field(key, SPEC)
+        if "next_follow_up" in self.fields:
+            self.fields["next_follow_up"].widget.attrs["data-no-sunday"] = ""
 
     def clean(self):
         data = super().clean()
@@ -449,6 +452,8 @@ class AssessmentForm(forms.Form):
                 message = "A candidate on hold needs a follow up date."
             elif day < timezone.localdate():
                 message = "The follow up date can't be before today."
+            elif is_sunday(day):
+                message = SUNDAY_MESSAGE
             else:
                 message = ""
             if message:

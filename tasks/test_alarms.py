@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import pytest
 from django.core.exceptions import PermissionDenied
@@ -210,3 +210,45 @@ def test_dismiss_all_stops_every_ring_and_the_list_is_capped(client, alice, next
     assert client.post(reverse("tasks:alarms_dismiss_all")).json() == {"ok": True}
     assert client.get(reverse("tasks:alarms")).json()["total"] == 0
     assert not due_alarms(alice).exists()
+
+
+def _ist(day, hour, minute=0):
+    from zoneinfo import ZoneInfo
+
+    return datetime(2026, 11, day, hour, minute, tzinfo=ZoneInfo("Asia/Kolkata"))
+
+
+def _dismiss_at(task, alice, monkeypatch, ring, now):
+    Task.objects.filter(pk=task.pk).update(remind_at=ring, remind_every="daily")
+    monkeypatch.setattr(timezone, "now", lambda: now)
+    dismiss_alarm(task, alice)
+    task.refresh_from_db()
+    return timezone.localtime(task.remind_at)
+
+
+def test_a_daily_alarm_skips_sunday(task, alice, monkeypatch):
+    saturday, monday = _ist(14, 9), _ist(16, 9)
+    got = _dismiss_at(task, alice, monkeypatch, saturday, _ist(14, 9, 1))
+    assert got == monday
+
+
+def test_a_daily_alarm_just_after_midnight_is_not_taken_for_sunday(
+    task, alice, monkeypatch
+):
+    # Monday 00:30 India is still Sunday in UTC, which is how the database holds it.
+    got = _dismiss_at(task, alice, monkeypatch, _ist(16, 0, 30), _ist(16, 0, 31))
+    assert got == _ist(17, 0, 30)
+
+
+def test_an_alarm_on_a_sunday_is_refused(task, alice, boss):
+    today = timezone.localdate()
+    sunday = today + timedelta(days=(6 - today.weekday()) % 7 + 7)
+    ring = timezone.make_aware(datetime.combine(sunday, datetime.min.time())).replace(
+        hour=10
+    )
+    with pytest.raises(TaskError):
+        set_alarm(task, alice, ring, "")
+    with pytest.raises(TaskError):
+        assign(
+            boss, alice, 3, "Weekly report", sunday + timedelta(days=1), remind_at=ring
+        )

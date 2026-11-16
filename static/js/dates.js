@@ -16,6 +16,9 @@
         altInputClass: el.className + " dp",
         allowInput: false,
         disableMobile: true,
+        minDate: el.min || undefined,
+        maxDate: el.max || undefined,
+        ...(el.hasAttribute("data-no-sunday") && { disable: [(d) => d.getDay() === 0] }),
       });
     });
   };

@@ -54,7 +54,7 @@
       <input type="hidden" name="preview" value="1">
       <input type="hidden" name="filters" value="">
       <div><label for="group" class="mb-1.5 block font-medium">Calls that are</label><select name="group" id="group"><option value="all">Any day</option><option value="overdue">Overdue</option><option value="today">Due today</option><option value="later">Later</option></select></div>
-      <div><label for="day" class="mb-1.5 block font-medium">Move to</label><input type="date" name="day" id="day" min="{{ today }}" required></div>
+      <div><label for="day" class="mb-1.5 block font-medium">Move to</label><input type="date" data-no-sunday name="day" id="day" min="{{ today }}" required></div>
       <div><label for="why" class="mb-1.5 block font-medium">Why</label><select name="reason" id="why">{% for value, name in shift_form.fields.reason.choices %}<option value="{{ value }}">{{ name }}</option>{% endfor %}</select></div>
       <button type="submit" class="h-10 rounded-lg border border-ink px-4">Preview</button>
     </form>
@@ -86,7 +86,7 @@
           <button type="submit" name="do" value="assign" class="h-10 rounded-lg bg-blue-600 px-4 font-medium">Assign</button>
         </div>
         <div class="flex flex-wrap items-end gap-2">
-          <label class="block">Move to<input type="date" name="day" min="{{ today }}" class="mt-1 block"></label>
+          <label class="block">Move to<input type="date" data-no-sunday name="day" min="{{ today }}" class="mt-1 block"></label>
           <label class="block">Why<select name="reason" class="mt-1 block">{% for value, name in reasons %}<option value="{{ value }}">{{ name }}</option>{% endfor %}</select></label>
           <button type="submit" name="do" value="move" class="h-10 rounded-lg border border-ink px-4 font-medium">Move date</button>
         </div>
