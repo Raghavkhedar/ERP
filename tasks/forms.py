@@ -85,6 +85,12 @@ class AlarmForm(forms.Form):
         label="Repeat", choices=Repeat.choices, required=False
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # The server refuses a time that has passed; the picker greys those out.
+        now = timezone.localtime().strftime("%Y-%m-%dT%H:%M")
+        self.fields["remind_at"].widget.attrs["min"] = now
+
     def clean_remind_at(self):
         when = self.cleaned_data["remind_at"]
         return no_sunday(when) if when else when
