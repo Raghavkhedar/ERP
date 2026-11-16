@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from django.db.models import F, Q
 from django.utils import timezone
 
+from core.dates import no_sunday, skip_sunday
 from core.models import AccessGrant, Company
 from people.models import Person, phone_key
 from people.services import visible_people
@@ -171,11 +172,13 @@ class ImportForm(forms.Form):
 class DayField(forms.DateField):
     """A date, kept as the start of that day: follow-ups have no time."""
 
-    widget = forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d")
+    widget = forms.DateInput(
+        attrs={"type": "date", "data-no-sunday": ""}, format="%Y-%m-%d"
+    )
 
     def clean(self, value):
         day = super().clean(value)
-        return day_start(day) if day else day
+        return day_start(no_sunday(day)) if day else day
 
 
 def _when(label, **kw):
@@ -232,8 +235,11 @@ class CallForm(forms.Form):
         for key, (label, _) in whereabouts.GROUPS.items():
             self.groups[key].title = label
         # Pre-filled so the usual "try again tomorrow" is one tap.
-        self.fields["next_due"].initial = timezone.localdate() + timedelta(days=1)
+        self.fields["next_due"].initial = skip_sunday(
+            timezone.localdate() + timedelta(days=1)
+        )
         self.fields["next_due"].widget.attrs["min"] = timezone.localdate().isoformat()
+        self.fields["next_due"].widget.attrs["data-no-sunday"] = ""
 
     def clean_next_due(self):
         day = self.cleaned_data["next_due"]
@@ -241,7 +247,7 @@ class CallForm(forms.Form):
             return None
         if day < timezone.localdate():
             raise forms.ValidationError("The next follow-up can't be before today.")
-        return day_start(day)
+        return day_start(no_sunday(day))
 
     def clean(self):
         data = super().clean()
@@ -311,7 +317,9 @@ class ScheduleCallForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["due"].initial = timezone.localdate() + timedelta(days=1)
+        self.fields["due"].initial = skip_sunday(
+            timezone.localdate() + timedelta(days=1)
+        )
 
 
 class ShiftForm(forms.Form):
@@ -320,14 +328,16 @@ class ShiftForm(forms.Form):
     )
     day = forms.DateField(
         label="Move to",
-        widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+        widget=forms.DateInput(
+            attrs={"type": "date", "data-no-sunday": ""}, format="%Y-%m-%d"
+        ),
     )
     reason = forms.ChoiceField(choices=FollowUp.Reason.choices)
 
     def clean_day(self):
         if self.cleaned_data["day"] < timezone.localdate():
             raise forms.ValidationError("Pick a day that is not before today.")
-        return self.cleaned_data["day"]
+        return no_sunday(self.cleaned_data["day"])
 
 
 class ReassignForm(forms.Form):
@@ -370,6 +380,8 @@ class BulkForm(ReassignForm):
         if data.get("do") == "move":
             if not data.get("day") or data["day"] < timezone.localdate():
                 self.add_error("day", "Pick a day that is not before today.")
+            elif data["day"].weekday() == 6:
+                self.add_error("day", "Sunday is a non-working day. Pick another date.")
             if not data.get("reason"):
                 self.add_error("reason", "Pick a reason for the move.")
         return data

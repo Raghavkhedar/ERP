@@ -19,6 +19,7 @@ from django.urls import reverse
 from django.utils import timezone
 from simple_history.utils import bulk_update_with_history
 
+from core.dates import skip_sunday
 from notifications.services import notify
 from people.models import Person, phone_key
 from tasks.services import can_assign
@@ -154,7 +155,7 @@ def today():
 
 def next_day():
     """Tomorrow: when a sourced candidate is first called."""
-    return day_start(timezone.localdate() + timedelta(days=1))
+    return day_start(skip_sunday(timezone.localdate() + timedelta(days=1)))
 
 
 def lock_numbers(company_id, keys):
@@ -304,7 +305,7 @@ def _open(after, purpose, due, other=""):
         status=FollowUp.Status.PENDING,
         defaults=dict(
             requisition=after.requisition,
-            due=due,
+            due=skip_sunday(due),
             owner=after.owner,
             purpose_other=other,
         ),
@@ -394,7 +395,7 @@ def reschedule(followup, due, reason):
         current = _pending(followup)
         current.original_due = current.original_due or current.due
         current.snoozed_until = None
-        current.due = due
+        current.due = skip_sunday(due)
         current.reschedule_reason = reason
         current.reschedule_count += 1
         current.version += 1
@@ -451,7 +452,7 @@ def bulk_move(followups, day, reason, by=None):
         for f in rows:
             f.original_due = f.original_due or f.due
             f.snoozed_until = None
-            f.due = day_start(day)
+            f.due = day_start(skip_sunday(day))
             f.reschedule_reason = reason
             f.reschedule_count += 1
             f.version += 1
@@ -1006,7 +1007,7 @@ def schedule_call(person, due, user):
             person=person,
             requisition=last.requisition if last else None,
             purpose=FollowUp.Purpose.CALL,
-            due=due,
+            due=skip_sunday(due),
             owner=user,
         )
 
@@ -1071,7 +1072,7 @@ def snooze_call(followup, user, length):
         now = timezone.now()
         if length == "tomorrow":
             morning = timezone.localtime(now).replace(hour=9, minute=0, second=0)
-            current.snoozed_until = morning + timedelta(days=1)
+            current.snoozed_until = skip_sunday(morning + timedelta(days=1))
         elif length in SNOOZES:
             current.snoozed_until = now + SNOOZES[length]
         else:

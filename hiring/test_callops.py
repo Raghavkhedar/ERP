@@ -185,3 +185,33 @@ def test_confirming_with_the_popups_filters_replaces_the_page_filters(
         return timezone.localtime(due).date() == date(2031, 5, 1)
 
     assert moved("Ravi") and not moved("Asha")
+
+
+def _next_sunday():
+    today = timezone.localdate()
+    return today + timedelta(days=(6 - today.weekday()) % 7 or 7)
+
+
+def test_a_sunday_is_refused_and_a_move_onto_one_lands_on_monday(req, user):
+    from .forms import BulkForm, RescheduleForm, ShiftForm
+    from .services import bulk_move
+
+    sunday = _next_sunday()
+    assert "due" in RescheduleForm({"due": sunday.isoformat(), "reason": "x"}).errors
+    shift = ShiftForm({"group": "all", "day": sunday.isoformat(), "reason": "x"})
+    assert "day" in shift.errors
+    assert (
+        "day"
+        in BulkForm(
+            {"scope": "all", "do": "move", "day": sunday.isoformat(), "reason": "x"},
+            companies=Company.objects.all(),
+        ).errors
+    )
+
+    person = Person.objects.create(company=req.company, name="A", phone="9000000001")
+    call = FollowUp.objects.create(
+        person=person, purpose=FollowUp.Purpose.CALL, due=timezone.now(), owner=user
+    )
+    bulk_move(FollowUp.objects.filter(pk=call.pk), sunday, "x")
+    call.refresh_from_db()
+    assert timezone.localtime(call.due).date() == sunday + timedelta(days=1)

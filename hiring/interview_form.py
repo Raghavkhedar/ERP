@@ -449,6 +449,8 @@ class AssessmentForm(forms.Form):
                 message = "A candidate on hold needs a follow up date."
             elif day < timezone.localdate():
                 message = "The follow up date can't be before today."
+            elif day.weekday() == 6:
+                message = "Sunday is a non-working day. Pick another date."
             else:
                 message = ""
             if message:
