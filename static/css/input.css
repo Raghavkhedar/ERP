@@ -373,6 +373,7 @@ textarea:focus {
    html.doors-wait stops them half way while the login is checked, html.doors-shut closes them. */
 html { --d: 0; }
 html.doors-wait { --d: 0.45; }
+html.doors-wait.doors-deny { --d: 0.9; }
 html.doors-shut { --d: 1; }
 
 .doors {
@@ -385,18 +386,51 @@ html.doors-shut { --d: 1; }
 
 .door {
   flex: 1;
-  background: var(--color-ink);
+  /* Brushed stainless steel. Layers, top to bottom: a thin glint, shading toward the edges,
+     brushed streaks (noise stretched vertically, blended in), then the base metal with wide reflection bands. */
+  position: relative;
+  background-color: #b9bec4;
+  background-image:
+    linear-gradient(105deg, transparent 38%, rgb(255 255 255 / 0.4) 44%, rgb(255 255 255 / 0.08) 47%, transparent 52%),
+    linear-gradient(90deg, rgb(0 0 0 / 0.35), transparent 10%, transparent 90%, rgb(0 0 0 / 0.35)),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9 0.003' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 1.6 0 0 0 -0.3'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E"),
+    linear-gradient(100deg, #7d838a 0%, #cdd1d6 14%, #eef0f2 28%, #a3a9b0 44%, #858b92 58%, #d3d7db 74%, #e9ebed 86%, #8f959c 100%);
+  background-blend-mode: normal, normal, overlay, normal;
   transition: transform 650ms cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* Left door's meeting edge and right door's: a dark rubber gasket with a bright steel lip. */
+.door-left { box-shadow: inset -9px 0 0 #1d1d22, inset -11px 0 0 rgb(255 255 255 / 0.6); }
+.door-right { box-shadow: inset 9px 0 0 #1d1d22, inset 11px 0 0 rgb(255 255 255 / 0.6); }
+
+/* The recessed panel: its own horizontal grain, bevelled so it reads as pressed in. */
+.door::before {
+  content: "";
+  position: absolute;
+  inset: 8% 14%;
+  border: 2px solid rgb(20 17 43 / 0.6);
+  border-radius: 3px;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.004 0.9' numOctaves='2' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 1.6 0 0 0 -0.3'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E"),
+    linear-gradient(180deg, rgb(0 0 0 / 0.16), rgb(255 255 255 / 0.1) 50%, rgb(0 0 0 / 0.12));
+  background-blend-mode: overlay, normal;
+  box-shadow: inset 3px 3px 0 rgb(0 0 0 / 0.3), inset -2px -2px 0 rgb(255 255 255 / 0.55), 2px 2px 0 rgb(255 255 255 / 0.5);
+}
+
+/* A wrong password slams them a little further, with a quick bounce. */
+html.doors-deny .door {
+  transition-duration: 220ms;
+  transition-timing-function: cubic-bezier(0.5, 1.6, 0.6, 1);
 }
 
 .door-left {
   transform: translateX(calc((var(--d) - 1) * 100%));
-  border-right: 3px solid var(--color-pop);
+  border-right: 3px solid var(--color-ink);
 }
 
 .door-right {
   transform: translateX(calc((1 - var(--d)) * 100%));
-  border-left: 3px solid var(--color-pop);
+  border-left: 3px solid var(--color-ink);
 }
 
 html.doors-wait .doors,

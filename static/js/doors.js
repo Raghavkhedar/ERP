@@ -1,6 +1,6 @@
 // Lift doors for login. Submitting stops the doors half way while the server
 // checks the password. A wrong one opens them again and shows the error in
-// place; a right one closes them fully, and the next page opens them.
+// place (after clanging a bit further shut); a right one closes them fully, and the next page opens them.
 // sessionStorage carries "doors" across the redirect. Skipped under reduced motion.
 (function () {
   const root = document.documentElement;
@@ -20,6 +20,7 @@
     const form = event.target;
     if (calm || !form.matches("form[data-doors]") || form.dataset.plain) return;
     event.preventDefault();
+    if (root.classList.contains("doors-wait")) return; // a login is already being checked
     root.classList.add("doors-wait");
     try {
       const [res] = await Promise.all([
@@ -38,7 +39,10 @@
       if (!next) throw new Error("no form");
       form.replaceWith(next);
       next.querySelector("[autofocus]")?.focus();
-      root.classList.remove("doors-wait");
+      // The gates clang a bit further shut before they open again.
+      root.classList.add("doors-deny");
+      await pause(450);
+      root.classList.remove("doors-deny", "doors-wait");
     } catch {
       // Network trouble: fall back to a plain submit.
       root.classList.remove("doors-wait");
