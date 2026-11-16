@@ -10,7 +10,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from core.access import require_section
 from core.pagination import paginate
-from people.models import Person
+from people.models import Person, phone_key
 from people.services import visible_people
 from tasks.services import can_assign
 
@@ -269,31 +269,62 @@ def export_calling(request):
     return followups_workbook(_mine(request))
 
 
-def _logs(request):
-    """Every call, newest first, for admins and supervisors; narrowed by the
-    from/to dates, caller, tag, type and a name/phone search in the address."""
+def _log_base(request):
+    """The calls this user may see: their companies', real calls only."""
     if not _can_reassign(request.user):
         raise PermissionDenied
+    return CallLog.objects.filter(
+        person__company__in=request.companies, not_a_call=False
+    )
+
+
+# What the Yes/No filters on the page test.
+LOG_FLAGS = {
+    "rescheduled": ("Rescheduled", Q(rescheduled=True)),
+    "department_changed": ("Department changed", Q(department_changed=True)),
+    "discussed": ("Discuss with manager", Q(discussed=True)),
+    "whereabout": (
+        "Has a whereabout form",
+        ~Q(mini_whereabout={}) | ~Q(major_whereabout={}),
+    ),
+}
+# shortcut: the export holds the newest rows only, upgrade to a streamed file.
+EXPORT_LIMIT = 5000
+
+
+def _logs(request):
+    """Every call, newest first, for admins and supervisors; narrowed by the
+    from/to dates, caller, tag, type, flags and a name/phone search."""
     g = request.GET
     logs = (
-        CallLog.objects.filter(person__company__in=request.companies, not_a_call=False)
+        _log_base(request)
         .select_related("person", "caller")
         .order_by("-called_at", "-id")
     )
     start, end = parse_day(g.get("from")), parse_day(g.get("to"))
+    if start and end and start > end:
+        start, end = end, start
     if start:
         logs = logs.filter(called_at__date__gte=start)
     if end:
         logs = logs.filter(called_at__date__lte=end)
-    if g.get("caller", "").isdigit():
-        logs = logs.filter(caller_id=g["caller"])
+    caller = g.get("caller", "")
+    if caller.isascii() and caller.isdigit() and len(caller) < 10:
+        logs = logs.filter(caller_id=caller)
     if g.get("tag") in CallLog.Outcome.values:
         logs = logs.filter(outcome=g["tag"])
     if g.get("type") in CallLog.Kind.values:
         logs = logs.filter(call_type=g["type"])
+    for name, (_, cond) in LOG_FLAGS.items():
+        if g.get(name) == "1":
+            logs = logs.filter(cond)
     q = g.get("q", "").strip()
     if q:
-        logs = logs.filter(Q(person__name__icontains=q) | Q(person__phone__icontains=q))
+        match = Q(person__name__icontains=q) | Q(person__phone__icontains=q)
+        digits = phone_key(q)
+        if digits:
+            match |= Q(person__phone_key__contains=digits)
+        logs = logs.filter(match)
     return logs
 
 
@@ -304,11 +335,7 @@ def call_logs(request):
     # Callers who appear in the unfiltered list, so the dropdown stays in scope.
     callers = (
         get_user_model()
-        .objects.filter(
-            pk__in=CallLog.objects.filter(
-                person__company__in=request.companies, not_a_call=False
-            ).values("caller")
-        )
+        .objects.filter(pk__in=_log_base(request).values("caller"))
         .order_by("first_name", "username")
     )
     page = paginate(request, logs)
@@ -325,6 +352,8 @@ def call_logs(request):
             "callers": callers,
             "tags": CallLog.Outcome.choices,
             "kinds": CallLog.Kind.choices,
+            "flags": [(k, v[0]) for k, v in LOG_FLAGS.items()],
+            "export_limit": EXPORT_LIMIT,
             "f": request.GET,
         },
     )
@@ -333,7 +362,9 @@ def call_logs(request):
 @calling_section
 @require_GET
 def export_call_logs(request):
-    return call_logs_workbook(_logs(request))
+    g = request.GET
+    day = lambda k: parse_day(g.get(k))  # noqa: E731
+    return call_logs_workbook(_logs(request)[:EXPORT_LIMIT], day("from"), day("to"))
 
 
 @section

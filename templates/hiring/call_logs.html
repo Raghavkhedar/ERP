@@ -22,10 +22,13 @@
         <option value="">All types</option>
         {% for v, l in kinds %}<option value="{{ v }}"{% if f.type == v %} selected{% endif %}>{{ l }}</option>{% endfor %}
       </select>
+      {% for key, label in flags %}
+        <label class="flex items-center gap-1 text-gray-600"><input type="checkbox" name="{{ key }}" value="1"{% if key == "rescheduled" and f.rescheduled == "1" or key == "department_changed" and f.department_changed == "1" or key == "discussed" and f.discussed == "1" or key == "whereabout" and f.whereabout == "1" %} checked{% endif %}> {{ label }}</label>
+      {% endfor %}
       <button class="inline-flex h-9 items-center rounded-lg bg-blue-600 px-3 font-medium">Filter</button>
       <a href="{% url 'hiring:call_logs' %}" class="text-gray-500 hover:text-gray-900">Clear</a>
       {# formaction submits the same filters, so Export always matches the page #}
-      <button formaction="{% url 'hiring:call_logs_export' %}" class="text-gray-500 hover:text-gray-900">Export</button>
+      <button formaction="{% url 'hiring:call_logs_export' %}" title="Exports the newest {{ export_limit }} matching calls" class="text-gray-500 hover:text-gray-900">Export</button>
       <span class="text-gray-500">{{ page.paginator.count }} call{{ page.paginator.count|pluralize }}</span>
     </form>
     <table class="w-full min-w-[56rem] text-left text-sm">

@@ -200,9 +200,9 @@ def followups_workbook(followups):
     )
 
 
-def call_logs_workbook(logs):
+def call_logs_workbook(logs, start=None, end=None):
     return workbook_response(
-        "call-logs",
+        "-".join(["call-logs"] + [f"{d:%Y-%m-%d}" for d in (start, end) if d]),
         {
             "Call logs": (
                 (
