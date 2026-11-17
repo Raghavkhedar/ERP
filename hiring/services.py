@@ -1012,14 +1012,6 @@ def schedule_call(person, due, user):
         )
 
 
-def shift_calls(followups, day, reason, by=None):
-    """Move pending calls (not interviews, offers or joinings) to `day`. For the
-    days staff are out or the queue is too long to get through."""
-    return bulk_move(
-        followups.filter(status=FollowUp.Status.PENDING), day, reason, by=by
-    )
-
-
 RINGING = (FollowUp.Purpose.CALL, FollowUp.Purpose.INTERVIEW)
 
 

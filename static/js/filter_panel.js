@@ -7,6 +7,16 @@ document.addEventListener("alpine:init", () => {
       this.o = !this.o;
       if (this.o) this.$nextTick(() => this.place());
     },
+    // Reset every field in the panel and re-run the filter.
+    clear() {
+      this.$refs.panel.querySelectorAll("input, select").forEach((i) => {
+        if (i.type === "checkbox" || i.type === "radio") i.checked = false;
+        else if (i._flatpickr) i._flatpickr.clear();
+        else i.value = "";
+      });
+      this.o = false;
+      this.$el.closest("form").requestSubmit();
+    },
     place() {
       const gap = 8;
       const b = this.$refs.btn.getBoundingClientRect();
