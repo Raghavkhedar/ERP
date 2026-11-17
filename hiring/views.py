@@ -4,7 +4,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_GET, require_POST
 
-from core.access import require_section
+from core.access import companies_with_access, require_section
 
 from .export import STEPS, funnel_workbook, requisitions_workbook
 from .forms import CommentForm, JobPostForm, RequisitionForm
@@ -63,11 +63,9 @@ def export_requisitions(request):
 @section
 def new_requisition(request):
     _superadmin(request)
-    form = RequisitionForm(request.POST or None)
+    form = RequisitionForm(request.POST or None, companies=request.companies)
     if request.method == "POST" and form.is_valid():
-        # shortcut: all-companies view files it under the first company,
-        # add a company picker if that matters
-        form.instance.company = request.companies[0]
+        form.instance.company = form.cleaned_data.get("company") or request.companies[0]
         form.instance.opened_by = request.user
         save_requisition(form)
         messages.success(request, "Requisition released.")
@@ -83,6 +81,7 @@ def edit_requisition(request, pk):
         request.POST or None,
         instance=requisition,
         initial={"version": requisition.version},
+        companies=list(companies_with_access(request.user, "recruitment", "openings")),
     )
     if request.method == "POST" and form.is_valid():
         try:
