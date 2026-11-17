@@ -39,7 +39,10 @@ def bob(django_user_model):
 
 @pytest.fixture
 def next_week():
-    return timezone.localdate() + timedelta(days=7)
+    # Always a Monday a week or more ahead: tests shift it by a few days either
+    # way, and a date that moves with the weekday would sometimes hit a Sunday.
+    week = timezone.localdate() + timedelta(days=7)
+    return week + timedelta(days=-week.weekday() % 7)
 
 
 @pytest.fixture
