@@ -64,14 +64,37 @@ class RequisitionForm(forms.ModelForm):
         due = self.instance.needed_by
         if due:
             self.initial["days"] = max((due - timezone.localdate()).days, 0)
-        # Releasing in the all-companies view: say which company it belongs to.
+        # Which company it belongs to: asked when releasing in the all-companies
+        # view, and on edit so a wrong one can be fixed, but only until sourcing
+        # starts (sourced numbers and people cards are filed under the company).
         if companies and len(companies) > 1:
-            self.fields["company"] = forms.ModelChoiceField(
+            editing = bool(self.instance.pk)
+            field = forms.ModelChoiceField(
                 Company.objects.filter(pk__in=[c.pk for c in companies]),
-                empty_label="Choose a company",
+                empty_label=None if editing else "Choose a company",
+                required=not editing,
+                initial=self.instance.company if editing else None,
             )
+            field.disabled = editing and self.instance.sourced.exists()
+            self.fields["company"] = field
+
+    def clean_company(self):
+        company = self.cleaned_data["company"]
+        if not company:  # left out on edit: stays where it is
+            return self.instance.company
+        # shortcut: checked at save time without a row lock, so sourcing started
+        # in the same instant could slip through; lock if that ever matters.
+        if (
+            self.instance.pk
+            and company != self.instance.company
+            and self.instance.sourced.exists()
+        ):
+            raise forms.ValidationError("Sourcing has started, so it can't move.")
+        return company
 
     def save(self, commit=True):
+        if "company" in self.fields:
+            self.instance.company = self.cleaned_data["company"]
         # Only a changed number moves the date, so reopening never shifts it.
         if "days" in self.changed_data:
             days = self.cleaned_data["days"]

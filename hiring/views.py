@@ -4,7 +4,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_GET, require_POST
 
-from core.access import require_section
+from core.access import companies_with_access, require_section
 
 from .export import STEPS, funnel_workbook, requisitions_workbook
 from .forms import CommentForm, JobPostForm, RequisitionForm
@@ -81,6 +81,7 @@ def edit_requisition(request, pk):
         request.POST or None,
         instance=requisition,
         initial={"version": requisition.version},
+        companies=list(companies_with_access(request.user, "recruitment", "openings")),
     )
     if request.method == "POST" and form.is_valid():
         try:
