@@ -9,7 +9,7 @@ from core.models import AccessGrant, Company
 from people.models import Person
 
 from .models import FollowUp, Requisition
-from .services import shift_calls, source_number
+from .services import bulk_move, source_number
 
 pytestmark = pytest.mark.django_db
 
@@ -43,7 +43,7 @@ def test_shift_calls_keeps_time_and_counts_the_move(req, user):
         source_number(req, f"P{n}", f"99999 0000{n}", user)
     rows = FollowUp.objects.all()
     original = {f.pk: timezone.localtime(f.due).time() for f in rows}
-    assert shift_calls(rows, date(2031, 5, 1), "holiday") == 2
+    assert bulk_move(rows, date(2031, 5, 1), "holiday") == 2
     for f in FollowUp.objects.all():
         assert timezone.localtime(f.due).date() == date(2031, 5, 1)
         assert timezone.localtime(f.due).time() == original[f.pk]
@@ -56,27 +56,11 @@ def test_shift_leaves_interviews_alone(req, user):
         person=person, purpose="interview", due=timezone.now(), owner=user
     )
     assert (
-        shift_calls(
-            FollowUp.objects.filter(pk=interview.pk), date(2031, 5, 1), "holiday"
-        )
+        bulk_move(FollowUp.objects.filter(pk=interview.pk), date(2031, 5, 1), "holiday")
         == 0
     )
     interview.refresh_from_db()
     assert interview.reschedule_count == 0
-
-
-def test_shift_view_moves_a_group(req, user, client):
-    source_number(req, "Ravi", "99999 11111", user)
-    page = client.get(reverse("hiring:screening"))
-    assert b"Move all calls" in page.content
-    client.post(
-        reverse("hiring:shift"),
-        {"group": "later", "day": "2031-05-01", "reason": "shortage"},
-    )
-    due = FollowUp.objects.get().due
-    assert timezone.localtime(due).date() == date(2031, 5, 1)
-    client.post(reverse("hiring:shift"), {"group": "today", "day": "", "reason": ""})
-    assert timezone.localtime(FollowUp.objects.get().due).date() == date(2031, 5, 1)
 
 
 def test_call_alarm_rings_until_snoozed_or_done(req, user, client):
@@ -119,72 +103,78 @@ def test_only_the_owner_can_snooze(req, user, client, django_user_model, senken)
         snooze_call(call, other, "1h")
 
 
-def test_shift_preview_lists_who_moves_and_obeys_filters(req, user, client):
+def _all(**extra):
+    return {
+        "scope": "all",
+        "do": "move",
+        "day": "2031-05-01",
+        "reason": "shortage",
+        **extra,
+    }
+
+
+def _due(name):
+    return timezone.localtime(FollowUp.objects.get(person__name=name).due).date()
+
+
+def test_the_screening_page_has_one_set_of_move_options(req, user, client):
+    source_number(req, "Ravi", "99999 11111", user)
+    page = client.get(reverse("hiring:screening"))
+    assert b"Move all calls" not in page.content
+    assert b'name="when"' in page.content and b'name="priority"' in page.content
+
+
+def test_move_preview_lists_who_moves_and_writes_nothing(req, user, client):
+    user.is_superuser = True
+    user.save()
     source_number(req, "Ravi", "99999 11111", user)
     source_number(req, "Asha", "99999 22222", user)
     before = list(FollowUp.objects.order_by("pk").values_list("due", flat=True))
-    data = {"group": "all", "day": "2031-05-01", "reason": "shortage", "preview": "1"}
-    page = client.post(reverse("hiring:shift"), {**data, "filters": "q=Ravi"})
+    page = client.post(reverse("hiring:bulk"), _all(preview="1", filters="q=Ravi"))
     assert b"1 call will move" in page.content and b"Asha" not in page.content
     assert list(FollowUp.objects.order_by("pk").values_list("due", flat=True)) == before
-    client.post(
-        reverse("hiring:shift"),
-        {
-            "group": "all",
-            "day": "2031-05-01",
-            "reason": "shortage",
-            "filters": "q=Ravi",
-        },
-    )
-    moved = FollowUp.objects.get(person__name="Ravi")
-    assert timezone.localtime(moved.due).date() == date(2031, 5, 1)
-    assert timezone.localtime(
-        FollowUp.objects.get(person__name="Asha").due
-    ).date() != date(2031, 5, 1)
+    client.post(reverse("hiring:bulk"), _all(filters="q=Ravi"))
+    assert _due("Ravi") == date(2031, 5, 1) and _due("Asha") != date(2031, 5, 1)
 
 
-def test_shift_preview_narrows_by_preference_and_department(req, user, client):
+def test_preview_and_move_obey_the_preference_and_when_filters(req, user, client):
+    user.is_superuser = True
+    user.save()
     source_number(req, "Ravi", "99999 11111", user)
     source_number(req, "Asha", "99999 22222", user)
     Person.objects.filter(name="Ravi").update(priority="preferred")
-    data = {
-        "group": "all",
-        "day": "2031-05-01",
-        "reason": "shortage",
-        "preview": "1",
-        "refined": "1",
-        "priority": "preferred",
-    }
-    page = client.post(reverse("hiring:shift"), data)
+    page = client.post(
+        reverse("hiring:bulk"), _all(preview="1", filters="priority=preferred")
+    )
     assert b"1 call will move" in page.content and b"Asha" not in page.content
-    data["department"] = "no-such-department"
-    page = client.post(reverse("hiring:shift"), data)
+    page = client.post(
+        reverse("hiring:bulk"), _all(preview="1", filters="when=overdue")
+    )
     assert b"0 calls will move" in page.content
+    client.post(reverse("hiring:bulk"), _all(filters="priority=preferred"))
+    assert _due("Ravi") == date(2031, 5, 1) and _due("Asha") != date(2031, 5, 1)
 
 
-def test_confirming_with_the_popups_filters_replaces_the_page_filters(
-    req, user, client
-):
+def test_preview_of_ticked_calls_carries_their_ids_to_the_confirm(req, user, client):
+    user.is_superuser = True
+    user.save()
     source_number(req, "Ravi", "99999 11111", user)
     source_number(req, "Asha", "99999 22222", user)
-    Person.objects.filter(name="Ravi").update(priority="preferred")
-    client.post(
-        reverse("hiring:shift"),
-        {
-            "group": "all",
-            "day": "2031-05-01",
-            "reason": "shortage",
-            "filters": "q=Asha",  # the page's filter, replaced by the dialog's
-            "refined": "1",
-            "priority": "preferred",
-        },
+    ravi = FollowUp.objects.get(person__name="Ravi")
+    page = client.post(
+        reverse("hiring:bulk"),
+        _all(scope="ticked", preview="1", ids=[ravi.pk]),
     )
+    assert b"1 call will move" in page.content
+    assert f'name="ids" value="{ravi.pk}"'.encode() in page.content
 
-    def moved(name):
-        due = FollowUp.objects.get(person__name=name).due
-        return timezone.localtime(due).date() == date(2031, 5, 1)
 
-    assert moved("Ravi") and not moved("Asha")
+def test_preview_says_what_is_wrong_with_the_choices(req, user, client):
+    user.is_superuser = True
+    user.save()
+    source_number(req, "Ravi", "99999 11111", user)
+    page = client.post(reverse("hiring:bulk"), _all(preview="1", day=""))
+    assert b"Pick a day" in page.content
 
 
 def _next_sunday():
@@ -193,13 +183,11 @@ def _next_sunday():
 
 
 def test_a_sunday_is_refused_and_a_move_onto_one_lands_on_monday(req, user):
-    from .forms import BulkForm, RescheduleForm, ShiftForm
+    from .forms import BulkForm, RescheduleForm
     from .services import bulk_move
 
     sunday = _next_sunday()
     assert "due" in RescheduleForm({"due": sunday.isoformat(), "reason": "x"}).errors
-    shift = ShiftForm({"group": "all", "day": sunday.isoformat(), "reason": "x"})
-    assert "day" in shift.errors
     assert (
         "day"
         in BulkForm(

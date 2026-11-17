@@ -146,6 +146,10 @@ def followups_workbook(followups):
                     "Requisition",
                     "Rescheduled",
                     "Original due",
+                    "Lead received",
+                    "Department",
+                    "Last tag",
+                    "Status",
                 ),
                 [
                     (
@@ -157,6 +161,10 @@ def followups_workbook(followups):
                         str(f.requisition) if f.requisition else "",
                         f.reschedule_count,
                         f.original_due and timezone.localtime(f.original_due).date(),
+                        f.person.lead_received_on,
+                        f.dept_label,
+                        CallLog.Outcome(f.last_tag).label if f.last_tag else "",
+                        f.last_status or "",
                     )
                     for f in followups
                 ],

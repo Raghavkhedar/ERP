@@ -13,7 +13,7 @@ from people.models import Person
 
 from . import services as s
 from .excel import SheetError, import_numbers
-from .forms import BulkForm, JoinedForm, ReassignForm, RescheduleForm, ShiftForm
+from .forms import BulkForm, JoinedForm, ReassignForm, RescheduleForm
 from .interview_form import AssessmentForm, InterviewForm
 from .models import FollowUp, Interview, Requisition
 
@@ -480,8 +480,6 @@ def test_timeline_names_the_owner_at_the_time(django_user_model, interview, user
 def test_past_days_are_refused_for_moves_and_joining():
     yesterday = (timezone.localdate() - timedelta(days=1)).isoformat()
     assert not RescheduleForm({"due": yesterday, "reason": "holiday"}).is_valid()
-    shift = {"group": "all", "day": yesterday, "reason": "holiday"}
-    assert not ShiftForm(shift).is_valid()
     tomorrow = (timezone.localdate() + timedelta(days=1)).isoformat()
     assert (
         JoinedForm({"joined_on": tomorrow, "sim_allotted": "Yes"}).is_valid() is False

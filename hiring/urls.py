@@ -41,7 +41,6 @@ urlpatterns = [
         name="followup_snooze",
     ),
     path("screening/bulk/", screening_views.bulk, name="bulk"),
-    path("screening/shift/", screening_views.shift, name="shift"),
     path(
         "screening/export/", screening_views.export_followups, name="screening_export"
     ),

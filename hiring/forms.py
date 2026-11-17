@@ -322,24 +322,6 @@ class ScheduleCallForm(forms.Form):
         )
 
 
-class ShiftForm(forms.Form):
-    group = forms.ChoiceField(
-        choices=[(g, g) for g in ("all", "overdue", "today", "later")]
-    )
-    day = forms.DateField(
-        label="Move to",
-        widget=forms.DateInput(
-            attrs={"type": "date", "data-no-sunday": ""}, format="%Y-%m-%d"
-        ),
-    )
-    reason = forms.ChoiceField(choices=FollowUp.Reason.choices)
-
-    def clean_day(self):
-        if self.cleaned_data["day"] < timezone.localdate():
-            raise forms.ValidationError("Pick a day that is not before today.")
-        return no_sunday(self.cleaned_data["day"])
-
-
 class ReassignForm(forms.Form):
     owner = forms.ModelChoiceField(get_user_model().objects.none(), label="Give to")
 

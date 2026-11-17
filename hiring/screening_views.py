@@ -2,10 +2,11 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
 from django.db.models import Case, Count, Exists, F, OuterRef, Q, Subquery, Value, When
-from django.http import JsonResponse, QueryDict
+from django.http import HttpResponse, JsonResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.html import format_html
 from django.views.decorators.http import require_GET, require_POST
 
 from core.access import require_section
@@ -24,7 +25,6 @@ from .forms import (
     ReassignForm,
     RescheduleForm,
     ScheduleCallForm,
-    ShiftForm,
 )
 from .models import CallLog, FollowUp, Interview, Offer, Requisition
 from .services import (
@@ -37,7 +37,6 @@ from .services import (
     reassign,
     reschedule,
     schedule_call,
-    shift_calls,
     snooze_call,
     visible_followups,
 )
@@ -79,17 +78,7 @@ STAGES = [
     ("accepted", "Accepted"),
     ("declined", "Declined"),
 ]
-SHIFT_FILTERS = (
-    "q",
-    "due_from",
-    "due_to",
-    "stage",
-    "tag",
-    "department",
-    "sub",
-    "owner",
-    "priority",
-)
+WHENS = [("overdue", "Overdue"), ("today", "Due today"), ("later", "Later")]
 TAGS = [*CallLog.Outcome.choices, ("none", "Not called yet")]
 
 
@@ -127,6 +116,14 @@ def _sheet(rows, get):
         rows = rows.filter(due__date__gte=day)
     if day := parse_day(get.get("due_to")):
         rows = rows.filter(due__date__lte=day)
+    today = timezone.localdate()
+    when = get.get("when")
+    if when == "overdue":
+        rows = rows.filter(due__date__lt=today)
+    elif when == "today":
+        rows = rows.filter(due__date=today)
+    elif when == "later":
+        rows = rows.filter(due__date__gt=today)
     if purposes := get.getlist("purpose"):
         rows = rows.filter(purpose__in=purposes)
     if stages := get.getlist("stage"):
@@ -144,6 +141,14 @@ def _sheet(rows, get):
         rows = rows.filter(person__priority__in=priorities)
     if get.get("owner", "").isdigit():
         rows = rows.filter(owner_id=get["owner"])
+    if phone := get.get("phone", "").strip():
+        rows = rows.filter(person__phone__icontains=phone)
+    if status := get.get("status", "").strip():
+        rows = rows.filter(last_status__icontains=status)
+    if day := parse_day(get.get("lead_from")):
+        rows = rows.filter(person__lead_received_on__gte=day)
+    if day := parse_day(get.get("lead_to")):
+        rows = rows.filter(person__lead_received_on__lte=day)
     return rows
 
 
@@ -227,7 +232,9 @@ def screening(request):
             "reasons": FollowUp.Reason.choices,
             "today": timezone.localdate().isoformat(),
             "filtered": any(request.GET.values()),
-            "shift_form": ShiftForm(),
+            "stages": STAGES,
+            "priorities": Person.Priority.choices,
+            "whens": WHENS,
         },
     )
 
@@ -243,30 +250,47 @@ def _mine(request):
     )
     return (
         visible_followups(request.user, request.companies)
-        .filter(owner=request.user)
+        .filter(owner=request.user, due__date=timezone.localdate())
         .exclude(Exists(called))
+        # Interview and offer calls first, normal follow-ups last.
+        .annotate(
+            rank=Case(
+                When(purpose__in=["interview", "offer"], then=0),
+                default=1,
+            )
+        )
+        .order_by("rank", "due", "id")
     )
 
 
 @calling_section
 def calling(request):
     tags = dict(TAGS)
-    page = paginate(request, _sheet(_mine(request), QueryDict()))
+    page = paginate(request, _sheet(_mine(request), request.GET))
     rows = list(page)
     for f in rows:
         f.tag_label = tags.get(f.last_tag or "none")
-        f.overdue = _day(f) < timezone.localdate()
     return render(
         request,
         "hiring/calling.html",
-        {"rows": rows, "page": page, "can_see_logs": _can_reassign(request.user)},
+        {
+            "rows": rows,
+            "page": page,
+            "can_see_logs": _can_reassign(request.user),
+            "get": request.GET,
+            "purposes": FollowUp.Purpose.choices,
+            "tags": TAGS,
+            "dept_data": _dept_data(_mine(request), request.GET),
+            "filters": request.GET.urlencode(),
+            "filtered": any(request.GET.values()),
+        },
     )
 
 
 @calling_section
 @require_GET
 def export_calling(request):
-    return followups_workbook(_mine(request))
+    return followups_workbook(_sheet(_mine(request), request.GET))
 
 
 def _log_base(request):
@@ -377,7 +401,10 @@ def bulk(request):
     back = reverse("hiring:screening") + (f"?{filters.urlencode()}" if filters else "")
     form = BulkForm(request.POST, companies=request.companies)
     if not form.is_valid():
-        messages.error(request, next(iter(form.errors.values()))[0])
+        error = next(iter(form.errors.values()))[0]
+        if "preview" in request.POST:
+            return HttpResponse(format_html('<p class="text-red-600">{}</p>', error))
+        messages.error(request, error)
         return redirect(back)
     d = form.cleaned_data
     seen = visible_followups(request.user, request.companies)
@@ -387,10 +414,25 @@ def bulk(request):
         ids = [int(i) for i in request.POST.getlist("ids") if i.isdigit()]
         seen = seen.filter(pk__in=ids)
     pks = list(seen.order_by().values_list("pk", flat=True))
+    rows = FollowUp.objects.filter(pk__in=pks, status=FollowUp.Status.PENDING)
+    if "preview" in request.POST:
+        # The confirm dialog: who would move, nothing written yet.
+        calls = rows.filter(purpose=FollowUp.Purpose.CALL).order_by("due", "pk")
+        return render(
+            request,
+            "hiring/_bulk_preview.html",
+            {
+                "rows": calls.select_related("person", "owner")[:100],
+                "count": calls.count(),
+                "skipped": len(pks) - calls.count(),
+                "d": d,
+                "ids": pks if d["scope"] == "ticked" else [],
+                "filters": filters.urlencode(),
+            },
+        )
     if not pks:
         messages.error(request, "Nothing is selected.")
         return redirect(back)
-    rows = FollowUp.objects.filter(pk__in=pks, status=FollowUp.Status.PENDING)
     if d["do"] == "assign":
         n = bulk_reassign(rows, d["owner"], request.user)
         messages.success(
@@ -416,66 +458,10 @@ def bulk(request):
 
 
 @section
-@require_POST
-def shift(request):
-    """Move the calls matching the page's filters (and a due group) to another day.
-    With `preview` it only lists who would move, for the confirm dialog."""
-    form = ShiftForm(request.POST)
-    if not form.is_valid():
-        messages.error(request, "Pick a day and a reason to move them.")
-        return redirect("hiring:screening")
-    d = form.cleaned_data
-    filters = QueryDict(request.POST.get("filters", ""), mutable=True)
-    if "refined" in request.POST:  # the dialog's own filters replace the page's
-        for key in SHIFT_FILTERS:
-            filters.setlist(key, [v for v in request.POST.getlist(key) if v])
-    today = timezone.localdate()
-    base = visible_followups(request.user, request.companies)
-    rows = _sheet(base, filters).filter(purpose=FollowUp.Purpose.CALL)
-    if d["group"] == "overdue":
-        rows = rows.filter(due__date__lt=today)
-    elif d["group"] == "today":
-        rows = rows.filter(due__date=today)
-    elif d["group"] == "later":
-        rows = rows.filter(due__date__gt=today)
-    rows = rows.order_by("due", "pk")
-    if "preview" in request.POST:
-        return render(
-            request,
-            "hiring/_shift_preview.html",
-            {
-                "rows": rows[:100],
-                "count": rows.count(),
-                "d": d,
-                "filters": filters.urlencode(),
-                "get": filters,
-                "dept_data": _dept_data(base, filters),
-                "owners": get_user_model().objects.filter(pk__in=base.values("owner")),
-                "tags": TAGS,
-                "stages": STAGES,
-                "priorities": Person.Priority.choices,
-                "groups": [
-                    ("all", "Any day"),
-                    ("overdue", "Overdue"),
-                    ("today", "Due today"),
-                    ("later", "Later"),
-                ],
-            },
-        )
-    back = reverse("hiring:screening") + (f"?{filters.urlencode()}" if filters else "")
-    try:
-        moved = shift_calls(rows, d["day"], d["reason"], by=request.user)
-    except FollowUpError as exc:
-        messages.error(request, str(exc))
-    else:
-        messages.success(request, f"Moved {moved} call{'s' if moved != 1 else ''}.")
-    return redirect(back)
-
-
-@section
 @require_GET
 def export_followups(request):
-    return followups_workbook(visible_followups(request.user, request.companies))
+    rows = visible_followups(request.user, request.companies)
+    return followups_workbook(_sheet(rows, request.GET))
 
 
 def _detail(request, followup, **forms):

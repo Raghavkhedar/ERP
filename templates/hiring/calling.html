@@ -1,25 +1,65 @@
 {% extends "people/base_people.html" %}
+{% load static %}
 
 {% block title %}Calling · Senken ERP{% endblock %}
 {% block heading %}Calling{% endblock %}
-{% block actions %}<a href="{% url 'hiring:call_new' %}" aria-label="Log an incoming call" title="Log an incoming call" class="inline-flex size-10 items-center justify-center rounded-lg bg-blue-600 text-2xl font-medium leading-none">+</a>{% if can_see_logs %}<a href="{% url 'hiring:call_logs' %}" class="inline-flex h-10 items-center rounded-lg bg-blue-600 px-3 font-medium">Call logs</a>{% endif %}<a href="{% url 'hiring:calling_export' %}" class="text-gray-500 hover:text-gray-900">Export</a>{% endblock %}
+{% block actions %}<a href="{% url 'hiring:call_new' %}" aria-label="Log an incoming call" title="Log an incoming call" class="inline-flex size-10 items-center justify-center rounded-lg bg-blue-600 text-2xl font-medium leading-none">+</a>{% if can_see_logs %}<a href="{% url 'hiring:call_logs' %}" class="inline-flex h-10 items-center rounded-lg bg-blue-600 px-3 font-medium">Call logs</a>{% endif %}<a href="{% url 'hiring:calling_export' %}?{{ filters }}" class="text-gray-500 hover:text-gray-900">Export</a>{% endblock %}
 
 {% block page %}
-  <div class="overflow-x-auto rounded-xl border border-ink bg-surface p-4 shadow-xl">
-    <p class="mb-2 text-sm text-gray-500">{{ page.paginator.count }} call{{ page.paginator.count|pluralize }} to make</p>
-    <table class="w-full min-w-[52rem] text-left text-sm">
+  <script src="{% static 'js/filter_panel.js' %}"></script>
+  <form method="get" x-data="{ v: 0, has(...n) { this.v; const f = new FormData(this.$el.closest('form')); return n.some(k => f.getAll(k).some(x => x)) } }"
+        @change="v++" @submit="v++" class="overflow-x-auto rounded-xl border border-ink bg-surface p-4 shadow-xl lg:overflow-visible">
+    <p class="mb-2 text-sm text-gray-500">{{ page.paginator.count }} call{{ page.paginator.count|pluralize }} to make today{% if filtered %} · <a href="{% url 'hiring:calling' %}" class="underline">Clear filters</a>{% endif %}</p>
+    <table class="w-full min-w-[56rem] text-left text-sm">
       <thead>
         <tr class="bg-ink text-white">
-          <th class="p-2">#</th><th class="p-2">Name</th><th class="p-2">Phone</th><th class="p-2">Department</th>
-          <th class="p-2">Call intention</th><th class="p-2">Last tag</th><th class="p-2">Status</th><th class="p-2"></th>
+          <th class="p-2">#</th>
+          <th class="p-2"><div x-data="filterPanel" class="relative" @click.outside="o = false" @scroll.window="o = false" @resize.window="o = false" @keydown.escape="o = false">Name <button type="button" x-ref="btn" @click="toggle()" :aria-expanded="o" class="fbtn" :class="has('q') && 'is-on'" aria-label="Filter by name">▾</button>
+            <div x-ref="panel" x-show="o" x-cloak class="popover fields w-60">
+              <p class="popover-title">Name</p>
+              <input type="search" name="q" value="{{ get.q }}" placeholder="Search name" class="w-full">
+              <div class="popover-foot"><button type="button" class="clear" @click="clear()">Clear</button><button type="submit" @click="o = false" class="h-9 rounded-lg bg-blue-600 px-4 text-sm">Apply</button></div></div></div></th>
+          <th class="p-2"><div x-data="filterPanel" class="relative" @click.outside="o = false" @scroll.window="o = false" @resize.window="o = false" @keydown.escape="o = false">Phone <button type="button" x-ref="btn" @click="toggle()" :aria-expanded="o" class="fbtn" :class="has('phone') && 'is-on'" aria-label="Filter by phone">▾</button>
+            <div x-ref="panel" x-show="o" x-cloak class="popover fields w-60">
+              <p class="popover-title">Phone</p>
+              <input type="search" name="phone" value="{{ get.phone }}" placeholder="Search number" class="w-full">
+              <div class="popover-foot"><button type="button" class="clear" @click="clear()">Clear</button><button type="submit" @click="o = false" class="h-9 rounded-lg bg-blue-600 px-4 text-sm">Apply</button></div></div></div></th>
+          <th class="p-2"><div x-data="filterPanel" class="relative" @click.outside="o = false" @scroll.window="o = false" @resize.window="o = false" @keydown.escape="o = false">Lead received <button type="button" x-ref="btn" @click="toggle()" :aria-expanded="o" class="fbtn" :class="has('lead_from', 'lead_to') && 'is-on'" aria-label="Filter by lead received">▾</button>
+            <div x-ref="panel" x-show="o" x-cloak class="popover fields w-60">
+              <p class="popover-title">Lead received</p>
+              <label class="block text-sm">From <input type="date" name="lead_from" value="{{ get.lead_from }}" class="mt-1 w-full"></label>
+              <label class="mt-2 block text-sm">To <input type="date" name="lead_to" value="{{ get.lead_to }}" class="mt-1 w-full"></label>
+              <div class="popover-foot"><button type="button" class="clear" @click="clear()">Clear</button><button type="submit" @click="o = false" class="h-9 rounded-lg bg-blue-600 px-4 text-sm">Apply</button></div></div></div></th>
+          <th class="p-2"><div x-data="filterPanel" class="relative" @click.outside="o = false" @scroll.window="o = false" @resize.window="o = false" @keydown.escape="o = false">Department <button type="button" x-ref="btn" @click="toggle()" :aria-expanded="o" class="fbtn" :class="has('department') && 'is-on'" aria-label="Filter by department">▾</button>
+            <div x-ref="panel" x-show="o" x-cloak class="popover fields w-60">
+              <p class="popover-title">Department</p>
+              {% for value, name in dept_data.departments %}<label class="opt"><input type="checkbox" name="department" value="{{ value }}" {% if value in get.department %}checked{% endif %}> {{ name }}</label>{% endfor %}
+              <div class="popover-foot"><button type="button" class="clear" @click="clear()">Clear</button><button type="submit" @click="o = false" class="h-9 rounded-lg bg-blue-600 px-4 text-sm">Apply</button></div></div></div></th>
+          <th class="p-2"><div x-data="filterPanel" class="relative" @click.outside="o = false" @scroll.window="o = false" @resize.window="o = false" @keydown.escape="o = false">Call intention <button type="button" x-ref="btn" @click="toggle()" :aria-expanded="o" class="fbtn" :class="has('purpose') && 'is-on'" aria-label="Filter by call intention">▾</button>
+            <div x-ref="panel" x-show="o" x-cloak class="popover fields w-60">
+              <p class="popover-title">Call intention</p>
+              {% for value, name in purposes %}<label class="opt"><input type="checkbox" name="purpose" value="{{ value }}" {% if value in get.purpose %}checked{% endif %}> {{ name }}</label>{% endfor %}
+              <div class="popover-foot"><button type="button" class="clear" @click="clear()">Clear</button><button type="submit" @click="o = false" class="h-9 rounded-lg bg-blue-600 px-4 text-sm">Apply</button></div></div></div></th>
+          <th class="p-2"><div x-data="filterPanel" class="relative" @click.outside="o = false" @scroll.window="o = false" @resize.window="o = false" @keydown.escape="o = false">Last tag <button type="button" x-ref="btn" @click="toggle()" :aria-expanded="o" class="fbtn" :class="has('tag') && 'is-on'" aria-label="Filter by last tag">▾</button>
+            <div x-ref="panel" x-show="o" x-cloak class="popover fields w-60">
+              <p class="popover-title">Last tag</p>
+              {% for value, name in tags %}<label class="opt"><input type="checkbox" name="tag" value="{{ value }}" {% if value in get.tag %}checked{% endif %}> {{ name }}</label>{% endfor %}
+              <div class="popover-foot"><button type="button" class="clear" @click="clear()">Clear</button><button type="submit" @click="o = false" class="h-9 rounded-lg bg-blue-600 px-4 text-sm">Apply</button></div></div></div></th>
+          <th class="p-2"><div x-data="filterPanel" class="relative" @click.outside="o = false" @scroll.window="o = false" @resize.window="o = false" @keydown.escape="o = false">Status <button type="button" x-ref="btn" @click="toggle()" :aria-expanded="o" class="fbtn" :class="has('status') && 'is-on'" aria-label="Filter by status">▾</button>
+            <div x-ref="panel" x-show="o" x-cloak class="popover fields w-60">
+              <p class="popover-title">Status</p>
+              <input type="search" name="status" value="{{ get.status }}" placeholder="Search status" class="w-full">
+              <div class="popover-foot"><button type="button" class="clear" @click="clear()">Clear</button><button type="submit" @click="o = false" class="h-9 rounded-lg bg-blue-600 px-4 text-sm">Apply</button></div></div></div></th>
+          <th class="p-2"></th>
         </tr>
       </thead>
       <tbody>
         {% for f in rows %}
           <tr class="border-b border-gray-100">
             <td class="p-2 tabular-nums text-gray-500">{{ page.start_index|add:forloop.counter0 }}</td>
-            <td class="p-2 font-medium">{{ f.person.name }}<br><span class="font-normal {% if f.overdue %}text-red-600{% else %}text-gray-500{% endif %}">{{ f.due|date:"d/m/Y" }}</span></td>
+            <td class="p-2 font-medium">{{ f.person.name }}</td>
             <td class="p-2">{{ f.person.phone }}</td>
+            <td class="p-2 whitespace-nowrap">{{ f.person.lead_received_on|date:"d/m/Y"|default:"—" }}</td>
             <td class="p-2">{{ f.dept_label|default:"—" }}</td>
             <td class="p-2">{{ f.intention }}</td>
             <td class="p-2">{{ f.tag_label }}</td>
@@ -27,10 +67,10 @@
             <td class="p-2 text-right"><a href="{% url 'hiring:followup' f.pk %}" class="inline-flex h-9 items-center rounded-lg bg-blue-600 px-3 font-medium">Call</a></td>
           </tr>
         {% empty %}
-          <tr><td colspan="8" class="p-6 text-gray-500">No calls left for today.</td></tr>
+          <tr><td colspan="9" class="p-6 text-gray-500">{% if filtered %}No calls match those filters.{% else %}No calls left for today.{% endif %}</td></tr>
         {% endfor %}
       </tbody>
     </table>
     {% include "_pager.html" %}
-  </div>
+  </form>
 {% endblock %}

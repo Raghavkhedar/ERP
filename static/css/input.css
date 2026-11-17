@@ -478,3 +478,124 @@ html.doors-shut .doors {
 }
 .flatpickr-day.selected, .flatpickr-day.selected:hover { background: var(--color-pop); border-color: var(--color-ink); color: var(--color-ink); }
 .flatpickr-day.today { border-color: var(--color-ink); }
+
+/* Filter popovers: an ink-outlined panel with a hard shadow, roomy rows, a Clear/Apply footer. */
+.popover {
+  position: fixed;
+  z-index: 20;
+  max-height: 20rem;
+  overflow: auto;
+  padding: 0.5rem;
+  border: 2px solid var(--color-ink);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  box-shadow: 4px 4px 0 var(--color-ink);
+}
+
+.popover-title {
+  margin-bottom: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  font-weight: 800;
+}
+
+.opt {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.25rem;
+  padding: 0 0.5rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color 80ms linear;
+}
+
+.opt:hover {
+  background: var(--color-canvas);
+}
+
+.opt:has(:checked) {
+  background: var(--color-pop);
+  font-weight: 600;
+}
+
+.opt input {
+  accent-color: var(--color-ink);
+}
+
+.popover-foot {
+  position: sticky;
+  bottom: -0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0.5rem -0.5rem -0.5rem;
+  padding: 0.5rem;
+  border-top: 1px solid var(--color-gray-100);
+  background: var(--color-surface);
+}
+
+.popover-foot .clear {
+  min-height: 2.25rem;
+  padding: 0 0.5rem;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  text-decoration: underline;
+}
+
+.popover-foot .clear:hover {
+  background: var(--color-canvas);
+}
+
+/* The filter buttons: caret on the table heads, chips above the table. */
+.fbtn {
+  min-width: 1.5rem;
+  border-radius: var(--radius-md);
+  color: var(--color-pop);
+}
+
+.fbtn:hover {
+  background: rgb(255 255 255 / 0.15);
+}
+
+.fbtn.is-on {
+  background: var(--color-pop);
+  color: var(--color-ink);
+}
+
+.chip {
+  height: 2.25rem;
+  padding: 0 0.75rem;
+  border: 2px solid var(--color-ink);
+  border-radius: var(--radius-lg);
+  font-size: 0.875rem;
+  transition: background-color 80ms linear;
+}
+
+.chip:hover:not(.bg-pop) {
+  background: var(--color-canvas);
+}
+
+/* Yellow rings on the ink table head; ink rings on the white panels, where yellow would vanish. */
+:is(.fbtn, .chip):focus-visible {
+  outline: 3px solid var(--color-pop);
+  outline-offset: 1px;
+}
+
+.popover :focus-visible,
+.opt:has(:focus-visible) {
+  outline: 3px solid var(--color-ink);
+  outline-offset: 1px;
+}
+
+.chip:focus-visible {
+  outline-color: var(--color-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .opt,
+  .chip {
+    transition: none;
+  }
+}
