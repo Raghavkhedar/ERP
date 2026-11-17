@@ -11,6 +11,7 @@ document.addEventListener("alpine:init", () => {
     clear() {
       this.$refs.panel.querySelectorAll("input, select").forEach((i) => {
         if (i.type === "checkbox" || i.type === "radio") i.checked = false;
+        else if (i._flatpickr) i._flatpickr.clear();
         else i.value = "";
       });
       this.o = false;

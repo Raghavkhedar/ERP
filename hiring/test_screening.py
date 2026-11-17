@@ -390,9 +390,16 @@ def test_bulk_needs_what_the_action_needs_and_a_supervisor(client, todo, caller,
         reverse("hiring:bulk"), {**base, "do": "assign", "owner": caller.pk}
     )
     assert r.status_code == 403
-    assert b"bulk-form" not in client.get(reverse("hiring:screening")).content
+    # ...but may move their own calls, and sees no "Give to" box
+    page = client.get(reverse("hiring:screening")).content
+    assert b"bulk-form" in page and b"Give to" not in page
+    client.post(
+        reverse("hiring:bulk"),
+        {**base, "do": "move", "day": "2099-01-05", "reason": "holiday"},
+    )
+    assert FollowUp.objects.get().reschedule_count == 1
     client.force_login(boss)
-    assert b"bulk-form" in client.get(reverse("hiring:screening")).content
+    assert b"Give to" in client.get(reverse("hiring:screening")).content
 
 
 def test_whereabouts_are_saved_with_the_call_and_sent_to_the_supervisor(
@@ -675,3 +682,22 @@ def test_calling_is_today_only_interviews_and_offers_first_and_filters(
     assert client.get(url, {"phone": "no-match"}).context["rows"] == []
     day = timezone.localdate().isoformat()
     assert len(client.get(url, {"lead_from": day, "lead_to": day}).context["rows"]) == 2
+
+
+def test_calling_leaves_missed_calls_off_and_phone_filter_ignores_spacing(
+    client, todo, caller
+):
+    FollowUp.objects.update(due=timezone.now() - timedelta(days=1))
+    url = reverse("hiring:calling")
+    assert client.get(url).context["rows"] == []
+    FollowUp.objects.update(due=timezone.now())
+    todo.person.phone = "+91 99999 11111"
+    todo.person.save()
+    assert len(client.get(url, {"phone": "9999911111"}).context["rows"]) == 1
+
+
+def test_export_survives_an_unknown_last_tag(client, todo, caller):
+    log_call(todo, "reg_touch", caller, notes="x", next_due=tomorrow())
+    CallLog.objects.update(outcome="retired_tag")
+    assert client.get(reverse("hiring:calling_export")).status_code == 200
+    assert client.get(reverse("hiring:screening_export")).status_code == 200

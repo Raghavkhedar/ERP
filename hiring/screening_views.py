@@ -142,7 +142,10 @@ def _sheet(rows, get):
     if get.get("owner", "").isdigit():
         rows = rows.filter(owner_id=get["owner"])
     if phone := get.get("phone", "").strip():
-        rows = rows.filter(person__phone__icontains=phone)
+        match = Q(person__phone__icontains=phone)
+        if digits := phone_key(phone):  # spaces and +91 differ between spellings
+            match |= Q(person__phone_key__contains=digits)
+        rows = rows.filter(match)
     if status := get.get("status", "").strip():
         rows = rows.filter(last_status__icontains=status)
     if day := parse_day(get.get("lead_from")):
@@ -223,20 +226,32 @@ def screening(request):
             "get": request.GET,
             "picked": {k: request.GET.getlist(k) for k in ("purpose", "tag", "stage")},
             "dept_data": _dept_data(base, request.GET),
-            "can_bulk": _can_reassign(request.user),
+            "can_bulk": True,
+            "can_assign": _can_reassign(request.user),
             "page_ids": [str(f.pk) for f in rows],
-            "filters": request.GET.urlencode(),
+            "filters": _export_qs(request.GET),
             "assignees": ReassignForm(companies=request.companies)
             .fields["owner"]
             .queryset,
             "reasons": FollowUp.Reason.choices,
             "today": timezone.localdate().isoformat(),
-            "filtered": any(request.GET.values()),
+            "filtered": _filtered(request.GET),
             "stages": STAGES,
             "priorities": Person.Priority.choices,
             "whens": WHENS,
         },
     )
+
+
+def _filtered(get):
+    return any(v for k, v in get.items() if k != "page")
+
+
+def _export_qs(get):
+    """The filters without the page number: what the Export link carries."""
+    get = get.copy()
+    get.pop("page", None)
+    return get.urlencode()
 
 
 def _mine(request):
@@ -281,8 +296,8 @@ def calling(request):
             "purposes": FollowUp.Purpose.choices,
             "tags": TAGS,
             "dept_data": _dept_data(_mine(request), request.GET),
-            "filters": request.GET.urlencode(),
-            "filtered": any(request.GET.values()),
+            "filters": _export_qs(request.GET),
+            "filtered": _filtered(request.GET),
         },
     )
 
@@ -395,8 +410,6 @@ def export_call_logs(request):
 @require_POST
 def bulk(request):
     """Assign, or move the date of, the ticked follow-ups or all a filter matches."""
-    if not _can_reassign(request.user):
-        raise PermissionDenied
     filters = QueryDict(request.POST.get("filters", ""))
     back = reverse("hiring:screening") + (f"?{filters.urlencode()}" if filters else "")
     form = BulkForm(request.POST, companies=request.companies)
@@ -407,24 +420,32 @@ def bulk(request):
         messages.error(request, error)
         return redirect(back)
     d = form.cleaned_data
+    # visible_followups already limits a recruiter to their own calls, so moving
+    # needs no extra right; handing calls to someone else does.
+    if d["do"] == "assign" and not _can_reassign(request.user):
+        raise PermissionDenied
+    if "preview" in request.POST and d["do"] != "move":
+        return HttpResponse(status=400)
     seen = visible_followups(request.user, request.companies)
     if d["scope"] == "all":
         seen = _sheet(seen, filters)
     else:
         ids = [int(i) for i in request.POST.getlist("ids") if i.isdigit()]
         seen = seen.filter(pk__in=ids)
+    # shortcut: ids are loaded into Python; fine at a few thousand follow-ups.
     pks = list(seen.order_by().values_list("pk", flat=True))
     rows = FollowUp.objects.filter(pk__in=pks, status=FollowUp.Status.PENDING)
     if "preview" in request.POST:
         # The confirm dialog: who would move, nothing written yet.
         calls = rows.filter(purpose=FollowUp.Purpose.CALL).order_by("due", "pk")
+        count = calls.count()
         return render(
             request,
             "hiring/_bulk_preview.html",
             {
                 "rows": calls.select_related("person", "owner")[:100],
-                "count": calls.count(),
-                "skipped": len(pks) - calls.count(),
+                "count": count,
+                "skipped": len(pks) - count,
                 "d": d,
                 "ids": pks if d["scope"] == "ticked" else [],
                 "filters": filters.urlencode(),

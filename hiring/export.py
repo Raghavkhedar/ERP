@@ -163,7 +163,7 @@ def followups_workbook(followups):
                         f.original_due and timezone.localtime(f.original_due).date(),
                         f.person.lead_received_on,
                         f.dept_label,
-                        CallLog.Outcome(f.last_tag).label if f.last_tag else "",
+                        dict(CallLog.Outcome.choices).get(f.last_tag, f.last_tag or ""),
                         f.last_status or "",
                     )
                     for f in followups
