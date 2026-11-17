@@ -529,7 +529,7 @@ def test_tbd_ignores_a_stale_date(client, todo):
     assert r.status_code == 302 and CallLog.objects.count() == 1
 
 
-def test_call_logs_show_a_days_calls_to_supervisors_only(
+def test_call_logs_list_all_calls_newest_first_to_supervisors_only(
     client, django_user_model, senken, todo, caller
 ):
     log_call(todo, user=caller, **{"outcome": "reg_touch", "notes": "spoke"})
@@ -551,14 +551,23 @@ def test_call_logs_show_a_days_calls_to_supervisors_only(
 
     client.force_login(boss)
     body = client.get(url).content.decode()
-    assert "spoke" in body and "old call" not in body
+    assert "spoke" in body and "old call" in body
+    assert body.index("spoke") < body.index("old call")  # newest first
     assert "Call logs" in client.get(reverse("hiring:calling")).content.decode()
     past = (timezone.localdate() - timedelta(days=3)).isoformat()
-    assert "old call" in client.get(url, {"day": past}).content.decode()
+    narrowed = client.get(url, {"from": past, "to": past}).content.decode()
+    assert "old call" in narrowed and "spoke" not in narrowed
+    only = client.get(url, {"q": "nobody"}).content.decode()
+    assert "spoke" not in only and "old call" not in only
+    assert (
+        "spoke"
+        in client.get(url, {"caller": caller.pk, "tag": "reg_touch"}).content.decode()
+    )
+    assert "spoke" not in client.get(url, {"tag": "reg_ff"}).content.decode()
     export = client.get(reverse("hiring:call_logs_export"))
     assert export.status_code == 200
     rows = list(load_workbook(BytesIO(export.content)).active.values)
-    assert [r[2] for r in rows[1:]] == ["Asha"]
+    assert [r[2] for r in rows[1:]] == ["Asha", "Asha"]
 
 
 def test_call_logs_skip_other_companies_and_non_calls(
@@ -588,6 +597,55 @@ def test_call_logs_skip_other_companies_and_non_calls(
     assert "real call" in body
     assert "elsewhere" not in body and "bulk move" not in body
 
-    day = "2026-02-03"
-    export = client.get(reverse("hiring:call_logs_export"), {"day": day})
-    assert "call-logs-2026-02-03" in export["Content-Disposition"]
+    export = client.get(reverse("hiring:call_logs_export"))
+    assert "call-logs" in export["Content-Disposition"]
+
+
+def test_call_log_filters_flags_search_and_bad_input(
+    client, django_user_model, senken, todo, caller
+):
+    boss = member(django_user_model, senken, "Boss")
+    caller.supervisor = boss
+    caller.save()
+    person = todo.person
+    person.phone = "+91 98765 43210"
+    person.save()
+    mk = lambda notes, **kw: CallLog.objects.create(  # noqa: E731
+        person=person, caller=caller, outcome="reg_touch", notes=notes, **kw
+    )
+    mk("nt-plain")
+    mk("nt-moved", rescheduled=True)
+    mk("nt-dept", department_changed=True)
+    mk("nt-talk", discussed=True)
+    mk("nt-form", mini_whereabout={"a": "b"}, call_type="inbound")
+    client.force_login(boss)
+    url = reverse("hiring:call_logs")
+
+    def notes(**params):
+        body = client.get(url, params).content.decode()
+        return {
+            n
+            for n in ("nt-plain", "nt-moved", "nt-dept", "nt-talk", "nt-form")
+            if n in body
+        }
+
+    assert notes(rescheduled="1") == {"nt-moved"}
+    assert notes(department_changed="1") == {"nt-dept"}
+    assert notes(discussed="1") == {"nt-talk"}
+    assert notes(whereabout="1") == {"nt-form"}
+    assert notes(type="inbound") == {"nt-form"}
+    assert len(notes(q="9876543210")) == 5  # phone matches across spellings
+    assert notes(q="nobody") == set()
+    # bad values are ignored, never a 500; an inverted range is swapped
+    for bad in ("²", "9" * 30, "x"):
+        assert client.get(url, {"caller": bad}).status_code == 200
+    today = timezone.localdate()
+    swapped = {"from": today.isoformat(), "to": (today - timedelta(days=5)).isoformat()}
+    assert len(notes(**swapped)) == 5
+    # the export honours the filters and names the range
+    export = client.get(
+        reverse("hiring:call_logs_export"), {"rescheduled": "1", **swapped}
+    )
+    rows = list(load_workbook(BytesIO(export.content)).active.values)
+    assert len(rows) == 2 and rows[1][6] == "nt-moved"
+    assert f"call-logs-{today.isoformat()}" in export["Content-Disposition"]
