@@ -301,3 +301,40 @@ def test_requisition_timeline_tells_the_story(client, boss, senken):
     ):
         assert text in page
     assert page.index("Reopened") < page.index("Requisition released")
+
+
+def test_all_companies_view_asks_which_company(client, boss, senken):
+    other = Company.objects.exclude(pk=senken.pk).first() or Company.objects.create(
+        name="Zed", slug="zed"
+    )
+    session = client.session
+    session["company"] = "all"
+    session.save()
+    data = REQUIRED | {"department": "bo", "profile": "x", "headcount": 1}
+    assert client.post(reverse("hiring:new"), data).status_code == 200
+    assert not Requisition.objects.exists()
+    client.post(reverse("hiring:new"), data | {"company": other.pk})
+    assert Requisition.objects.get().company == other
+
+
+def _other_company(senken):
+    return Company.objects.exclude(pk=senken.pk).first() or Company.objects.create(
+        name="Zed", slug="zed"
+    )
+
+
+def test_company_can_change_in_edit_until_sourcing_starts(client, boss, senken):
+    from .services import source_number
+
+    other = _other_company(senken)
+    req = make(senken, boss)
+    url = reverse("hiring:edit", args=[req.pk])
+    data = REQUIRED | {"department": "bo", "profile": "MECH fitter", "headcount": 3}
+    client.post(url, data | {"company": other.pk, "version": req.version})
+    req.refresh_from_db()
+    assert req.company == other
+
+    source_number(req, "Alice", "9876543210", boss)
+    client.post(url, data | {"company": senken.pk, "version": req.version})
+    req.refresh_from_db()
+    assert req.company == other
