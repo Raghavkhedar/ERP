@@ -15,6 +15,7 @@
     </div>
 
     <div class="divide-y divide-gray-100">
+        {% if form.company %}{% include "hiring/_row.html" with field=form.company %}{% endif %}
         {% include "hiring/_row.html" with field=form.profile %}
         {% include "hiring/_row.html" with field=form.department %}
         {% include "hiring/_row.html" with field=form.sub_department %}

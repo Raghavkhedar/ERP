@@ -59,11 +59,17 @@ class RequisitionForm(forms.ModelForm):
         min_value=0, max_value=3650, required=False, label="By when (days)"
     )
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, companies=None, **kwargs):
         super().__init__(*args, **kwargs)
         due = self.instance.needed_by
         if due:
             self.initial["days"] = max((due - timezone.localdate()).days, 0)
+        # Releasing in the all-companies view: say which company it belongs to.
+        if companies and len(companies) > 1:
+            self.fields["company"] = forms.ModelChoiceField(
+                Company.objects.filter(pk__in=[c.pk for c in companies]),
+                empty_label="Choose a company",
+            )
 
     def save(self, commit=True):
         # Only a changed number moves the date, so reopening never shifts it.
