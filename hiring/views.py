@@ -63,11 +63,9 @@ def export_requisitions(request):
 @section
 def new_requisition(request):
     _superadmin(request)
-    form = RequisitionForm(request.POST or None)
+    form = RequisitionForm(request.POST or None, companies=request.companies)
     if request.method == "POST" and form.is_valid():
-        # shortcut: all-companies view files it under the first company,
-        # add a company picker if that matters
-        form.instance.company = request.companies[0]
+        form.instance.company = form.cleaned_data.get("company") or request.companies[0]
         form.instance.opened_by = request.user
         save_requisition(form)
         messages.success(request, "Requisition released.")

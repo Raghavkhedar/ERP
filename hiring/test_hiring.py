@@ -301,3 +301,17 @@ def test_requisition_timeline_tells_the_story(client, boss, senken):
     ):
         assert text in page
     assert page.index("Reopened") < page.index("Requisition released")
+
+
+def test_all_companies_view_asks_which_company(client, boss, senken):
+    other = Company.objects.exclude(pk=senken.pk).first() or Company.objects.create(
+        name="Zed", slug="zed"
+    )
+    session = client.session
+    session["company"] = "all"
+    session.save()
+    data = REQUIRED | {"department": "bo", "profile": "x", "headcount": 1}
+    assert client.post(reverse("hiring:new"), data).status_code == 200
+    assert not Requisition.objects.exists()
+    client.post(reverse("hiring:new"), data | {"company": other.pk})
+    assert Requisition.objects.get().company == other
