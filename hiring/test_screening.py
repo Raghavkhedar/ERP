@@ -701,3 +701,10 @@ def test_export_survives_an_unknown_last_tag(client, todo, caller):
     CallLog.objects.update(outcome="retired_tag")
     assert client.get(reverse("hiring:calling_export")).status_code == 200
     assert client.get(reverse("hiring:screening_export")).status_code == 200
+
+
+def test_sheet_filters_by_contact_status(client, todo):
+    url = reverse("hiring:screening")
+    Person.objects.update(contact_status="hold_ff")
+    assert len(client.get(url, {"contact": "hold_ff"}).context["rows"]) == 1
+    assert len(client.get(url, {"contact": ["active", "closed"]}).context["rows"]) == 0
