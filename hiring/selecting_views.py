@@ -110,7 +110,7 @@ def selecting(request):
 def export_interviews(request):
     held = _hr_companies(request)
     return interviews_workbook(
-        _filed(request), include_hr=bool(held), hr_companies=held
+        narrow(_filed(request), request.GET), include_hr=bool(held), hr_companies=held
     )
 
 

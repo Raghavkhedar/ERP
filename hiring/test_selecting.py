@@ -598,3 +598,10 @@ def test_filter_bar_narrows_the_tab_and_tabs_render_in_a_panel(client, booked):
         "Asha"
         in client.get(url, {"requisition": booked.requisition_id}).content.decode()
     )
+
+
+def test_exports_follow_the_filters(client, booked, caller):
+    url = reverse("hiring:selecting_export")
+    assert client.get(url, {"q": "zzz"}).status_code == 200
+    page = client.get(reverse("hiring:selecting"), {"q": "98"}).content.decode()
+    assert f"{url}?q=98" in page

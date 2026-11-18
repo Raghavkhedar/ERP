@@ -52,7 +52,7 @@ def hiring(request):
 @section
 @require_GET
 def export_offers(request):
-    return offers_workbook(visible_offers(request.companies))
+    return offers_workbook(narrow(visible_offers(request.companies), request.GET))
 
 
 @section
@@ -200,4 +200,7 @@ def not_joined(request, pk):
 @onboarding_section
 @require_GET
 def export_onboarding(request):
-    return onboarding_workbook(*onboarding(request.companies))
+    expecting, joined = onboarding(request.companies)
+    return onboarding_workbook(
+        narrow(expecting, request.GET), narrow(joined, request.GET)
+    )
