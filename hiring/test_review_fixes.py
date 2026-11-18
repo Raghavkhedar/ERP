@@ -544,3 +544,15 @@ def test_a_hold_date_in_the_past_is_refused():
     assert AssessmentForm(
         {"decision": "selected", "next_follow_up": yesterday}
     ).is_valid()
+
+
+def test_hold_takes_days_or_a_date_and_the_other_holds_take_none():
+    today = timezone.localdate()
+    by_days = AssessmentForm({"decision": "hold", "hold_days": "10"})
+    assert by_days.is_valid(), by_days.errors
+    day = date.fromisoformat(by_days.cleaned_data["next_follow_up"])
+    assert (day - today).days in (10, 11)  # a Sunday moves to Monday
+    for status in ("hold_ff", "hold_cftl"):
+        form = AssessmentForm({"decision": status, "next_follow_up": "2031-05-01"})
+        assert form.is_valid(), form.errors
+        assert "next_follow_up" not in form.answers()
