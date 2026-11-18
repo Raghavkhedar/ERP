@@ -462,6 +462,9 @@ class AssessmentForm(forms.Form):
     def clean(self):
         data = super().clean()
         decision = data.get("decision")
+        if decision != "hold":  # the hold fields are hidden, so a bad value there
+            for name in ("hold_days", "next_follow_up"):  # must not block the save
+                self.errors.pop(name, None)
         if decision in NO_DATE:  # waiting on the candidate or the company: no date
             data["next_follow_up"] = ""
         elif decision == "hold" and "next_follow_up" not in self.errors:

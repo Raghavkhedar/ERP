@@ -552,3 +552,22 @@ def test_hold_tenure_is_the_days_entered_and_survives_a_resave(
     assert first.endswith(" days")
     client.post(url, {**post, "comments": "again"})
     assert Interview.objects.get().hr.hold_tenure == first
+
+
+def test_hidden_hold_fields_dont_block_a_change_from_hold(
+    client, booked, caller, django_user_model
+):
+    # An imported hold with a past date shows negative days; leaving it must save.
+    boss = django_user_model.objects.create_superuser("boss", password="pw")
+    client.post(
+        reverse("hiring:interview", args=[booked.pk]), {**FORM, "assessor": caller.pk}
+    )
+    iv = Interview.objects.get()
+    HRAssessment.objects.create(interview=iv, decision="hold", assessor=boss)
+    client.force_login(boss)
+    r = client.post(
+        reverse("hiring:interview_review", args=[iv.pk]),
+        {"which": "hr", "decision": "selected", "hold_days": "-3"},
+    )
+    assert r.status_code == 302
+    assert HRAssessment.objects.get().decision == "selected"
