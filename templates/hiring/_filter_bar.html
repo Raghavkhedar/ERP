@@ -1,0 +1,10 @@
+{# Search + requisition filter shared by the Selecting, Hiring and On-Boarding tabs; filters swap the panel in place. #}
+<form method="get" class="fields mb-6 flex flex-wrap items-center gap-3"
+      hx-get="{{ request.path }}" hx-target="#panel" hx-select="#panel" hx-swap="outerHTML" hx-push-url="true" hx-trigger="submit, input delay:300ms, change">
+  <input type="search" name="q" value="{{ request.GET.q }}" placeholder="Search name or number" aria-label="Search name or number">
+  <select name="requisition" aria-label="Requisition">
+    <option value="">Any requisition</option>
+    {% for r in requisitions %}<option value="{{ r.pk }}" {% if r.pk|stringformat:"s" == request.GET.requisition %}selected{% endif %}>{{ r }}{% if r.site %} · {{ r.site }}{% endif %}</option>{% endfor %}
+  </select>
+  {% if request.GET.q or request.GET.requisition %}<a href="{{ request.path }}" class="text-sm underline">Clear</a>{% endif %}
+</form>

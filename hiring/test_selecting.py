@@ -585,3 +585,16 @@ def test_leaving_hold_ff_brings_the_call_back(
     assert not FollowUp.objects.filter(status="pending", person=person).exists()
     client.post(url, {"which": "hr", "decision": "selected"})
     assert FollowUp.objects.filter(status="pending", person=person).count() == 1
+
+
+def test_filter_bar_narrows_the_tab_and_tabs_render_in_a_panel(client, booked):
+    url = reverse("hiring:selecting")
+    page = client.get(url).content.decode()
+    assert 'id="panel"' in page and 'id="tabs"' in page and "Asha" in page
+    assert "Asha" in client.get(url, {"q": "98765"}).content.decode()
+    assert "Asha" not in client.get(url, {"q": "zzz"}).content.decode()
+    assert "Asha" not in client.get(url, {"requisition": "999999"}).content.decode()
+    assert (
+        "Asha"
+        in client.get(url, {"requisition": booked.requisition_id}).content.decode()
+    )

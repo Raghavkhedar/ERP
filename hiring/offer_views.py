@@ -15,8 +15,10 @@ from .services import (
     decline,
     did_not_join,
     mark_joined,
+    narrow,
     offers_waiting,
     onboarding,
+    open_requisitions,
     start_offer,
     visible_interviews,
     visible_offers,
@@ -28,15 +30,17 @@ onboarding_section = require_section("recruitment", "onboarding")
 
 @section
 def hiring(request):
-    offers = visible_offers(request.companies)
+    get = request.GET
+    offers = narrow(visible_offers(request.companies), get)
     return render(
         request,
         "hiring/offers.html",
         {
-            "interviews": visible_interviews(request.companies)[:100],
+            "interviews": narrow(visible_interviews(request.companies), get)[:100],
+            "requisitions": open_requisitions(request.companies),
             "waiting": paginate(
                 request,
-                offers_waiting(request.user, request.companies),
+                narrow(offers_waiting(request.user, request.companies), get),
                 param="wpage",
             ),
             "open": paginate(request, offers.filter(state="offered"), param="opage"),
@@ -140,10 +144,16 @@ def decline_offer(request, pk):
 @onboarding_section
 def onboarding_page(request):
     expecting, joined = onboarding(request.companies)
+    expecting, joined = narrow(expecting, request.GET), narrow(joined, request.GET)
     return render(
         request,
         "hiring/onboarding.html",
-        {"expecting": expecting, "joined": joined[:100], "form": JoinedForm()},
+        {
+            "expecting": expecting,
+            "joined": joined[:100],
+            "form": JoinedForm(),
+            "requisitions": open_requisitions(request.companies),
+        },
     )
 
 
