@@ -29,6 +29,11 @@
     </fieldset>
 
     <div class="grid gap-5 sm:grid-cols-2">
+      {% include "tasks/_field.html" with field=form.experience_months %}
+      {% include "tasks/_field.html" with field=form.expected_salary %}
+    </div>
+
+    <div class="grid gap-5 sm:grid-cols-2">
       {% include "tasks/_field.html" with field=form.email %}
       {% include "tasks/_field.html" with field=form.address %}
     </div>

@@ -73,6 +73,21 @@ def test_add_form_and_counts_on_requisition_list(client, req):
     assert "3 sourced of 3 needed" in page and "1 duplicate" in page
 
 
+def test_add_form_saves_experience_and_expected_salary(client, req):
+    client.post(
+        reverse("hiring:source_new"),
+        {
+            "requisition": req.pk,
+            "name": "A",
+            "phone": "9876543210",
+            "experience_months": "18",
+            "expected_salary": "25000",
+        },
+    )
+    p = Person.objects.get()
+    assert (p.experience_years, p.expected_salary) == (1.5, 25000)
+
+
 def test_closed_requisition_cannot_be_sourced(client, req):
     req.status = "closed"
     req.save()

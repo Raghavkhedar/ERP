@@ -190,6 +190,8 @@ def source_number(
     address="",
     gender="",
     payment="",
+    experience_months=None,
+    expected_salary=None,
 ):
     """Log a number received for a requisition. A new number makes a card; a
     number already on a card (last 10 digits, same company) links to the card used
@@ -215,6 +217,12 @@ def source_number(
                 sub_department=requisition.sub_department,
                 source_reference=source,
                 payment=payment,
+                experience_years=(
+                    round(experience_months / 12, 1)
+                    if experience_months is not None
+                    else None
+                ),
+                expected_salary=expected_salary,
             )
         elif payment:
             # A repeat number tells us more: the latest answer wins, on every card
