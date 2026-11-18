@@ -36,6 +36,7 @@
     <div class="grid gap-5 sm:grid-cols-2">
       {% include "tasks/_field.html" with field=form.source %}
       <div x-show="source === 'other'" x-cloak>{% include "tasks/_field.html" with field=form.source_other %}</div>
+      {% include "tasks/_field.html" with field=form.payment %}
     </div>
 
     <div class="flex flex-wrap items-center gap-4 border-t border-gray-100 pt-5">

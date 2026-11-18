@@ -180,7 +180,15 @@ def _not_to_call(cards):
 
 
 def source_number(
-    requisition, name, phone, user, source="", email="", address="", gender=""
+    requisition,
+    name,
+    phone,
+    user,
+    source="",
+    email="",
+    address="",
+    gender="",
+    payment="",
 ):
     """Log a number received for a requisition. A new number makes a card; a
     number already on a card (last 10 digits, same company) links to the card used
@@ -205,7 +213,15 @@ def source_number(
                 department=requisition.department,
                 sub_department=requisition.sub_department,
                 source_reference=source,
+                payment=payment,
             )
+        elif payment:
+            # A repeat number tells us more: the latest answer wins, on every card
+            # with the number (they are one person to the call logic below).
+            for card in cards.exclude(payment=payment):
+                card.payment = payment
+                card.version += 1
+                card.save(update_fields=["payment", "version"])
         # Every sourced number, new or repeat, is called tomorrow as a normal
         # follow-up, unless the candidate already has a call waiting (an interview
         # or an offer is never pushed around by a repeat). Any card with this
@@ -605,6 +621,7 @@ def _follow_up_after_assessment(interview, decision, answers):
     due = day_start(day) if day else None
     offered = (
         decision != Interview.Result.REJECTED
+        and decision not in interview_form.NO_DATE  # a parked card gets no offer call
         and not _offer_taken(interview)
         and interview_form.offer_amount(answers.get("offer_given")) > 0
     )
@@ -662,8 +679,11 @@ def _set_preference(person_id, preference):
 
 def _hold_ff_status(person_id, decision, was):
     """Hold-FF puts the card on "Hold - FF", so recruiters are not given it to
-    call; moving off Hold-FF frees the card again."""
-    on, was_on = decision == "hold_ff", was == "hold_ff"
+    call; moving off Hold-FF frees the card again.
+    shortcut: a card already on Hold - FF from the legacy import is freed too when
+    HR later leaves Hold-FF; nothing records who parked it. Fine unless HR
+    keeps legacy parks apart."""
+    on, was_on = decision == Interview.Result.HOLD_FF, was == Interview.Result.HOLD_FF
     if on == was_on:
         return
     status = Person.ContactStatus
@@ -676,6 +696,31 @@ def _hold_ff_status(person_id, decision, was):
         return
     person.version += 1
     person.save()
+
+
+def _restore_call(interview, decision, was):
+    """Hold-FF and Hold-CFTL cancel the pending call; moving off them must not leave
+    the candidate with none. A rejected candidate, or one who must not be called,
+    gets nothing."""
+    person = interview.person
+    if (
+        was not in interview_form.NO_DATE
+        or decision in interview_form.NO_DATE
+        or decision == Interview.Result.REJECTED
+        or person.followups.filter(status=FollowUp.Status.PENDING).exists()
+    ):
+        return
+    person.refresh_from_db()  # _hold_ff_status may just have made it active again
+    if _not_to_call(Person.objects.filter(pk=person.pk)):
+        return
+    FollowUp.objects.create(
+        person=person,
+        requisition=interview.requisition,
+        due=next_day(),
+        owner=interview.followup.owner
+        if interview.followup_id
+        else interview.interviewer,
+    )
 
 
 def save_assessment(
@@ -706,6 +751,7 @@ def save_assessment(
         if interview.result != decision:
             edit_interview(interview, decision, interview.questions, interview.notes)
         _follow_up_after_assessment(interview, decision, answers)
+        _restore_call(interview, decision, was)
         return hr
 
 

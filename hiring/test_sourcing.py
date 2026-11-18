@@ -211,3 +211,30 @@ def test_new_card_copies_department_and_source_from_the_requisition(req, caller)
         "Elec + Mech",
         "Naukri",
     )
+
+
+def test_free_or_paid_is_saved_on_the_card(client, req):
+    client.post(
+        reverse("hiring:source_new"),
+        {"requisition": req.pk, "name": "A", "phone": "9876543210", "payment": "Paid"},
+    )
+    assert Person.objects.get().payment == "Paid"
+
+
+def test_free_or_paid_on_a_repeat_number_updates_the_card(client, req):
+    row = {"requisition": req.pk, "name": "A", "phone": "9876543210"}
+    client.post(reverse("hiring:source_new"), row | {"payment": "Free"})
+    client.post(reverse("hiring:source_new"), row | {"payment": "Paid"})
+    assert Person.objects.count() == 1 and Person.objects.get().payment == "Paid"
+
+
+def test_repeat_payment_reaches_every_card_with_the_number(client, req):
+    for _ in range(2):  # two cards with one number, as the legacy import can leave
+        Person.objects.create(
+            company=req.company, name="A", phone="9876543210", payment="Free"
+        )
+    client.post(
+        reverse("hiring:source_new"),
+        {"requisition": req.pk, "name": "A", "phone": "9876543210", "payment": "Paid"},
+    )
+    assert set(Person.objects.values_list("payment", flat=True)) == {"Paid"}

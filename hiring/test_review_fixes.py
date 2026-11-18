@@ -556,3 +556,18 @@ def test_hold_takes_days_or_a_date_and_the_other_holds_take_none():
         form = AssessmentForm({"decision": status, "next_follow_up": "2031-05-01"})
         assert form.is_valid(), form.errors
         assert "next_follow_up" not in form.answers()
+
+
+def test_hold_on_a_date_ignores_days_the_page_filled_in():
+    # The page fills the days from the date: 0 for today, negative for a past date.
+    today = timezone.localdate().isoformat()
+    form = AssessmentForm(
+        {"decision": "hold", "next_follow_up": today, "hold_days": "0"}
+    )
+    assert form.is_valid(), form.errors
+
+
+def test_a_rejected_decision_drops_a_stale_follow_up_date():
+    form = AssessmentForm({"decision": "rejected", "next_follow_up": "2031-05-01"})
+    assert form.is_valid(), form.errors
+    assert "next_follow_up" not in form.answers()

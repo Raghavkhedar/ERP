@@ -130,13 +130,13 @@
   </form>
 
   {% if hr_form %}
-    <form method="post" x-data="{ decision: '{{ hr_form.decision.value|default:'' }}', date: '{{ hr_form.next_follow_up.value|default:'' }}', days: '', today: '{% now 'Y-m-d' %}', ms(s) { const [y, m, d] = s.split('-'); return Date.UTC(y, m - 1, d) }, toDate() { if (!(this.days > 0)) return; let t = this.ms(this.today) + this.days * 864e5; if (new Date(t).getUTCDay() === 0) t += 864e5; this.date = new Date(t).toISOString().slice(0, 10) }, toDays() { this.days = this.date ? Math.round((this.ms(this.date) - this.ms(this.today)) / 864e5) : '' }, init() { this.toDays() } }" class="fields mt-6 space-y-3 rounded-xl border border-ink bg-pop/25 p-4 shadow-xl lg:sticky lg:top-20 lg:mt-0 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto [&_input]:w-full [&_select]:w-full [&_textarea]:w-full [&_textarea]:min-h-0">
+    <form method="post" x-data="{ decision: '{{ hr_form.decision.value|default:'' }}', date: '{{ hr_form.next_follow_up.value|default:'' }}', days: '', today: '{% now 'Y-m-d' %}', ms(s) { const [y, m, d] = s.split('-'); return Date.UTC(y, m - 1, d) }, toDate() { if (!(this.days > 0)) return; let t = this.ms(this.today) + this.days * 864e5; if (new Date(t).getUTCDay() === 0) t += 864e5; this.date = new Date(t).toISOString().slice(0, 10) }, toDays() { const n = this.date ? Math.round((this.ms(this.date) - this.ms(this.today)) / 864e5) : 0; this.days = n > 0 ? n : '' }, init() { this.toDays() } }" class="fields mt-6 space-y-3 rounded-xl border border-ink bg-pop/25 p-4 shadow-xl lg:sticky lg:top-20 lg:mt-0 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto [&_input]:w-full [&_select]:w-full [&_textarea]:w-full [&_textarea]:min-h-0">
       {% csrf_token %}
       <input type="hidden" name="which" value="hr">
       <h2 class="title text-lg">HR assessment (PFA)</h2>
-      <p class="text-sm text-gray-600">Only you can see this. Selected opens an offer. Hold opens a call on the follow up date: set the date, or how many days to hold. Hold-FF and Hold-CFTL take no date.</p>
+      <p class="text-sm text-gray-600">Only you can see this. Selected opens an offer, due on the follow up date if you set one. Hold opens a call on the follow up date: set the date, or how many days to hold. Hold-FF and Hold-CFTL take no date.</p>
       <div class="grid gap-3 sm:grid-cols-2">
-        {% for field in hr_form %}<div {% if field.name == 'hold_days' or field.name == 'next_follow_up' %}x-show="decision === 'hold'"{% endif %} class="{% if field.widget_type == 'textarea' %}sm:col-span-2{% endif %}">{% include "tasks/_field.html" %}</div>{% endfor %}
+        {% for field in hr_form %}<div {% if field.name == 'hold_days' %}x-show="decision === 'hold'"{% elif field.name == 'next_follow_up' %}x-show="decision === 'hold' || decision === 'selected'"{% endif %} class="{% if field.widget_type == 'textarea' %}sm:col-span-2{% endif %}">{% include "tasks/_field.html" %}</div>{% endfor %}
       </div>
       <button type="submit" class="h-11 w-full rounded-lg bg-blue-600 px-5 font-medium">Save HR assessment</button>
     </form>

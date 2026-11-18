@@ -311,10 +311,14 @@ def review(request, pk):
     if hr and hr_form.is_valid():
         d = hr_form.cleaned_data
         answers = hr_form.answers()
-        tenure = f"{d['hold_days']} days" if d.get("hold_days") else ""
+        tenure = (
+            f"{d['hold_days']} days"
+            if d["decision"] == Interview.Result.HOLD and d.get("hold_days")
+            else ""
+        )
         if (
             existing
-            and existing.decision == d["decision"] == "hold"
+            and existing.decision == d["decision"] == Interview.Result.HOLD
             and existing.answers.get("next_follow_up") == answers.get("next_follow_up")
         ):
             tenure = existing.hold_tenure  # same date: don't recount the days left
@@ -323,7 +327,7 @@ def review(request, pk):
             d["decision"],
             d["level"],
             request.user,
-            hold_tenure=tenure if d["decision"] == "hold" else "",
+            hold_tenure=tenure if d["decision"] == Interview.Result.HOLD else "",
             comments=d["comments"],
             answers=answers,
         )

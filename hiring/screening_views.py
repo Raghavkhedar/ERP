@@ -139,6 +139,8 @@ def _sheet(rows, get):
         rows = rows.filter(sub__in=subs)
     if priorities := get.getlist("priority"):
         rows = rows.filter(person__priority__in=priorities)
+    if contacts := get.getlist("contact"):
+        rows = rows.filter(person__contact_status__in=contacts)
     if get.get("owner", "").isdigit():
         rows = rows.filter(owner_id=get["owner"])
     if phone := get.get("phone", "").strip():
@@ -238,6 +240,7 @@ def screening(request):
             "filtered": _filtered(request.GET),
             "stages": STAGES,
             "priorities": Person.Priority.choices,
+            "contacts": Person.ContactStatus.choices,
             "whens": WHENS,
         },
     )

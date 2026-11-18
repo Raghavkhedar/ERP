@@ -162,6 +162,11 @@ class SourceForm(forms.Form):
         widget=forms.Select(attrs={"x-model": "source"}),
     )
     source_other = forms.CharField(label="Source name", max_length=120, required=False)
+    payment = forms.ChoiceField(
+        required=False,
+        label="Free or paid",
+        choices=[("", "---------"), ("Free", "Free"), ("Paid", "Paid")],
+    )
 
     def __init__(self, *args, requisitions, **kwargs):
         super().__init__(*args, **kwargs)
@@ -493,7 +498,6 @@ class JobPostForm(forms.ModelForm):
             "keyword",
             "posted_on",
             "post_status",
-            "payment",
             "portal_user",
             "posting_company",
             "body",
@@ -502,7 +506,6 @@ class JobPostForm(forms.ModelForm):
             "keyword": "Source keyword",
             "posted_on": "Date posted",
             "post_status": "Status",
-            "payment": "Payment type",
             "portal_user": "Portal user ID",
             "body": "Note (optional)",
         }
@@ -513,7 +516,7 @@ class JobPostForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for name in ("portal", "keyword", "posted_on", "post_status", "payment"):
+        for name in ("portal", "keyword", "posted_on", "post_status"):
             self.fields[name].required = True
         # Only our own companies (Senken, Avris), stored by name.
         names = list(Company.objects.order_by("name").values_list("name", "name"))
