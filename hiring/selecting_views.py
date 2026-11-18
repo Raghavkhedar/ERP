@@ -315,6 +315,9 @@ def review(request, pk):
             d["decision"],
             d["level"],
             request.user,
+            hold_tenure=f"{d['hold_days']} days"
+            if d["decision"] == "hold" and d.get("hold_days")
+            else "",
             comments=d["comments"],
             answers=hr_form.answers(),
         )

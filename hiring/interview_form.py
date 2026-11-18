@@ -5,12 +5,13 @@ Answers are stored as plain dicts on the Interview, so a question can change
 without a migration. Education and vehicle rows are lists of dicts."""
 
 import re
+from datetime import timedelta
 
 from django import forms
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
-from core.dates import SUNDAY_MESSAGE, is_sunday
+from core.dates import SUNDAY_MESSAGE, is_sunday, skip_sunday
 from people.models import Person
 
 from . import whereabouts
@@ -413,6 +414,10 @@ class InterviewForm(AnswersForm):
         return {**got, **mine}
 
 
+# Hold statuses that take no follow up date.
+NO_DATE = {"hold_ff", "hold_cftl"}
+
+
 class AssessmentForm(forms.Form):
     """HR's side (PFA). Decision and level are columns; the rest are answers."""
 
@@ -440,22 +445,43 @@ class AssessmentForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for key in PFA:
+            if key == "next_follow_up":  # how long to hold, next to the date it sets
+                self.fields["hold_days"] = forms.IntegerField(
+                    label="Hold for (days)", min_value=1, max_value=365, required=False
+                )
             self.fields[key] = whereabouts._field(key, SPEC)
-        if "next_follow_up" in self.fields:
-            self.fields["next_follow_up"].widget.attrs["data-no-sunday"] = ""
+        # Days and date are two ways to say the same thing; the page keeps them in step.
+        self.fields["decision"].widget.attrs["x-model"] = "decision"
+        self.fields["hold_days"].widget.attrs.update(
+            {"x-model": "days", "@input": "toDate()"}
+        )
+        self.fields["next_follow_up"].widget.attrs.update(
+            {"data-no-sunday": "", "x-model": "date", "@input": "toDays()"}
+        )
 
     def clean(self):
         data = super().clean()
-        if data.get("decision") == "hold" and "next_follow_up" not in self.errors:
+        decision = data.get("decision")
+        if decision in NO_DATE:  # waiting on the candidate or the company: no date
+            data["next_follow_up"] = ""
+        elif decision == "hold" and "next_follow_up" not in self.errors:
             day = whereabouts.parse_day(data.get("next_follow_up"))
+            if not day and data.get("hold_days"):
+                day = skip_sunday(
+                    timezone.localdate() + timedelta(days=data["hold_days"])
+                )
+                data["next_follow_up"] = day.isoformat()
             if not day:
-                message = "A candidate on hold needs a follow up date."
+                message = (
+                    "A candidate on hold needs a follow up date or a number of days."
+                )
             elif day < timezone.localdate():
                 message = "The follow up date can't be before today."
             elif is_sunday(day):
                 message = SUNDAY_MESSAGE
             else:
                 message = ""
+                data["hold_days"] = (day - timezone.localdate()).days
             if message:
                 self.add_error("next_follow_up", message)
         return data

@@ -378,6 +378,8 @@ class Interview(models.Model):
         PENDING = "pending", "Waiting for HR"
         SELECTED = "selected", "Selected"
         HOLD = "hold", "Hold"
+        HOLD_FF = "hold_ff", "Hold-FF"
+        HOLD_CFTL = "hold_cftl", "Hold-CFTL"
         REJECTED = "rejected", "Rejected"
 
     person = models.ForeignKey(
