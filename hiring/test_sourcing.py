@@ -211,3 +211,11 @@ def test_new_card_copies_department_and_source_from_the_requisition(req, caller)
         "Elec + Mech",
         "Naukri",
     )
+
+
+def test_free_or_paid_is_saved_on_the_card(client, req):
+    client.post(
+        reverse("hiring:source_new"),
+        {"requisition": req.pk, "name": "A", "phone": "9876543210", "payment": "Paid"},
+    )
+    assert Person.objects.get().payment == "Paid"

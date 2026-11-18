@@ -138,7 +138,6 @@ def test_discussion_comment_and_job_post(client, boss, senken):
         "keyword": "Data Analyst Intern",
         "posted_on": "2026-10-29",
         "post_status": "active",
-        "payment": "free",
         "portal_user": "nish.S@senkenindia.in",
         "posting_company": Company.objects.get(slug="senken").name,
     }
@@ -195,7 +194,6 @@ def test_job_post_on_a_portal_not_in_the_list(client, boss, senken):
         "keyword": "Data Analyst",
         "posted_on": "2026-10-29",
         "post_status": "active",
-        "payment": "free",
     }
     assert client.post(url, job).status_code == 422  # name missing
     assert (
@@ -212,7 +210,6 @@ def test_job_post_company_is_senken_or_avris(client, boss, senken):
         "keyword": "x",
         "posted_on": "2026-10-29",
         "post_status": "active",
-        "payment": "free",
     }
     assert client.post(url, job | {"posting_company": "Acme"}).status_code == 422
     avris = Company.objects.get(slug="avris").name
@@ -228,7 +225,6 @@ def test_job_post_can_be_edited_and_the_change_is_kept(client, boss, senken):
         "keyword": "Data Analyst",
         "posted_on": "2026-10-29",
         "post_status": "active",
-        "payment": "free",
     }
     client.post(reverse("hiring:post", args=[r.pk]), job)
     post = r.posts.get()
@@ -280,7 +276,6 @@ def test_requisition_timeline_tells_the_story(client, boss, senken):
         "keyword": "x",
         "posted_on": "2026-10-29",
         "post_status": "active",
-        "payment": "free",
     }
     client.post(reverse("hiring:post", args=[req.pk]), job)
     post = req.posts.get(portal="Naukri")

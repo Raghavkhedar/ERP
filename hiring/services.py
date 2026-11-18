@@ -180,7 +180,15 @@ def _not_to_call(cards):
 
 
 def source_number(
-    requisition, name, phone, user, source="", email="", address="", gender=""
+    requisition,
+    name,
+    phone,
+    user,
+    source="",
+    email="",
+    address="",
+    gender="",
+    payment="",
 ):
     """Log a number received for a requisition. A new number makes a card; a
     number already on a card (last 10 digits, same company) links to the card used
@@ -205,6 +213,7 @@ def source_number(
                 department=requisition.department,
                 sub_department=requisition.sub_department,
                 source_reference=source,
+                payment=payment,
             )
         # Every sourced number, new or repeat, is called tomorrow as a normal
         # follow-up, unless the candidate already has a call waiting (an interview
