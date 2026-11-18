@@ -2,7 +2,7 @@
 
 {% block title %}Selecting · Senken ERP{% endblock %}
 {% block heading %}Interviews{% endblock %}
-{% block actions %}<a href="{% url 'hiring:selecting_export' %}" class="text-gray-500 hover:text-gray-900">Export</a>{% endblock %}
+{% block actions %}<a href="{% url 'hiring:selecting_export' %}?{{ filters }}" class="text-gray-500 hover:text-gray-900">Export</a>{% endblock %}
 
 {% block page %}
   {% include "hiring/_filter_bar.html" %}

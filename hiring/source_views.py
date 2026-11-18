@@ -96,6 +96,8 @@ def new_source(request):
             d["address"],
             d["gender"],
             d["payment"],
+            d["experience_months"],
+            d["expected_salary"],
         )
         if made.is_duplicate:
             messages.success(

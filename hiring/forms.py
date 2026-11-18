@@ -168,6 +168,17 @@ class SourceForm(forms.Form):
         choices=[("", "---------"), ("Free", "Free"), ("Paid", "Paid")],
     )
 
+    experience_months = forms.IntegerField(
+        required=False, min_value=0, max_value=1200, label="Experience (months)"
+    )
+    expected_salary = forms.DecimalField(
+        required=False,
+        min_value=0,
+        max_digits=10,
+        decimal_places=2,
+        label="Expected salary (monthly)",
+    )
+
     def __init__(self, *args, requisitions, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["requisition"].queryset = requisitions

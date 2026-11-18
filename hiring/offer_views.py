@@ -14,6 +14,7 @@ from .services import (
     add_round,
     decline,
     did_not_join,
+    filter_query,
     mark_joined,
     narrow,
     offers_waiting,
@@ -45,6 +46,7 @@ def hiring(request):
             ),
             "open": paginate(request, offers.filter(state="offered"), param="opage"),
             "closed": offers.exclude(state="offered")[:100],
+            "filters": filter_query(get),
         },
     )
 
@@ -52,7 +54,7 @@ def hiring(request):
 @section
 @require_GET
 def export_offers(request):
-    return offers_workbook(visible_offers(request.companies))
+    return offers_workbook(narrow(visible_offers(request.companies), request.GET))
 
 
 @section
@@ -141,10 +143,14 @@ def decline_offer(request, pk):
     return _act(request, pk, DeclineForm, "decline_form", run, "Offer declined.")
 
 
+def _narrowed_onboarding(request):
+    """(yet to join, joined), narrowed by the filter bar: shared by page and export."""
+    return [narrow(rows, request.GET) for rows in onboarding(request.companies)]
+
+
 @onboarding_section
 def onboarding_page(request):
-    expecting, joined = onboarding(request.companies)
-    expecting, joined = narrow(expecting, request.GET), narrow(joined, request.GET)
+    expecting, joined = _narrowed_onboarding(request)
     return render(
         request,
         "hiring/onboarding.html",
@@ -153,6 +159,7 @@ def onboarding_page(request):
             "joined": joined[:100],
             "form": JoinedForm(),
             "requisitions": open_requisitions(request.companies),
+            "filters": filter_query(request.GET),
         },
     )
 
@@ -200,4 +207,4 @@ def not_joined(request, pk):
 @onboarding_section
 @require_GET
 def export_onboarding(request):
-    return onboarding_workbook(*onboarding(request.companies))
+    return onboarding_workbook(*_narrowed_onboarding(request))
