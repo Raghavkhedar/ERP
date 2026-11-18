@@ -216,10 +216,12 @@ def source_number(
                 payment=payment,
             )
         elif payment:
-            # A repeat number tells us more: the latest answer wins.
-            person.payment = payment
-            person.version += 1
-            person.save(update_fields=["payment", "version"])
+            # A repeat number tells us more: the latest answer wins, on every card
+            # with the number (they are one person to the call logic below).
+            for card in cards.exclude(payment=payment):
+                card.payment = payment
+                card.version += 1
+                card.save(update_fields=["payment", "version"])
         # Every sourced number, new or repeat, is called tomorrow as a normal
         # follow-up, unless the candidate already has a call waiting (an interview
         # or an offer is never pushed around by a repeat). Any card with this
@@ -619,6 +621,7 @@ def _follow_up_after_assessment(interview, decision, answers):
     due = day_start(day) if day else None
     offered = (
         decision != Interview.Result.REJECTED
+        and decision not in interview_form.NO_DATE  # a parked card gets no offer call
         and not _offer_taken(interview)
         and interview_form.offer_amount(answers.get("offer_given")) > 0
     )
@@ -676,8 +679,11 @@ def _set_preference(person_id, preference):
 
 def _hold_ff_status(person_id, decision, was):
     """Hold-FF puts the card on "Hold - FF", so recruiters are not given it to
-    call; moving off Hold-FF frees the card again."""
-    on, was_on = decision == "hold_ff", was == "hold_ff"
+    call; moving off Hold-FF frees the card again.
+    shortcut: a card already on Hold - FF from the legacy import is freed too when
+    HR later leaves Hold-FF; nothing records who parked it. Fine unless HR
+    keeps legacy parks apart."""
+    on, was_on = decision == Interview.Result.HOLD_FF, was == Interview.Result.HOLD_FF
     if on == was_on:
         return
     status = Person.ContactStatus

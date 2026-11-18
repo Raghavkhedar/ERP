@@ -130,7 +130,7 @@ class Requisition(models.Model):
 
 class RequisitionPost(models.Model):
     """One entry in a requisition's discussion: a comment, or a job post's details
-    (portal, keyword, date, status, payment). Comments are append-only, like a
+    (portal, keyword, date, status). Comments are append-only, like a
     chat; job post details can be edited."""
 
     class Status(models.TextChoices):
@@ -154,6 +154,7 @@ class RequisitionPost(models.Model):
     keyword = models.CharField(max_length=200, blank=True)
     posted_on = models.DateField(null=True, blank=True)
     post_status = models.CharField(max_length=10, choices=Status, blank=True)
+    # Unused: free or paid is asked when a number is sourced and kept on the card.
     payment = models.CharField(max_length=10, choices=Payment, blank=True)
     portal_user = models.CharField(max_length=200, blank=True)
     posting_company = models.CharField(max_length=200, blank=True)

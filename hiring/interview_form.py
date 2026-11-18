@@ -15,7 +15,7 @@ from core.dates import SUNDAY_MESSAGE, is_sunday, skip_sunday
 from people.models import Person
 
 from . import whereabouts
-from .models import HRAssessment, Requisition
+from .models import HRAssessment, Interview, Requisition
 
 YESNO = ["Yes", "No"]
 
@@ -415,7 +415,8 @@ class InterviewForm(AnswersForm):
 
 
 # Hold statuses that take no follow up date.
-NO_DATE = {"hold_ff", "hold_cftl"}
+Result = Interview.Result
+NO_DATE = {Result.HOLD_FF, Result.HOLD_CFTL}
 
 
 class AssessmentForm(forms.Form):
@@ -465,13 +466,18 @@ class AssessmentForm(forms.Form):
         # Hidden fields must not block the save. The page fills the days from the
         # date, so a past or far date gives days the field refuses; the date is
         # what counts then.
-        if decision != "hold" or whereabouts.parse_day(data.get("next_follow_up")):
+        if decision != Result.HOLD or whereabouts.parse_day(data.get("next_follow_up")):
             self.errors.pop("hold_days", None)
-        if decision not in ("hold", "selected"):  # selected keeps its offer date
+        if decision not in (
+            Result.HOLD,
+            Result.SELECTED,
+        ):  # selected keeps its offer date
             self.errors.pop("next_follow_up", None)
-        if decision in NO_DATE:  # waiting on the candidate or the company: no date
+        if decision not in (Result.HOLD, Result.SELECTED):
+            # No date to keep (waiting, or rejected): a hidden stale one must not
+            # move the candidate's call.
             data["next_follow_up"] = ""
-        elif decision == "hold" and "next_follow_up" not in self.errors:
+        elif decision == Result.HOLD and "next_follow_up" not in self.errors:
             day = whereabouts.parse_day(data.get("next_follow_up"))
             if not day and data.get("hold_days"):
                 day = skip_sunday(
