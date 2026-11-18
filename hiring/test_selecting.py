@@ -601,7 +601,24 @@ def test_filter_bar_narrows_the_tab_and_tabs_render_in_a_panel(client, booked):
 
 
 def test_exports_follow_the_filters(client, booked, caller):
+    record_interview(booked, "selected", caller)
     url = reverse("hiring:selecting_export")
-    assert client.get(url, {"q": "zzz"}).status_code == 200
-    page = client.get(reverse("hiring:selecting"), {"q": "98"}).content.decode()
-    assert f"{url}?q=98" in page
+
+    def rows(**get):
+        book = load_workbook(BytesIO(client.get(url, get).content))
+        return len(list(book["Interviews"].values)) - 1
+
+    assert (rows(), rows(q="98765"), rows(q="zzz")) == (1, 1, 0)
+    assert rows(requisition=booked.requisition_id) == 1
+    assert rows(requisition=booked.requisition_id + 1) == 0
+    page = client.get(reverse("hiring:selecting"), {"q": "98", "wpage": 2})
+    assert f"{url}?q=98" in page.content.decode()
+    assert "wpage" not in page.content.decode().split(url)[1][:20]
+
+
+def test_odd_digits_in_the_requisition_filter_are_ignored(client, booked):
+    for name in ("selecting", "selecting_export"):
+        assert (
+            client.get(reverse(f"hiring:{name}"), {"requisition": "²"}).status_code
+            == 200
+        )

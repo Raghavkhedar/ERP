@@ -1,5 +1,6 @@
 from datetime import datetime, time, timedelta
 from types import SimpleNamespace
+from urllib.parse import urlencode
 
 from django.contrib.auth import get_user_model
 from django.db import connection, transaction
@@ -512,9 +513,15 @@ def narrow(items, get):
         items = items.filter(
             Q(person__name__icontains=q) | Q(person__phone__icontains=q)
         )
-    if get.get("requisition", "").isdigit():
+    # isascii: str.isdigit() also accepts digits like "²", which crash the query.
+    if (r := get.get("requisition", "")).isascii() and r.isdigit():
         items = items.filter(requisition_id=get["requisition"])
     return items
+
+
+def filter_query(get):
+    """The filters narrow() reads, as a query string for an Export link."""
+    return urlencode({k: get[k] for k in ("q", "requisition") if get.get(k)})
 
 
 def open_requisitions(companies):

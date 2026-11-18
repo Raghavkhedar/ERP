@@ -209,3 +209,23 @@ def test_the_sim_choice_is_required_in_the_page_and_ids_do_not_repeat(
     assert page.count('name="sim_allotted"') == 2  # Yes and No
     assert page.count('name="sim_allotted" value="Yes" required') == 1
     assert 'id="id_sim_allotted' not in page
+
+
+def test_offer_and_onboarding_exports_follow_the_filters(client, offer, caller):
+    accept(offer, date(2030, 1, 6), caller)
+
+    def rows(name, sheet, **get):
+        book = load_workbook(
+            BytesIO(client.get(reverse(f"hiring:{name}"), get).content)
+        )
+        return len(list(book[sheet].values)) - 1
+
+    for name, sheet in (
+        ("offers_export", "Offers"),
+        ("onboarding_export", "On-Boarding"),
+    ):
+        assert rows(name, sheet) == 1
+        assert rows(name, sheet, q="asha") == 1
+        assert rows(name, sheet, q="zzz") == 0
+        assert rows(name, sheet, requisition=offer.requisition_id) == 1
+        assert rows(name, sheet, requisition=offer.requisition_id + 1) == 0

@@ -30,6 +30,7 @@ from .models import Interview, department_of
 from .services import (
     FollowUpError,
     edit_interview,
+    filter_query,
     interviews_waiting,
     narrow,
     open_requisitions,
@@ -101,6 +102,7 @@ def selecting(request):
             ),
             "done": narrow(_filed(request), request.GET)[:100],
             "requisitions": open_requisitions(request.companies),
+            "filters": filter_query(request.GET),
         },
     )
 
