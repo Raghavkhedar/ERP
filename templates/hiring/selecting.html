@@ -5,6 +5,7 @@
 {% block actions %}<a href="{% url 'hiring:selecting_export' %}" class="text-gray-500 hover:text-gray-900">Export</a>{% endblock %}
 
 {% block page %}
+  {% include "hiring/_filter_bar.html" %}
   <h2 class="font-semibold">To interview <span class="font-normal text-gray-500">({{ waiting.paginator.count }})</span></h2>
   {% if waiting %}
     <ul class="mt-1 divide-y divide-gray-100 border-y border-gray-100">

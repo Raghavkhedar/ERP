@@ -168,18 +168,27 @@ def close_requisition(request, pk):
 
 @section
 def report(request):
-    rows = [(r, [getattr(r, f) for _, f in STEPS]) for r in funnel(request.companies)]
+    status = request.GET.get("status", "")
+    rows = [
+        (r, [getattr(r, f) for _, f in STEPS])
+        for r in funnel(request.companies, status)
+    ]
     return render(
         request,
         "hiring/report.html",
-        {"rows": rows, "heads": [h for h, _ in STEPS]},
+        {
+            "rows": rows,
+            "heads": [h for h, _ in STEPS],
+            "status": status,
+            "statuses": Requisition.Status.choices,
+        },
     )
 
 
 @section
 @require_GET
 def export_report(request):
-    return funnel_workbook(funnel(request.companies))
+    return funnel_workbook(funnel(request.companies, request.GET.get("status", "")))
 
 
 @section

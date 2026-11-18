@@ -1,11 +1,13 @@
 {% extends "base.html" %}
-{% load access_tags %}
+{% load access_tags static %}
 
 {% block main_class %}mx-auto w-full max-w-7xl px-4 pb-28 pt-8 sm:px-6{% endblock %}
 
 {% block content %}
   <div class="rounded-2xl border border-ink bg-surface p-5 shadow-xl sm:p-8">
-    <nav class="mb-6 flex flex-wrap gap-2 text-sm" aria-label="Empanelment sections">
+    <script src="{% static 'js/filter_panel.js' %}"></script>
+    {# Tabs swap only #panel (and re-draw themselves to move the highlight), so a tab loads without a full page reload. #}
+    <nav id="tabs" hx-boost="true" hx-target:inherited="#panel" hx-select:inherited="#panel" hx-swap:inherited="outerHTML" hx-select-oob:inherited="#tabs" hx-push-url:inherited="true" class="mb-6 flex flex-wrap gap-2 text-sm" aria-label="Empanelment sections">
       {% url 'hiring:list' as preparing %}{% url 'hiring:sourcing' as sourcing %}{% url 'hiring:screening' as screening %}{% url 'hiring:selecting' as selecting %}{% url 'hiring:calling' as calling %}{% url 'hiring:offers' as offers %}{% url 'hiring:onboarding' as onboarding %}{% url 'hiring:report' as report %}{% url 'people:list' as candidates %}
       {% held_tabs as tabs %}
       {% if "openings" in tabs %}<a href="{{ preparing }}" class="rounded-full border border-ink px-3 py-1 {% if '/requisitions/' in request.path %}bg-pop{% endif %}">Preparing</a>{% endif %}
@@ -18,13 +20,15 @@
       {% if "openings" in tabs %}<a href="{{ report }}" class="rounded-full border border-ink px-3 py-1 {% if '/report/' in request.path %}bg-pop{% endif %}">Report</a>{% endif %}
       {% if "people" in tabs %}<a href="{{ candidates }}" class="rounded-full border border-ink px-3 py-1 {% if request.resolver_match.app_name == 'people' %}bg-pop{% endif %}">Candidates</a>{% endif %}
     </nav>
-    <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
-      <h1 class="title text-3xl">{% block heading %}Candidates{% endblock %}</h1>
-      <div class="flex items-center gap-4 text-sm">{% block actions %}{% endblock %}</div>
+    <div id="panel">
+      <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
+        <h1 class="title text-3xl">{% block heading %}Candidates{% endblock %}</h1>
+        <div class="flex items-center gap-4 text-sm">{% block actions %}{% endblock %}</div>
+      </div>
+      {% for message in messages %}
+        <p role="status" class="mt-6 text-sm {% if message.tags == 'error' %}text-red-600{% else %}text-green-700{% endif %}">{{ message }}</p>
+      {% endfor %}
+      <div class="mt-8">{% block page %}{% endblock %}</div>
     </div>
-    {% for message in messages %}
-      <p role="status" class="mt-6 text-sm {% if message.tags == 'error' %}text-red-600{% else %}text-green-700{% endif %}">{{ message }}</p>
-    {% endfor %}
-    <div class="mt-8">{% block page %}{% endblock %}</div>
   </div>
 {% endblock %}

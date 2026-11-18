@@ -6,7 +6,6 @@
 {% block actions %}<a href="{% url 'hiring:screening_export' %}?{{ filters }}" id="export-link" class="text-gray-500 hover:text-gray-900">Export</a>{% endblock %}
 
 {% block page %}
-  <script src="{% static 'js/filter_panel.js' %}"></script>
   <script>
     // The sheet filters through htmx, so keep Export pointing at what is on screen.
     document.addEventListener("htmx:after:swap", () => {

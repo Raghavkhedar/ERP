@@ -505,6 +505,23 @@ def reassign(followup, owner, by):
         return current
 
 
+def narrow(items, get):
+    """Filter any list of rows that has a person and a requisition: ?q= matches
+    the name or number, ?requisition= one opening."""
+    if q := get.get("q", "").strip():
+        items = items.filter(
+            Q(person__name__icontains=q) | Q(person__phone__icontains=q)
+        )
+    if get.get("requisition", "").isdigit():
+        items = items.filter(requisition_id=get["requisition"])
+    return items
+
+
+def open_requisitions(companies):
+    """The openings the filter bar offers."""
+    return Requisition.objects.filter(company__in=companies, archived_at__isnull=True)
+
+
 def interviews_waiting(user, companies):
     return visible_followups(user, companies).filter(purpose=FollowUp.Purpose.INTERVIEW)
 
@@ -883,7 +900,7 @@ def did_not_join(offer, reason=""):
         return current
 
 
-def funnel(companies):
+def funnel(companies, status=""):
     """Requisitions with how many people reached each step. People are counted
     once per step, so a candidate called five times is still one call."""
 
@@ -900,7 +917,8 @@ def funnel(companies):
         return Coalesce(Subquery(rows, output_field=IntegerField()), 0)
 
     return (
-        Requisition.objects.filter(company__in=companies, archived_at__isnull=True)
+        open_requisitions(companies)
+        .filter(**({"status": status} if status else {}))
         .annotate(
             sourced_n=reached(SourcedNumber, person="pk"),
             duplicate_n=reached(SourcedNumber, person="pk", is_duplicate=True),

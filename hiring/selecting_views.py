@@ -31,6 +31,8 @@ from .services import (
     FollowUpError,
     edit_interview,
     interviews_waiting,
+    narrow,
+    open_requisitions,
     record_interview,
     save_assessment,
     visible_interviews,
@@ -92,10 +94,13 @@ def selecting(request):
         {
             "waiting": paginate(
                 request,
-                interviews_waiting(request.user, request.companies),
+                narrow(
+                    interviews_waiting(request.user, request.companies), request.GET
+                ),
                 param="wpage",
             ),
-            "done": _filed(request)[:100],
+            "done": narrow(_filed(request), request.GET)[:100],
+            "requisitions": open_requisitions(request.companies),
         },
     )
 
