@@ -134,9 +134,9 @@
       {% csrf_token %}
       <input type="hidden" name="which" value="hr">
       <h2 class="title text-lg">HR assessment (PFA)</h2>
-      <p class="text-sm text-gray-600">Only you can see this. Selected opens an offer. Hold opens a call on the follow up date: set the date, or how many days to hold. Hold-FF and Hold-CFTL take no date.</p>
+      <p class="text-sm text-gray-600">Only you can see this. Selected opens an offer, due on the follow up date if you set one. Hold opens a call on the follow up date: set the date, or how many days to hold. Hold-FF and Hold-CFTL take no date.</p>
       <div class="grid gap-3 sm:grid-cols-2">
-        {% for field in hr_form %}<div {% if field.name == 'hold_days' or field.name == 'next_follow_up' %}x-show="decision === 'hold'"{% endif %} class="{% if field.widget_type == 'textarea' %}sm:col-span-2{% endif %}">{% include "tasks/_field.html" %}</div>{% endfor %}
+        {% for field in hr_form %}<div {% if field.name == 'hold_days' %}x-show="decision === 'hold'"{% elif field.name == 'next_follow_up' %}x-show="decision === 'hold' || decision === 'selected'"{% endif %} class="{% if field.widget_type == 'textarea' %}sm:col-span-2{% endif %}">{% include "tasks/_field.html" %}</div>{% endfor %}
       </div>
       <button type="submit" class="h-11 w-full rounded-lg bg-blue-600 px-5 font-medium">Save HR assessment</button>
     </form>

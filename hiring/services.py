@@ -215,6 +215,11 @@ def source_number(
                 source_reference=source,
                 payment=payment,
             )
+        elif payment:
+            # A repeat number tells us more: the latest answer wins.
+            person.payment = payment
+            person.version += 1
+            person.save(update_fields=["payment", "version"])
         # Every sourced number, new or repeat, is called tomorrow as a normal
         # follow-up, unless the candidate already has a call waiting (an interview
         # or an offer is never pushed around by a repeat). Any card with this
@@ -687,6 +692,31 @@ def _hold_ff_status(person_id, decision, was):
     person.save()
 
 
+def _restore_call(interview, decision, was):
+    """Hold-FF and Hold-CFTL cancel the pending call; moving off them must not leave
+    the candidate with none. A rejected candidate, or one who must not be called,
+    gets nothing."""
+    person = interview.person
+    if (
+        was not in interview_form.NO_DATE
+        or decision in interview_form.NO_DATE
+        or decision == Interview.Result.REJECTED
+        or person.followups.filter(status=FollowUp.Status.PENDING).exists()
+    ):
+        return
+    person.refresh_from_db()  # _hold_ff_status may just have made it active again
+    if _not_to_call(Person.objects.filter(pk=person.pk)):
+        return
+    FollowUp.objects.create(
+        person=person,
+        requisition=interview.requisition,
+        due=next_day(),
+        owner=interview.followup.owner
+        if interview.followup_id
+        else interview.interviewer,
+    )
+
+
 def save_assessment(
     interview, decision, level, user, hold_tenure="", comments="", answers=None
 ):
@@ -715,6 +745,7 @@ def save_assessment(
         if interview.result != decision:
             edit_interview(interview, decision, interview.questions, interview.notes)
         _follow_up_after_assessment(interview, decision, answers)
+        _restore_call(interview, decision, was)
         return hr
 
 

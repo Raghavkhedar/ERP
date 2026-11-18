@@ -311,7 +311,11 @@ def review(request, pk):
     if hr and hr_form.is_valid():
         d = hr_form.cleaned_data
         answers = hr_form.answers()
-        tenure = f"{d['hold_days']} days" if d.get("hold_days") else ""
+        tenure = (
+            f"{d['hold_days']} days"
+            if d["decision"] == "hold" and d.get("hold_days")
+            else ""
+        )
         if (
             existing
             and existing.decision == d["decision"] == "hold"

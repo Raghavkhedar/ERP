@@ -462,6 +462,13 @@ class AssessmentForm(forms.Form):
     def clean(self):
         data = super().clean()
         decision = data.get("decision")
+        # Hidden fields must not block the save. The page fills the days from the
+        # date, so a past or far date gives days the field refuses; the date is
+        # what counts then.
+        if decision != "hold" or whereabouts.parse_day(data.get("next_follow_up")):
+            self.errors.pop("hold_days", None)
+        if decision not in ("hold", "selected"):  # selected keeps its offer date
+            self.errors.pop("next_follow_up", None)
         if decision in NO_DATE:  # waiting on the candidate or the company: no date
             data["next_follow_up"] = ""
         elif decision == "hold" and "next_follow_up" not in self.errors:

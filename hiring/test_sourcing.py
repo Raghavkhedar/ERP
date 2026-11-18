@@ -219,3 +219,10 @@ def test_free_or_paid_is_saved_on_the_card(client, req):
         {"requisition": req.pk, "name": "A", "phone": "9876543210", "payment": "Paid"},
     )
     assert Person.objects.get().payment == "Paid"
+
+
+def test_free_or_paid_on_a_repeat_number_updates_the_card(client, req):
+    row = {"requisition": req.pk, "name": "A", "phone": "9876543210"}
+    client.post(reverse("hiring:source_new"), row | {"payment": "Free"})
+    client.post(reverse("hiring:source_new"), row | {"payment": "Paid"})
+    assert Person.objects.count() == 1 and Person.objects.get().payment == "Paid"
