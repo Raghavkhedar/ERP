@@ -618,6 +618,13 @@ def _follow_up_after_assessment(interview, decision, answers):
     current = (
         pending.filter(purpose=FollowUp.Purpose.OFFER).first() if offered else None
     ) or pending.first()
+    if decision in interview_form.NO_DATE and not offered:
+        # Waiting on the candidate or the company: no call should come due.
+        for call in pending.filter(purpose=FollowUp.Purpose.CALL):
+            call.status = FollowUp.Status.CANCELLED
+            call.version += 1
+            call.save(update_fields=["status", "version"])
+        return
     if not (offered or due):
         return
     if current is None:
@@ -653,6 +660,24 @@ def _set_preference(person_id, preference):
     person.save()
 
 
+def _hold_ff_status(person_id, decision, was):
+    """Hold-FF puts the card on "Hold - FF", so recruiters are not given it to
+    call; moving off Hold-FF frees the card again."""
+    on, was_on = decision == "hold_ff", was == "hold_ff"
+    if on == was_on:
+        return
+    status = Person.ContactStatus
+    person = Person.objects.select_for_update().get(pk=person_id)
+    if on and person.contact_status == status.ACTIVE:
+        person.contact_status = status.HOLD_FF
+    elif was_on and person.contact_status == status.HOLD_FF:
+        person.contact_status = status.ACTIVE
+    else:
+        return
+    person.version += 1
+    person.save()
+
+
 def save_assessment(
     interview, decision, level, user, hold_tenure="", comments="", answers=None
 ):
@@ -660,6 +685,11 @@ def save_assessment(
     offer, hold opens a call on the follow-up date if one is given."""
     answers = answers or {}
     with transaction.atomic():
+        was = (
+            HRAssessment.objects.filter(interview=interview)
+            .values_list("decision", flat=True)
+            .first()
+        )
         hr = HRAssessment.objects.update_or_create(
             interview=interview,
             defaults=dict(
@@ -672,6 +702,7 @@ def save_assessment(
             ),
         )[0]
         _set_preference(interview.person_id, answers.get("preference"))
+        _hold_ff_status(interview.person_id, decision, was)
         if interview.result != decision:
             edit_interview(interview, decision, interview.questions, interview.notes)
         _follow_up_after_assessment(interview, decision, answers)

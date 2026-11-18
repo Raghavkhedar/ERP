@@ -522,3 +522,33 @@ def test_a_date_that_does_not_exist_is_refused_not_a_crash(client, booked, calle
     )
     assert r.status_code == 302
     assert Interview.objects.get().answers["work"][0]["duration"] == ""
+
+
+def test_hold_ff_cancels_the_call_and_parks_the_card(
+    client, booked, caller, django_user_model
+):
+    url = _filed(client, booked, caller, django_user_model)
+    person = Interview.objects.get().person
+    FollowUp.objects.create(
+        person=person, purpose="call", due=timezone.now(), owner=caller
+    )
+    client.post(url, {"which": "hr", "decision": "hold_ff"})
+    person.refresh_from_db()
+    assert not FollowUp.objects.filter(status="pending", purpose="call").exists()
+    assert person.contact_status == "hold_ff"
+    client.post(url, {"which": "hr", "decision": "rejected"})
+    person.refresh_from_db()
+    assert person.contact_status == "active"
+
+
+def test_hold_tenure_is_the_days_entered_and_survives_a_resave(
+    client, booked, caller, django_user_model
+):
+    url = _filed(client, booked, caller, django_user_model)
+    day = (timezone.localdate() + timedelta(days=9)).isoformat()
+    post = {"which": "hr", "decision": "hold", "next_follow_up": day}
+    client.post(url, post)
+    first = Interview.objects.get().hr.hold_tenure
+    assert first.endswith(" days")
+    client.post(url, {**post, "comments": "again"})
+    assert Interview.objects.get().hr.hold_tenure == first
