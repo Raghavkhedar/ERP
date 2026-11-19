@@ -146,6 +146,8 @@ def _sheet(rows, get):
         rows = rows.filter(person__contact_status__in=contacts)
     if get.get("owner", "").isdigit():
         rows = rows.filter(owner_id=get["owner"])
+    elif get.get("owner") == "none":
+        rows = rows.filter(owner__isnull=True)
     if phone := get.get("phone", "").strip():
         match = Q(person__phone__icontains=phone)
         if digits := phone_key(phone):  # spaces and +91 differ between spellings
@@ -204,7 +206,7 @@ def _summary(rows, today):
         "overdue": sum(r["overdue"] for r in by_owner),
         "interview": sum(r["interview"] for r in by_owner),
         "offer": sum(r["offer"] for r in by_owner),
-        "people": len(by_owner),
+        "people": sum(1 for r in by_owner if r["owner"]),  # Unassigned is not a person
         "by_owner": by_owner,
     }
 
@@ -390,8 +392,10 @@ def call_logs(request):
         return redirect("hiring:call_logs")
     if picked:
         request.session["call_log_filters"] = picked.urlencode()
-    elif saved and "page" not in request.GET:
-        return redirect(f"{reverse('hiring:call_logs')}?{saved}")
+    elif saved:
+        page_no = request.GET.get("page")
+        extra = f"&page={page_no}" if page_no else ""
+        return redirect(f"{reverse('hiring:call_logs')}?{saved}{extra}")
     logs = _logs(request)
     # Callers who appear in the unfiltered list, so the dropdown stays in scope.
     callers = (

@@ -191,7 +191,7 @@
           <th class="p-2"><div x-data="filterPanel" class="relative" @click.outside="o = false" @scroll.window="o = false" @resize.window="o = false" @keydown.escape="o = false">Assigned to <button type="button" x-ref="btn" @click="toggle()" :aria-expanded="o" class="fbtn" :class="has('owner') && 'is-on'" aria-label="Filter by person">▾</button>
             <div x-ref="panel" x-show="o" x-cloak class="popover fields w-60">
               <p class="popover-title">Assigned to</p>
-              <select name="owner" class="w-full"><option value="">Everyone</option>{% for o in owners %}<option value="{{ o.pk }}" {% if get.owner == o.pk|stringformat:"s" %}selected{% endif %}>{{ o.display_name }}</option>{% endfor %}</select>
+              <select name="owner" class="w-full"><option value="">Everyone</option><option value="none" {% if get.owner == "none" %}selected{% endif %}>Unassigned</option>{% for o in owners %}<option value="{{ o.pk }}" {% if get.owner == o.pk|stringformat:"s" %}selected{% endif %}>{{ o.display_name }}</option>{% endfor %}</select>
               <div class="popover-foot"><button type="button" class="clear" @click="clear()">Clear</button></div></div></div></th>
         </tr>
       </thead>

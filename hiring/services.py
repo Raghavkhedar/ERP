@@ -504,19 +504,19 @@ def edit_call_log(log, user, version, **fields):
     Newly sending it on (discuss, department change, a whereabout) tells the
     caller's supervisor, as logging it would."""
     mini, major = fields["mini_whereabout"], fields["major_whereabout"]
-    new = (
-        (fields["discuss"] and not log.discussed)
-        or (fields["department_changed"] and not log.department_changed)
-        or (mini and mini != log.mini_whereabout)
-        or (major and major != log.major_whereabout)
-    )
-    boss = log.caller.supervisor if new else None
-    if new and not boss:
-        raise NoSupervisor("The caller has no supervisor set to send this to.")
     with transaction.atomic():
         current = CallLog.objects.select_for_update().get(pk=log.pk)
         if version != current.version:
             raise StaleCall("Someone changed this call while you were editing it.")
+        new = (
+            (fields["discuss"] and not current.discussed)
+            or (fields["department_changed"] and not current.department_changed)
+            or (mini and mini != current.mini_whereabout)
+            or (major and major != current.major_whereabout)
+        )
+        boss = current.caller.supervisor if new else None
+        if new and not boss:
+            raise NoSupervisor("The caller has no supervisor set to send this to.")
         current.outcome = fields["outcome"]
         current.notes = fields["notes"]
         current.call_type = fields["call_type"]

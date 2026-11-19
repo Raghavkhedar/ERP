@@ -734,7 +734,8 @@ def test_call_log_filters_are_remembered_until_cleared(client, caller, todo):
     client.get(url, {"q": "Asha"})
     back = client.get(url)
     assert back.status_code == 302 and "q=Asha" in back["Location"]
-    assert client.get(url, {"page": 2}).status_code == 200
+    paged = client.get(url, {"page": 2})
+    assert paged.status_code == 302 and "q=Asha" in paged["Location"]
     assert client.get(url, {"clear": 1}).status_code == 302
     assert client.get(url).status_code == 200
 
@@ -773,3 +774,29 @@ def test_a_logged_call_can_be_edited_by_its_caller_and_supervisors(
     caller.save()
     client.force_login(boss)
     assert client.get(url).status_code == 200
+
+
+def test_unassigned_filter_and_summary_do_not_count_it_as_a_person(
+    client, django_user_model, senken, todo, caller
+):
+    boss = member(django_user_model, senken, "Boss")
+    caller.supervisor = boss
+    caller.save()
+    FollowUp.objects.filter(pk=todo.pk).update(owner=None)
+    client.force_login(boss)
+    page = client.get(reverse("hiring:screening"))
+    assert (
+        page.context["summary"]["people"] == 0 and page.context["summary"]["today"] == 1
+    )
+    assert (
+        len(client.get(reverse("hiring:screening"), {"owner": "none"}).context["rows"])
+        == 1
+    )
+    assert (
+        len(
+            client.get(reverse("hiring:screening"), {"owner": caller.pk}).context[
+                "rows"
+            ]
+        )
+        == 0
+    )
