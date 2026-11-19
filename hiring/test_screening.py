@@ -643,6 +643,7 @@ def test_call_log_filters_flags_search_and_bad_input(
     assert notes(discussed="1") == {"nt-talk"}
     assert notes(whereabout="1") == {"nt-form"}
     assert notes(type="inbound") == {"nt-form"}
+    assert len(notes(type=["inbound", "outbound"])) == 5  # several values at once
     assert len(notes(q="9876543210")) == 5  # phone matches across spellings
     assert notes(q="nobody") == set()
     # bad values are ignored, never a 500; an inverted range is swapped

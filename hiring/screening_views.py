@@ -360,13 +360,17 @@ def _logs(request):
         logs = logs.filter(called_at__date__gte=start)
     if end:
         logs = logs.filter(called_at__date__lte=end)
-    caller = g.get("caller", "")
-    if caller.isascii() and caller.isdigit() and len(caller) < 10:
-        logs = logs.filter(caller_id=caller)
-    if g.get("tag") in CallLog.Outcome.values:
-        logs = logs.filter(outcome=g["tag"])
-    if g.get("type") in CallLog.Kind.values:
-        logs = logs.filter(call_type=g["type"])
+    callers = [
+        c for c in g.getlist("caller") if c.isascii() and c.isdigit() and len(c) < 10
+    ]
+    if callers:
+        logs = logs.filter(caller_id__in=callers)
+    tags = [t for t in g.getlist("tag") if t in CallLog.Outcome.values]
+    if tags:
+        logs = logs.filter(outcome__in=tags)
+    kinds = [k for k in g.getlist("type") if k in CallLog.Kind.values]
+    if kinds:
+        logs = logs.filter(call_type__in=kinds)
     for name, (_, cond) in LOG_FLAGS.items():
         if g.get(name) == "1":
             logs = logs.filter(cond)
@@ -414,13 +418,16 @@ def call_logs(request):
         {
             "rows": rows,
             "page": page,
-            "callers": callers,
+            "caller_opts": [
+                (u.pk, u.get_full_name() or u.get_username()) for u in callers
+            ],
             "tags": CallLog.Outcome.choices,
             "kinds": CallLog.Kind.choices,
             "flags": [(k, v[0]) for k, v in LOG_FLAGS.items()],
             "export_limit": EXPORT_LIMIT,
             "can_edit_all": _can_reassign(request.user),
             "f": request.GET,
+            "sel": {k: request.GET.getlist(k) for k in ("caller", "tag", "type")},
         },
     )
 

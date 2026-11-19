@@ -1,0 +1,12 @@
+{# Column-header multi-select; its boxes belong to the #logfilter form and apply with Filter. #}
+<div x-data="{ open: false, pos: '' }" @click.outside="open = false" @keydown.escape="open = false" class="relative font-bold">
+  <button type="button" x-ref="b" @click="open = !open; const r = $refs.b.getBoundingClientRect(); pos = `top:${r.bottom + 4}px;left:${r.left}px`" :aria-expanded="open" class="inline-flex items-center gap-1">
+    {{ label }}{% if picked %} <span class="rounded-full bg-pop px-1.5 text-xs text-ink">{{ picked|length }}</span>{% endif %}
+    <svg class="h-3 w-3" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true"><path d="M2 4l4 5 4-5z"/></svg>
+  </button>
+  <div x-show="open" x-cloak :style="pos" @scroll.window="open = false" class="fixed z-20 max-h-64 min-w-40 overflow-y-auto rounded-lg border border-ink bg-white p-2 font-normal text-ink shadow-lg">
+    {% for v, l in options %}
+      <label class="flex items-center gap-2 whitespace-nowrap px-1 py-0.5"><input type="checkbox" form="logfilter" name="{{ name }}" value="{{ v }}"{% if v|stringformat:"s" in picked %} checked{% endif %}> {{ l }}</label>
+    {% endfor %}
+  </div>
+</div>
