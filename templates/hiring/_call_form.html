@@ -24,8 +24,8 @@
       <div class="min-w-0 space-y-4">
         <div class="grid gap-4 sm:grid-cols-[13rem_minmax(0,1fr)]">
           <div class="flex items-end gap-2">
-            {% if call_form.next_due %}<div class="min-w-0 flex-1" :class="tbd && 'opacity-50'" @input="tbd = false">{% include "tasks/_field.html" with field=call_form.next_due %}</div>
-            <label title="{{ call_form.tbd.label }}" class="grid size-10 shrink-0 cursor-pointer place-items-center rounded-full border border-gray-300 bg-white text-xs font-bold has-[:checked]:border-ink has-[:checked]:bg-pop has-[:checked]:shadow-md has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-blue-600">
+            {% if call_form.next_due %}<div class="min-w-0 flex-1" :class="tbd && 'opacity-50'" @input="tbd = false">{% include "tasks/_field.html" with field=call_form.next_due %}</div>{% endif %}
+            {% if call_form.tbd %}<label title="{{ call_form.tbd.label }}" class="grid size-10 shrink-0 cursor-pointer place-items-center rounded-full border border-gray-300 bg-white text-xs font-bold has-[:checked]:border-ink has-[:checked]:bg-pop has-[:checked]:shadow-md has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-blue-600">
               <input type="checkbox" name="tbd" x-model="tbd" class="sr-only" {% if call_form.tbd.value %}checked{% endif %}>
               <span class="sr-only">{{ call_form.tbd.label }}</span>
               <span aria-hidden="true">TBD</span>

@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from urllib.parse import urlencode
 
 from django.contrib.auth import get_user_model
-from django.db import connection, transaction
+from django.db import IntegrityError, connection, transaction
 from django.db.models import (
     Case,
     Count,
@@ -404,7 +404,7 @@ def _pending(followup):
 
 def _open(after, purpose, due, other=""):
     """The next follow-up for the same person, unless one is already pending."""
-    FollowUp.objects.get_or_create(
+    return FollowUp.objects.get_or_create(
         person=after.person,
         purpose=purpose,
         status=FollowUp.Status.PENDING,
@@ -414,7 +414,7 @@ def _open(after, purpose, due, other=""):
             owner=after.owner,
             purpose_other=other,
         ),
-    )
+    )[0]
 
 
 def log_call(
@@ -478,7 +478,8 @@ def log_call(
                 requisition=sourced.requisition if sourced else None,
                 owner=user,
             )
-            _open(after, intention, next_due, intention_other)
+            call.opened_followup = _open(after, intention, next_due, intention_other)
+            call.save(update_fields=["opened_followup"])
         if boss:
             why = (
                 "a department change"
@@ -499,7 +500,37 @@ class StaleCall(FollowUpError):
     """Someone saved the call after this form was opened."""
 
 
-def edit_call_log(log, user, version, **fields):
+def _change_next(call, user, due, purpose, other):
+    """Move the follow-up this call opened, if it is still waiting."""
+    nxt = (
+        FollowUp.objects.select_for_update().get(pk=call.opened_followup_id)
+        if call.opened_followup_id
+        else None
+    )
+    if not nxt or nxt.status != FollowUp.Status.PENDING:
+        raise FollowUpError(
+            "The next follow-up was already closed, so it can't change."
+        )
+    if (nxt.due, nxt.purpose, nxt.purpose_other) == (due, purpose, other):
+        return
+    nxt.due, nxt.purpose, nxt.purpose_other = due, purpose, other
+    nxt.version += 1
+    try:
+        with transaction.atomic():
+            nxt.save()
+    except IntegrityError:
+        raise FollowUpError(
+            "That candidate already has a pending follow-up with that intention."
+        ) from None
+    if nxt.owner_id and nxt.owner_id != user.pk:
+        notify(
+            nxt.owner,
+            f"{user.display_name} changed your next call: {nxt.person.name}",
+            reverse("hiring:screening"),
+        )
+
+
+def edit_call_log(log, user, version, next_due=None, intention=None, **fields):
     """Correct a logged call. The follow-up it completed or opened is not touched.
     Newly sending it on (discuss, department change, a whereabout) tells the
     caller's supervisor, as logging it would."""
@@ -527,6 +558,8 @@ def edit_call_log(log, user, version, **fields):
         current.mini_whereabout, current.major_whereabout = mini, major
         current.version += 1
         current.save()
+        if intention:
+            _change_next(current, user, next_due, intention, fields["intention_other"])
         if boss:
             notify(
                 boss,

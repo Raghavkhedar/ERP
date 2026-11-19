@@ -368,6 +368,15 @@ class CallLog(models.Model):
     # Bulk shifts and on-demand moves imported from the old system aren't real calls.
     not_a_call = models.BooleanField(default=False)
     version = models.PositiveIntegerField(default=1)
+    # The next follow-up this call opened (empty on older calls), so an edit can
+    # still change its date and intention while it is pending.
+    opened_followup = models.ForeignKey(
+        FollowUp,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
 
     history = HistoricalRecords()
 
