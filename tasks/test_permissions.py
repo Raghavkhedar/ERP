@@ -4,6 +4,8 @@ import pytest
 from django.urls import reverse
 from django.utils import timezone
 
+from core.dates import skip_sunday
+
 from .services import assign
 
 pytestmark = pytest.mark.django_db
@@ -59,7 +61,7 @@ def test_an_admin_edits_a_task(client, task, manager):
         "assigned_to": task.assigned_to_id,
         "priority": "1",
         "description": "Audit report, urgent",
-        "due_date": (timezone.localdate() + timedelta(days=2)).isoformat(),
+        "due_date": skip_sunday(timezone.localdate() + timedelta(days=2)).isoformat(),
     }
 
     client.post(edit_url(task), data)

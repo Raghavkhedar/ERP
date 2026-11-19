@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from chat.models import Message
 from chat.services import unread_counts
+from core.dates import skip_sunday
 
 from .models import Status, Task
 from .services import TaskError, assign, short_date
@@ -22,7 +23,7 @@ def form_data(person, **changes):
         "assigned_to": person.pk,
         "priority": "3",
         "description": "Audit report",
-        "due_date": (timezone.localdate() + timedelta(days=7)).isoformat(),
+        "due_date": skip_sunday(timezone.localdate() + timedelta(days=7)).isoformat(),
     }
     return {**data, **changes}
 

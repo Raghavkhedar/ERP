@@ -6,6 +6,8 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from django.utils import timezone
 
+from core.dates import skip_sunday
+
 from .forms import MAX_FILE_SIZE
 from .models import Attachment, Status, TaskUpdate
 from .services import TaskError, add_update, assign, set_status
@@ -234,7 +236,9 @@ def test_assigning_a_task_with_files(admin_user, alice, client):
             "assigned_to": alice.pk,
             "priority": 3,
             "description": "Review the contract",
-            "due_date": (timezone.localdate() + timedelta(days=2)).isoformat(),
+            "due_date": skip_sunday(
+                timezone.localdate() + timedelta(days=2)
+            ).isoformat(),
             "files": [screenshot("brief.png")],
         },
     )

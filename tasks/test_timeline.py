@@ -4,6 +4,8 @@ import pytest
 from django.urls import reverse
 from django.utils import timezone
 
+from core.dates import skip_sunday
+
 from .models import Status, Task
 from .services import assign, set_status
 from .timeline import DAYS, DAYS_BEFORE_TODAY, build, parse_start
@@ -20,7 +22,13 @@ def today():
 
 def make(boss, person, received_days_ago, due_in, description="Audit report"):
     today = timezone.localdate()
-    task = assign(boss, person, 3, description, today + timedelta(days=max(due_in, 0)))
+    task = assign(
+        boss,
+        person,
+        3,
+        description,
+        skip_sunday(today + timedelta(days=max(due_in, 0))),
+    )
     Task.objects.filter(pk=task.pk).update(
         received_at=timezone.now() - timedelta(days=received_days_ago),
         due_date=today + timedelta(days=due_in),
