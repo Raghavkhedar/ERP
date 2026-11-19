@@ -1,3 +1,4 @@
+from collections import Counter
 from datetime import datetime, time, timedelta
 from types import SimpleNamespace
 from urllib.parse import urlencode
@@ -60,6 +61,85 @@ def visible_requisitions(companies, status=""):
         )
     ).order_by("status", "rank", "needed_by", "-created_at")
     return reqs.filter(status=status) if status else reqs
+
+
+def duplicate_breakdown(requisition):
+    """The candidates whose number came again for this requisition, counted once
+    each: how many had a call completed, where they stand now, and their
+    preference. `numbers` counts the sourced rows, as the list does."""
+    people = list(
+        Person.objects.filter(
+            sourced__requisition=requisition, sourced__is_duplicate=True
+        ).distinct()
+    )
+    ids = [p.pk for p in people]
+    followed = set(
+        FollowUp.objects.filter(
+            requisition=requisition,
+            person__in=ids,
+            status=FollowUp.Status.COMPLETED,
+        ).values_list("person", flat=True)
+    )
+    offers, joined = {}, set()
+    for o in Offer.objects.filter(requisition=requisition, person__in=ids).order_by(
+        "id"
+    ):
+        offers[o.person_id] = o  # the latest offer decides, unless they joined
+        if o.joined_on:
+            joined.add(o.person_id)
+    interviews = {}
+    for i in Interview.objects.filter(requisition=requisition, person__in=ids).order_by(
+        "scheduled_at", "id"
+    ):
+        # The latest decided interview wins; a booked one still pending doesn't
+        # hide an earlier result.
+        if i.result != Interview.Result.PENDING or i.person_id not in interviews:
+            interviews[i.person_id] = i.result
+    results = {
+        "hold_cftl": "CFTL",
+        "rejected": "Rejected",
+        "selected": "Selected",
+        "hold": "Hold",
+        "hold_ff": "Hold",
+        "pending": "Waiting for HR",
+    }
+    outcome, preference = Counter(), Counter()
+    for p in people:
+        offer = offers.get(p.pk)
+        if p.pk in joined:
+            outcome["Joined"] += 1
+        elif offer and offer.state == Offer.State.ACCEPTED:
+            outcome["Accepted, not joined"] += 1
+        elif offer and offer.state == Offer.State.OFFERED:
+            outcome["Offered"] += 1
+        elif offer:
+            outcome["Declined"] += 1
+        else:
+            outcome[results.get(interviews.get(p.pk), "No result yet")] += 1
+        preference[p.get_priority_display() or "Not set"] += 1
+    order = [
+        "Joined",
+        "Accepted, not joined",
+        "Offered",
+        "Declined",
+        "CFTL",
+        "Selected",
+        "Hold",
+        "Rejected",
+        "Waiting for HR",
+        "No result yet",
+    ]
+    prefs = [*(label for _, label in Person.Priority.choices), "Not set"]
+    return {
+        "total": len(people),
+        "numbers": SourcedNumber.objects.filter(
+            requisition=requisition, is_duplicate=True
+        ).count(),
+        "followed": len(followed),
+        "not_followed": len(people) - len(followed),
+        "outcome": [(k, outcome[k]) for k in order],
+        "preference": [(k, preference[k]) for k in prefs],
+    }
 
 
 def save_requisition(form, version=None):

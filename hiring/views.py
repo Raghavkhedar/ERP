@@ -12,6 +12,7 @@ from .models import Requisition
 from .services import (
     StaleRequisition,
     close,
+    duplicate_breakdown,
     funnel,
     reopen,
     requisition_timeline,
@@ -37,6 +38,16 @@ def _back(request):
     to = request.POST.get("next", "")
     ok = url_has_allowed_host_and_scheme(to, allowed_hosts=None)
     return redirect(to if to and ok else "hiring:list")
+
+
+@section
+def duplicate_detail(request, pk):
+    requisition = _requisition(request, pk)
+    return render(
+        request,
+        "hiring/_duplicates.html",
+        {"requisition": requisition, "d": duplicate_breakdown(requisition)},
+    )
 
 
 @section

@@ -28,8 +28,14 @@ def task(boss, alice):
 
     from django.utils import timezone
 
+    from core.dates import skip_sunday
+
     task = assign(
-        boss, alice, 3, "Audit report", timezone.localdate() + timedelta(days=3)
+        boss,
+        alice,
+        3,
+        "Audit report",
+        skip_sunday(timezone.localdate() + timedelta(days=3)),
     )
     add_update(task, alice, "Collected the statements")
     return task

@@ -1,0 +1,27 @@
+<div class="p-5">
+  <div class="flex items-start justify-between gap-4">
+    <div>
+      <h2 id="dup-title" class="title text-lg">{{ d.total }} duplicate candidate{{ d.total|pluralize }}</h2>
+      <p class="text-sm text-gray-500">{{ requisition.headcount }} × {{ requisition.profile }} · {{ d.numbers }} duplicate number{{ d.numbers|pluralize }}, each candidate counted once.</p>
+    </div>
+    <button type="button" onclick="this.closest('dialog').close()" class="shrink-0 rounded-md border border-ink px-3 py-1 text-sm">Close</button>
+  </div>
+
+  <h3 class="mt-4 font-semibold">Calls</h3>
+  <table class="mt-1 w-full text-left text-sm"><tbody>
+    <tr class="border-b border-gray-100"><td class="py-1.5">Call completed</td><td class="py-1.5 text-right">{{ d.followed }}</td></tr>
+    <tr class="border-b border-gray-100"><td class="py-1.5">No completed call</td><td class="py-1.5 text-right">{{ d.not_followed }}</td></tr>
+  </tbody></table>
+
+  <h3 class="mt-4 font-semibold">Where they stand</h3>
+  <table class="mt-1 w-full text-left text-sm"><tbody>
+    {% for label, n in d.outcome %}<tr class="border-b border-gray-100"><td class="py-1.5">{{ label }}</td><td class="py-1.5 text-right">{{ n }}</td></tr>{% endfor %}
+  </tbody></table>
+
+  <h3 class="mt-4 font-semibold">Preference</h3>
+  <table class="mt-1 w-full text-left text-sm"><tbody>
+    {% for label, n in d.preference %}<tr class="border-b border-gray-100"><td class="py-1.5">{{ label }}</td><td class="py-1.5 text-right">{{ n }}</td></tr>{% endfor %}
+  </tbody></table>
+
+  <a href="{% url 'hiring:sourcing' %}?requisition={{ requisition.pk }}&dup=1" class="mt-4 inline-block text-sm underline">See the candidates</a>
+</div>
