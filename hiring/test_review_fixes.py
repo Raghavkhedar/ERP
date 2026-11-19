@@ -404,6 +404,7 @@ def test_a_call_refused_for_no_supervisor_keeps_what_was_typed(
     boss_less = django_user_model.objects.create_user(username="c", password="pw")
     grant(boss_less, senken, "screening", "calling")
     s.source_number(req, "Asha", "9876543210", boss_less)
+    FollowUp.objects.update(owner=boss_less)
     todo = FollowUp.objects.get()
     client.force_login(boss_less)
     out = client.post(

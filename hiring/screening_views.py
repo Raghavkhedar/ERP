@@ -193,7 +193,7 @@ def _summary(rows, today):
     )
     owners = get_user_model().objects.in_bulk([r["owner"] for r in per_owner])
     by_owner = sorted(
-        ({**r, "owner": owners[r["owner"]]} for r in per_owner),
+        ({**r, "owner": owners.get(r["owner"])} for r in per_owner),
         key=lambda r: -(r["today"] + r["overdue"]),
     )
     return {

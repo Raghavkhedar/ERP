@@ -46,7 +46,7 @@ def todo(senken, caller):
     )
     source_number(req, "Asha", "9876543210", caller)
     # Sourced numbers are called tomorrow; these tests start from a call due now.
-    FollowUp.objects.update(due=timezone.now())
+    FollowUp.objects.update(due=timezone.now(), owner=caller)
     return FollowUp.objects.get()
 
 
@@ -289,6 +289,7 @@ def test_sheet_filters_by_date_range_and_assignee(client, todo, caller):
 def test_sheet_and_calling_are_paged_and_keep_filters(client, todo, caller):
     for i in range(54):
         source_number(todo.requisition, f"Person {i}", f"90000{i:05d}", caller)
+    FollowUp.objects.update(owner=caller)
     url = reverse("hiring:screening")
     first = client.get(url, {"purpose": "call"})
     assert (len(first.context["rows"]), first.context["page"].paginator.count) == (

@@ -325,7 +325,7 @@ def source_number(
                     person=person,
                     requisition=requisition,
                     due=next_day(),
-                    owner=user,
+                    owner=None,  # unassigned until a supervisor gives it out
                 )
             else:
                 # A call still waiting follows the latest requisition it was
@@ -1085,7 +1085,7 @@ def timeline(person, with_hr=False):
                     (
                         rec.history_date,
                         rec.history_user,
-                        f"{label.capitalize()} given to {rec.owner}",
+                        f"{label.capitalize()} given to {rec.owner or 'nobody'}",
                     )
                 )
             if rec.status != prev.status and rec.status in ("cancelled", "not_done"):

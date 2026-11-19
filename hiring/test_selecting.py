@@ -43,6 +43,7 @@ def booked(senken, caller):
         company=senken, opened_by=caller, department="bo", profile="Fitter", headcount=2
     )
     source_number(req, "Asha", "9876543210", caller)
+    FollowUp.objects.update(owner=caller)  # sourcing leaves it unassigned
     log_call(
         FollowUp.objects.get(),
         "reg_ff",
