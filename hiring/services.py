@@ -1,3 +1,4 @@
+from collections import Counter
 from datetime import datetime, time, timedelta
 from types import SimpleNamespace
 from urllib.parse import urlencode
@@ -60,6 +61,68 @@ def visible_requisitions(companies, status=""):
         )
     ).order_by("status", "rank", "needed_by", "-created_at")
     return reqs.filter(status=status) if status else reqs
+
+
+def duplicate_breakdown(requisition):
+    """The candidates whose number came again for this requisition, counted once
+    each: how many got a follow-up, where they stand now, and their preference."""
+    people = list(
+        Person.objects.filter(
+            sourced__requisition=requisition, sourced__is_duplicate=True
+        ).distinct()
+    )
+    ids = [p.pk for p in people]
+    followed = set(
+        FollowUp.objects.filter(requisition=requisition, person__in=ids).values_list(
+            "person", flat=True
+        )
+    )
+    offers = {}
+    for o in Offer.objects.filter(requisition=requisition, person__in=ids).order_by(
+        "id"
+    ):
+        offers[o.person_id] = o  # the latest offer wins
+    interviews = {}
+    for i in Interview.objects.filter(requisition=requisition, person__in=ids).order_by(
+        "scheduled_at", "id"
+    ):
+        interviews[i.person_id] = i.result  # the latest interview wins
+    results = {
+        "hold_cftl": "CFTL",
+        "rejected": "Rejected",
+        "selected": "Selected",
+        "hold": "Hold",
+        "hold_ff": "Hold",
+        "pending": "Waiting for HR",
+    }
+    outcome, preference = Counter(), Counter()
+    for p in people:
+        offer = offers.get(p.pk)
+        if offer and offer.joined_on:
+            outcome["Joined"] += 1
+        elif offer and offer.state == Offer.State.DECLINED:
+            outcome["Declined"] += 1
+        else:
+            outcome[results.get(interviews.get(p.pk), "No result yet")] += 1
+        preference[p.get_priority_display() or "Not set"] += 1
+    order = [
+        "Joined",
+        "Declined",
+        "CFTL",
+        "Selected",
+        "Hold",
+        "Rejected",
+        "Waiting for HR",
+        "No result yet",
+    ]
+    prefs = [*(label for _, label in Person.Priority.choices), "Not set"]
+    return {
+        "total": len(people),
+        "followed": len(followed),
+        "not_followed": len(people) - len(followed),
+        "outcome": [(k, outcome[k]) for k in order],
+        "preference": [(k, preference[k]) for k in prefs],
+    }
 
 
 def save_requisition(form, version=None):

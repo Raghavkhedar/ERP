@@ -253,3 +253,54 @@ def test_repeat_payment_reaches_every_card_with_the_number(client, req):
         {"requisition": req.pk, "name": "A", "phone": "9876543210", "payment": "Paid"},
     )
     assert set(Person.objects.values_list("payment", flat=True)) == {"Paid"}
+
+
+def test_duplicate_popup_counts_followups_outcome_and_preference(client, req, caller):
+    from django.utils import timezone
+
+    from .models import Interview, Offer
+
+    a = source_number(req, "A", "9000000001", caller).person
+    b = source_number(req, "B", "9000000002", caller).person
+    c = source_number(req, "C", "9000000003", caller).person
+    for n in ("9000000001", "9000000001", "9000000002", "9000000003"):
+        source_number(req, "again", n, caller)  # A twice over still counts once
+    FollowUp.objects.filter(person=c).delete()  # C has no follow-up
+    Interview.objects.create(
+        person=a,
+        requisition=req,
+        scheduled_at=timezone.now(),
+        result="hold_cftl",
+        interviewer=caller,
+    )
+    Offer.objects.create(
+        person=b,
+        requisition=req,
+        state="accepted",
+        joining_date=timezone.localdate(),
+        joined_on=timezone.localdate(),
+        made_by=caller,
+    )
+    b.priority = "preferred"
+    b.save()
+    html = client.get(reverse("hiring:duplicates", args=[req.pk])).content.decode()
+    assert "3 duplicate candidates" in html
+    from .services import duplicate_breakdown
+
+    d = duplicate_breakdown(req)
+    assert (d["followed"], d["not_followed"]) == (2, 1)
+    assert dict(d["outcome"])["CFTL"] == dict(d["outcome"])["Joined"] == 1
+    assert dict(d["outcome"])["No result yet"] == 1
+    assert (
+        dict(d["preference"])["Preferred"] == 1
+        and dict(d["preference"])["Not set"] == 2
+    )
+
+
+def test_duplicate_popup_is_company_scoped(client, req, django_user_model):
+    other = django_user_model.objects.create_user(username="X1", password="pw")
+    client.force_login(other)
+    assert client.get(reverse("hiring:duplicates", args=[req.pk])).status_code in (
+        403,
+        404,
+    )

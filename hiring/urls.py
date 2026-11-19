@@ -15,6 +15,11 @@ urlpatterns = [
         views.edit_job_post,
         name="edit_post",
     ),
+    path(
+        "requisitions/<int:pk>/duplicates/",
+        views.duplicate_detail,
+        name="duplicates",
+    ),
     path("requisitions/<int:pk>/edit/", views.edit_requisition, name="edit"),
     path("requisitions/<int:pk>/close/", views.close_requisition, name="close"),
     path("requisitions/<int:pk>/reopen/", views.reopen_requisition, name="reopen"),
