@@ -54,3 +54,7 @@ def test_password_gets_focus_after_a_failed_login(client, employee):
     html = response.content.decode()
     assert 'id="id_password" required autofocus' in html
     assert 'id="id_username" required autofocus' not in html
+
+
+def test_button_feedback_script_is_loaded(client):
+    assert b"js/button_feedback.js" in client.get(reverse("login")).content

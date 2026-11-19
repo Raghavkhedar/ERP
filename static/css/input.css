@@ -599,3 +599,51 @@ html.doors-shut .doors {
     transition: none;
   }
 }
+
+/* Button feedback (static/js/button_feedback.js): Processing…, Saved ✓, Not saved ✕. */
+button:is(.is-busy, .is-done, .is-failed) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+button.is-busy {
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+button.is-done {
+  background: var(--color-pop);
+  color: var(--color-ink);
+  border-color: var(--color-ink);
+}
+
+button.is-failed {
+  background: var(--color-red-600);
+  color: white;
+  border-color: var(--color-ink);
+}
+
+.fb-spin,
+.fb-icon {
+  width: 1.05em;
+  height: 1.05em;
+  flex: none;
+}
+
+.fb-spin {
+  animation: fb-spin 0.8s steps(8) infinite;
+}
+
+@keyframes fb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fb-spin {
+    animation: none;
+  }
+}
