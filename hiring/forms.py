@@ -345,12 +345,12 @@ class CallForm(forms.Form):
 
 
 class CallLogEditForm(CallForm):
-    """Fix a call after it was logged: the same questions, without the next call
-    (the follow-up it opened is left alone)."""
+    """Fix a call after it was logged: the same questions. The next call date and
+    intention show only while the follow-up this call opened is still pending."""
 
     version = forms.IntegerField(widget=forms.HiddenInput, required=False)
 
-    def __init__(self, *args, log, **kwargs):
+    def __init__(self, *args, log, followup=None, **kwargs):
         kwargs.setdefault(
             "initial",
             dict(
@@ -372,8 +372,14 @@ class CallLogEditForm(CallForm):
             major_initial=log.major_whereabout,
             **kwargs,
         )
-        for name in ("next_due", "intention", "intention_other", "tbd"):
-            del self.fields[name]
+        del self.fields["tbd"]
+        if followup:
+            self.fields["next_due"].initial = timezone.localtime(followup.due).date()
+            self.fields["intention"].initial = followup.purpose
+            self.fields["intention_other"].initial = followup.purpose_other
+        else:
+            for name in ("next_due", "intention", "intention_other"):
+                del self.fields[name]
 
 
 class IncomingCallForm(CallForm):

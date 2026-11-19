@@ -800,3 +800,42 @@ def test_unassigned_filter_and_summary_do_not_count_it_as_a_person(
         )
         == 0
     )
+
+
+def test_editing_a_call_moves_the_next_follow_up_it_opened_while_pending(
+    client, senken, todo, caller
+):
+    log_call(
+        todo,
+        user=caller,
+        outcome="reg_touch",
+        next_due=tomorrow(),
+        intention="call",
+    )
+    log = CallLog.objects.get()
+    nxt = log.opened_followup
+    assert nxt and nxt.status == "pending"
+    url = reverse("hiring:call_log_edit", args=[log.pk])
+    assert b"next_due" in client.get(url).content
+    day = (timezone.localdate() + timedelta(days=9)).isoformat()
+    data = {
+        "outcome": "reg_touch",
+        "call_type": "outbound",
+        "version": log.version,
+        "next_due": day,
+        "intention": "update",
+    }
+    assert client.post(url, data).status_code == 302
+    nxt.refresh_from_db()
+    assert (
+        nxt.purpose == "update"
+        and timezone.localtime(nxt.due).date().isoformat() >= day
+    )
+    # once that follow-up is closed the fields go and the call still saves
+    FollowUp.objects.filter(pk=nxt.pk).update(status="completed")
+    page = client.get(url)
+    assert b'name="next_due"' not in page.content
+    log.refresh_from_db()
+    data.pop("next_due"), data.pop("intention")
+    data["version"] = log.version
+    assert client.post(url, data).status_code == 302

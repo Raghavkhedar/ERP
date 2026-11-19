@@ -430,7 +430,9 @@ def call_log_edit(request, pk):
     log = get_object_or_404(_log_base(request), pk=pk)
     if not (_can_reassign(request.user) or log.caller_id == request.user.pk):
         raise PermissionDenied
-    form = CallLogEditForm(request.POST or None, log=log)
+    nxt = log.opened_followup
+    nxt = nxt if nxt and nxt.status == FollowUp.Status.PENDING else None
+    form = CallLogEditForm(request.POST or None, log=log, followup=nxt)
     if request.method == "POST" and form.is_valid():
         d = form.cleaned_data
         try:
@@ -438,6 +440,9 @@ def call_log_edit(request, pk):
                 log,
                 request.user,
                 d["version"],
+                next_due=d.get("next_due"),
+                intention=d.get("intention"),
+                intention_other=(d.get("intention_other") or "").strip(),
                 outcome=d["outcome"],
                 notes=d["notes"],
                 call_type=d["call_type"],
