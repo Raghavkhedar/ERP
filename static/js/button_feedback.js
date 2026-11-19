@@ -16,7 +16,11 @@
     const action = form ? form.getAttribute("action") || location.pathname : "";
     return [action, btn.name, btn.value, btn.dataset.fbLabel || btn.textContent.trim()].join("|");
   };
-  const skip = (btn) => !btn || btn.tagName !== "BUTTON" || btn.closest('[data-feedback="off"]');
+  // formaction buttons are downloads (Export): the page stays, so no feedback
+  const skip = (btn) =>
+    !btn || btn.tagName !== "BUTTON" || btn.hasAttribute("formaction") || btn.closest('[data-feedback="off"]');
+  // The form's own error lines (not red buttons, not overdue dates elsewhere on the page)
+  const rejected = (btn) => !!btn.form?.querySelector(".text-red-600:not(button)");
 
   function set(btn, state, text, icon) {
     if (!btn.dataset.fbHtml) {
@@ -27,6 +31,7 @@
     btn.classList.remove("is-busy", "is-done", "is-failed");
     btn.classList.add(state);
     btn.setAttribute("aria-busy", state === "is-busy");
+    btn.setAttribute("aria-live", "polite");
     btn.innerHTML = icon + `<span>${text}</span>`;
   }
 
@@ -36,14 +41,17 @@
     btn.innerHTML = btn.dataset.fbHtml;
     btn.classList.remove("is-busy", "is-done", "is-failed");
     btn.removeAttribute("aria-busy");
+    btn.removeAttribute("aria-live");
     btn.style.minWidth = "";
     delete btn.dataset.fbHtml;
     delete btn.dataset.fbLabel;
   }
 
+  const forget = () => { try { sessionStorage.removeItem(STORE); } catch {} };
+
   function busy(btn, giveUpAfter) {
     set(btn, "is-busy", "Processing…", SPIN);
-    timers.set(btn, setTimeout(() => restore(btn), giveUpAfter));
+    timers.set(btn, setTimeout(() => { forget(); restore(btn); }, giveUpAfter));
   }
 
   function finish(btn, ok) {
@@ -69,19 +77,22 @@
     try { wanted = sessionStorage.getItem(STORE); sessionStorage.removeItem(STORE); } catch {}
     if (!wanted) return;
     const btn = [...document.querySelectorAll("form button")].find((b) => !skip(b) && key(b) === wanted);
-    if (btn) finish(btn, !document.querySelector("main .text-red-600"));
+    if (btn) finish(btn, !rejected(btn));
   }
   document.addEventListener("DOMContentLoaded", afterLoad);
   window.addEventListener("pageshow", (e) => {
     if (!e.persisted) return;
+    forget();
     document.querySelectorAll("button.is-busy").forEach(restore);
   });
 
   // HTMX: the swap often replaces the form, so finish the button that took its place.
-  let pending = new Map(); // key → ok
+  const pending = new Map(); // key → ok
   document.addEventListener("htmx:beforeRequest", (e) => {
-    const btn = e.detail.requestConfig.triggeringEvent?.submitter || e.detail.elt.querySelector?.('button[type="submit"], button:not([type])') || e.detail.elt;
-    if (skip(btn) || btn.closest('[data-feedback="off"]')) return;
+    // Only a click or submit the user made: not polling, typing or change triggers
+    const ev = e.detail.requestConfig.triggeringEvent;
+    const btn = ev?.submitter || (ev?.type === "click" ? ev.target.closest?.("button") : null);
+    if (skip(btn)) return;
     e.detail.elt.__fb = btn;
     busy(btn, STUCK_MS);
   });
@@ -90,7 +101,7 @@
     if (!btn) return;
     delete e.detail.elt.__fb;
     const ok = e.detail.successful;
-    if (btn.isConnected) return finish(btn, ok);
+    if (btn.isConnected) return finish(btn, ok && !rejected(btn));
     pending.set(btn.dataset.fbLabel + "|" + btn.name + "|" + btn.value, ok); // swapped out
     setTimeout(() => pending.clear(), 500);
   });
@@ -98,7 +109,7 @@
     if (!pending.size) return;
     e.target.querySelectorAll?.("button").forEach((b) => {
       const k = b.textContent.trim() + "|" + b.name + "|" + b.value;
-      if (!skip(b) && pending.has(k)) { finish(b, pending.get(k)); pending.delete(k); }
+      if (!skip(b) && pending.has(k)) { finish(b, pending.get(k) && !rejected(b)); pending.delete(k); }
     });
   });
 })();
