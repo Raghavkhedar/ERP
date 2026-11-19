@@ -644,6 +644,9 @@ def test_call_log_filters_flags_search_and_bad_input(
     assert notes(whereabout="1") == {"nt-form"}
     assert notes(type="inbound") == {"nt-form"}
     assert len(notes(type=["inbound", "outbound"])) == 5  # several values at once
+    assert len(notes(tag=["x", "y"])) == 5  # unknown tags are ignored
+    assert len(notes(caller=["abc", str(caller.pk)])) == 5  # junk mixed with a real id
+    assert notes(caller=["abc", "999999"]) == set()  # a real but absent id filters
     assert len(notes(q="9876543210")) == 5  # phone matches across spellings
     assert notes(q="nobody") == set()
     # bad values are ignored, never a 500; an inverted range is swapped

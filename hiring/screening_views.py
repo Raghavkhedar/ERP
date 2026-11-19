@@ -400,6 +400,7 @@ def call_logs(request):
         page_no = request.GET.get("page")
         extra = f"&page={page_no}" if page_no else ""
         return redirect(f"{reverse('hiring:call_logs')}?{saved}{extra}")
+    got = request.GET.getlist
     logs = _logs(request)
     # Callers who appear in the unfiltered list, so the dropdown stays in scope.
     callers = (
@@ -427,7 +428,13 @@ def call_logs(request):
             "export_limit": EXPORT_LIMIT,
             "can_edit_all": _can_reassign(request.user),
             "f": request.GET,
-            "sel": {k: request.GET.getlist(k) for k in ("caller", "tag", "type")},
+            "sel": {
+                "caller": [
+                    c for c in got("caller") if c in {str(u.pk) for u in callers}
+                ],
+                "tag": [t for t in got("tag") if t in CallLog.Outcome.values],
+                "type": [k for k in got("type") if k in CallLog.Kind.values],
+            },
         },
     )
 
