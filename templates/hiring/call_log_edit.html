@@ -1,0 +1,10 @@
+{% extends "people/base_people.html" %}
+
+{% block title %}Edit call · Senken ERP{% endblock %}
+{% block heading %}Edit call{% endblock %}
+{% block actions %}<a href="{% url 'hiring:call_logs' %}" class="text-gray-500 hover:text-gray-900">Back to call logs</a>{% endblock %}
+
+{% block page %}
+  <p class="text-sm text-gray-500">{{ log.person.name }}, {{ log.person.phone }} · called {{ log.called_at|date:"d/m/Y H:i" }} by {{ log.caller.get_full_name|default:log.caller.get_username }}</p>
+  {% include "hiring/_call_form.html" with action=call_action %}
+{% endblock %}

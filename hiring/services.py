@@ -495,6 +495,47 @@ def log_call(
         return call
 
 
+class StaleCall(FollowUpError):
+    """Someone saved the call after this form was opened."""
+
+
+def edit_call_log(log, user, version, **fields):
+    """Correct a logged call. The follow-up it completed or opened is not touched.
+    Newly sending it on (discuss, department change, a whereabout) tells the
+    caller's supervisor, as logging it would."""
+    mini, major = fields["mini_whereabout"], fields["major_whereabout"]
+    new = (
+        (fields["discuss"] and not log.discussed)
+        or (fields["department_changed"] and not log.department_changed)
+        or (mini and mini != log.mini_whereabout)
+        or (major and major != log.major_whereabout)
+    )
+    boss = log.caller.supervisor if new else None
+    if new and not boss:
+        raise NoSupervisor("The caller has no supervisor set to send this to.")
+    with transaction.atomic():
+        current = CallLog.objects.select_for_update().get(pk=log.pk)
+        if version != current.version:
+            raise StaleCall("Someone changed this call while you were editing it.")
+        current.outcome = fields["outcome"]
+        current.notes = fields["notes"]
+        current.call_type = fields["call_type"]
+        current.rescheduled = fields["rescheduled"]
+        current.reschedule_reason = fields["reschedule_reason"]
+        current.department_changed = fields["department_changed"]
+        current.discussed = fields["discuss"]
+        current.mini_whereabout, current.major_whereabout = mini, major
+        current.version += 1
+        current.save()
+        if boss:
+            notify(
+                boss,
+                f"{user.display_name} sent a call for a look: {current.person.name}",
+                reverse("people:detail", args=[current.person_id]),
+            )
+        return current
+
+
 def reschedule(followup, due, reason):
     with transaction.atomic():
         current = _pending(followup)

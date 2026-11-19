@@ -26,7 +26,7 @@
         <label class="flex items-center gap-1 text-gray-600"><input type="checkbox" name="{{ key }}" value="1"{% if key == "rescheduled" and f.rescheduled == "1" or key == "department_changed" and f.department_changed == "1" or key == "discussed" and f.discussed == "1" or key == "whereabout" and f.whereabout == "1" %} checked{% endif %}> {{ label }}</label>
       {% endfor %}
       <button class="inline-flex h-9 items-center rounded-lg bg-blue-600 px-3 font-medium">Filter</button>
-      <a href="{% url 'hiring:call_logs' %}" class="text-gray-500 hover:text-gray-900">Clear</a>
+      <a href="{% url 'hiring:call_logs' %}?clear=1" class="text-gray-500 hover:text-gray-900">Clear</a>
       {# formaction submits the same filters, so Export always matches the page #}
       <button formaction="{% url 'hiring:call_logs_export' %}" title="Exports the newest {{ export_limit }} matching calls" class="text-gray-500 hover:text-gray-900">Export</button>
       <span class="text-gray-500">{{ page.paginator.count }} call{{ page.paginator.count|pluralize }}</span>
@@ -35,7 +35,7 @@
       <thead>
         <tr class="bg-ink text-white">
           <th class="p-2">When</th><th class="p-2">Caller</th><th class="p-2">Candidate</th><th class="p-2">Tag</th>
-          <th class="p-2">Type</th><th class="p-2">Status</th><th class="p-2">Details</th>
+          <th class="p-2">Type</th><th class="p-2">Status</th><th class="p-2">Details</th><th class="p-2"></th>
         </tr>
       </thead>
       <tbody>
@@ -54,9 +54,10 @@
               {% if c.mini %}Mini whereabout: {{ c.mini }}<br>{% endif %}
               {% if c.major %}Major whereabout: {{ c.major }}{% endif %}
             </td>
+            <td class="p-2">{% if can_edit_all or c.caller_id == request.user.pk %}<a href="{% url 'hiring:call_log_edit' c.pk %}" class="text-blue-700 underline">Edit</a>{% endif %}</td>
           </tr>
         {% empty %}
-          <tr><td colspan="7" class="p-6 text-gray-500">No calls match.</td></tr>
+          <tr><td colspan="8" class="p-6 text-gray-500">No calls match.</td></tr>
         {% endfor %}
       </tbody>
     </table>

@@ -538,7 +538,7 @@ def test_tbd_ignores_a_stale_date(client, todo):
     assert r.status_code == 302 and CallLog.objects.count() == 1
 
 
-def test_call_logs_list_all_calls_newest_first_to_supervisors_only(
+def test_call_logs_list_all_calls_newest_first_for_supervisors(
     client, django_user_model, senken, todo, caller
 ):
     log_call(todo, user=caller, **{"outcome": "reg_touch", "notes": "spoke"})
@@ -554,9 +554,9 @@ def test_call_logs_list_all_calls_newest_first_to_supervisors_only(
     )
     url = reverse("hiring:call_logs")
 
-    assert client.get(url).status_code == 403
-    assert client.get(reverse("hiring:call_logs_export")).status_code == 403
-    assert "Call logs" not in client.get(reverse("hiring:calling")).content.decode()
+    # The caller made both calls, so they see them; so does the button.
+    assert client.get(url).status_code == 200
+    assert "Call logs" in client.get(reverse("hiring:calling")).content.decode()
 
     client.force_login(boss)
     body = client.get(url).content.decode()
@@ -709,3 +709,67 @@ def test_sheet_filters_by_contact_status(client, todo):
     Person.objects.update(contact_status="hold_ff")
     assert len(client.get(url, {"contact": "hold_ff"}).context["rows"]) == 1
     assert len(client.get(url, {"contact": ["active", "closed"]}).context["rows"]) == 0
+
+
+def test_a_caller_sees_own_calls_and_calls_on_candidates_they_hold(
+    client, django_user_model, senken, todo, caller
+):
+    other = member(django_user_model, senken, "Other")
+    CallLog.objects.create(
+        person=todo.person, caller=other, outcome="reg_touch", notes="on mine"
+    )
+    stranger = Person.objects.create(company=senken, name="Zed", phone="9000000002")
+    CallLog.objects.create(
+        person=stranger, caller=other, outcome="reg_touch", notes="not mine"
+    )
+    CallLog.objects.create(
+        person=stranger, caller=caller, outcome="reg_touch", notes="my own"
+    )
+    body = client.get(reverse("hiring:call_logs")).content.decode()
+    assert "on mine" in body and "my own" in body and "not mine" not in body
+
+
+def test_call_log_filters_are_remembered_until_cleared(client, caller, todo):
+    url = reverse("hiring:call_logs")
+    client.get(url, {"q": "Asha"})
+    back = client.get(url)
+    assert back.status_code == 302 and "q=Asha" in back["Location"]
+    assert client.get(url, {"page": 2}).status_code == 200
+    assert client.get(url, {"clear": 1}).status_code == 302
+    assert client.get(url).status_code == 200
+
+
+def test_a_logged_call_can_be_edited_by_its_caller_and_supervisors(
+    client, django_user_model, senken, todo, caller
+):
+    log_call(todo, user=caller, outcome="reg_touch", notes="first")
+    log = CallLog.objects.get()
+    pending = FollowUp.objects.filter(status="pending").count()
+    url = reverse("hiring:call_log_edit", args=[log.pk])
+    assert client.get(url).status_code == 200
+    data = {
+        "outcome": "reg_not_touch",
+        "notes": "fixed",
+        "call_type": "outbound",
+        "version": log.version,
+    }
+    assert client.post(url, data).status_code == 302
+    log.refresh_from_db()
+    assert (log.outcome, log.notes, log.version) == ("reg_not_touch", "fixed", 2)
+    assert log.history.count() == 2
+    assert FollowUp.objects.filter(status="pending").count() == pending
+    # the form was opened at version 1: now stale
+    assert client.post(url, data).status_code == 302
+    log.refresh_from_db()
+    assert log.version == 2
+    # someone else cannot edit it, a supervisor can
+    boss = member(django_user_model, senken, "Boss")
+    other = member(django_user_model, senken, "Other")
+    other.supervisor = None
+    CallLog.objects.filter(pk=log.pk).update(caller=caller)
+    client.force_login(other)
+    assert client.get(url).status_code == 404  # outside what they may see
+    caller.supervisor = boss
+    caller.save()
+    client.force_login(boss)
+    assert client.get(url).status_code == 200

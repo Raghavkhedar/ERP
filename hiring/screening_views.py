@@ -21,6 +21,7 @@ from .export import call_logs_workbook, followups_workbook
 from .forms import (
     BulkForm,
     CallForm,
+    CallLogEditForm,
     IncomingCallForm,
     ReassignForm,
     RescheduleForm,
@@ -30,9 +31,11 @@ from .models import CallLog, FollowUp, Interview, Offer, Requisition
 from .services import (
     FollowUpError,
     NoSupervisor,
+    StaleCall,
     bulk_move,
     bulk_reassign,
     cancel,
+    edit_call_log,
     log_call,
     reassign,
     reschedule,
@@ -294,7 +297,6 @@ def calling(request):
         {
             "rows": rows,
             "page": page,
-            "can_see_logs": _can_reassign(request.user),
             "get": request.GET,
             "purposes": FollowUp.Purpose.choices,
             "tags": TAGS,
@@ -312,12 +314,18 @@ def export_calling(request):
 
 
 def _log_base(request):
-    """The calls this user may see: their companies', real calls only."""
-    if not _can_reassign(request.user):
-        raise PermissionDenied
-    return CallLog.objects.filter(
+    """The calls this user may see: their companies' real calls for admins and
+    supervisors; for everyone else their own, plus every call on the candidates
+    they currently hold a pending follow-up for."""
+    logs = CallLog.objects.filter(
         person__company__in=request.companies, not_a_call=False
     )
+    if _can_reassign(request.user):
+        return logs
+    mine = FollowUp.objects.filter(
+        owner=request.user, status=FollowUp.Status.PENDING
+    ).values("person")
+    return logs.filter(Q(caller=request.user) | Q(person__in=mine))
 
 
 # What the Yes/No filters on the page test.
@@ -373,6 +381,17 @@ def _logs(request):
 @calling_section
 @require_GET
 def call_logs(request):
+    # The filters picked last time come back until cleared (?clear=1).
+    saved = request.session.get("call_log_filters")
+    picked = request.GET.copy()
+    picked.pop("page", None)
+    if "clear" in picked:
+        request.session.pop("call_log_filters", None)
+        return redirect("hiring:call_logs")
+    if picked:
+        request.session["call_log_filters"] = picked.urlencode()
+    elif saved and "page" not in request.GET:
+        return redirect(f"{reverse('hiring:call_logs')}?{saved}")
     logs = _logs(request)
     # Callers who appear in the unfiltered list, so the dropdown stays in scope.
     callers = (
@@ -396,8 +415,47 @@ def call_logs(request):
             "kinds": CallLog.Kind.choices,
             "flags": [(k, v[0]) for k, v in LOG_FLAGS.items()],
             "export_limit": EXPORT_LIMIT,
+            "can_edit_all": _can_reassign(request.user),
             "f": request.GET,
         },
+    )
+
+
+@calling_section
+def call_log_edit(request, pk):
+    log = get_object_or_404(_log_base(request), pk=pk)
+    if not (_can_reassign(request.user) or log.caller_id == request.user.pk):
+        raise PermissionDenied
+    form = CallLogEditForm(request.POST or None, log=log)
+    if request.method == "POST" and form.is_valid():
+        d = form.cleaned_data
+        try:
+            edit_call_log(
+                log,
+                request.user,
+                d["version"],
+                outcome=d["outcome"],
+                notes=d["notes"],
+                call_type=d["call_type"],
+                rescheduled=d["rescheduled"],
+                reschedule_reason=d["reschedule_reason"].strip(),
+                department_changed=d["department_changed"],
+                discuss=d["discuss"],
+                mini_whereabout=d["mini_whereabout"],
+                major_whereabout=d["major_whereabout"],
+            )
+        except NoSupervisor as e:
+            form.add_error(None, str(e))
+        except StaleCall as e:
+            messages.error(request, str(e))
+            return redirect("hiring:call_log_edit", pk=pk)
+        else:
+            messages.success(request, "Call updated.")
+            return redirect("hiring:call_logs")
+    return render(
+        request,
+        "hiring/call_log_edit.html",
+        {"call_form": form, "call_action": request.path, "log": log, "editing": True},
     )
 
 

@@ -367,6 +367,7 @@ class CallLog(models.Model):
     major_whereabout = models.JSONField(default=dict, blank=True)
     # Bulk shifts and on-demand moves imported from the old system aren't real calls.
     not_a_call = models.BooleanField(default=False)
+    version = models.PositiveIntegerField(default=1)
 
     history = HistoricalRecords()
 
