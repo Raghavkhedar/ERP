@@ -472,6 +472,8 @@ def call_log_edit(request, pk):
         except StaleCall as e:
             messages.error(request, str(e))
             return redirect("hiring:call_log_edit", pk=pk)
+        except FollowUpError as e:  # the next follow-up closed since the form opened
+            form.add_error(None, str(e))
         else:
             messages.success(request, "Call updated.")
             return redirect("hiring:call_logs")

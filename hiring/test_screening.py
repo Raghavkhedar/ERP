@@ -863,3 +863,28 @@ def test_editing_a_call_to_tbd_cancels_the_next_follow_up_it_opened(
     assert client.post(url, data).status_code == 302
     log.opened_followup.refresh_from_db()
     assert log.opened_followup.status == "cancelled"
+
+
+def test_edit_with_a_follow_up_closed_meanwhile_shows_an_error_not_a_500(
+    client, senken, todo, caller, monkeypatch
+):
+    log_call(
+        todo, user=caller, outcome="reg_touch", next_due=tomorrow(), intention="call"
+    )
+    log = CallLog.objects.get()
+
+    def closed(*args, **kwargs):  # the follow-up closes after the view loaded it
+        raise FollowUpError(
+            "The next follow-up was already closed, so it can't change."
+        )
+
+    monkeypatch.setattr("hiring.screening_views.edit_call_log", closed)
+    data = {
+        "outcome": "reg_touch",
+        "call_type": "outbound",
+        "version": log.version,
+        "tbd": "on",
+    }
+    response = client.post(reverse("hiring:call_log_edit", args=[log.pk]), data)
+    assert response.status_code == 200
+    assert b"already closed" in response.content

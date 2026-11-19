@@ -528,7 +528,8 @@ def _change_next(call, user, due, purpose, other):
     if nxt.owner_id and nxt.owner_id != user.pk:
         notify(
             nxt.owner,
-            f"{user.display_name} changed your next call: {nxt.person.name}",
+            f"{user.display_name} {'cancelled' if due is None else 'changed'} "
+            f"your next call: {nxt.person.name}",
             reverse("hiring:screening"),
         )
 
