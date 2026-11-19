@@ -43,7 +43,7 @@
         <tbody>
           {% for r in summary.by_owner %}
             <tr class="border-b border-gray-100 last:border-0">
-              <td class="py-1 pr-3">{{ r.owner.display_name }}</td><td class="pr-3">{{ r.today }}</td><td class="pr-3">{{ r.interview }}</td><td class="pr-3">{{ r.offer }}</td>
+              <td class="py-1 pr-3">{{ r.owner.display_name|default:"Unassigned" }}</td><td class="pr-3">{{ r.today }}</td><td class="pr-3">{{ r.interview }}</td><td class="pr-3">{{ r.offer }}</td>
               <td class="{% if r.overdue %}text-red-600{% endif %}">{{ r.overdue }}</td>
             </tr>
           {% endfor %}
@@ -191,7 +191,7 @@
           <th class="p-2"><div x-data="filterPanel" class="relative" @click.outside="o = false" @scroll.window="o = false" @resize.window="o = false" @keydown.escape="o = false">Assigned to <button type="button" x-ref="btn" @click="toggle()" :aria-expanded="o" class="fbtn" :class="has('owner') && 'is-on'" aria-label="Filter by person">▾</button>
             <div x-ref="panel" x-show="o" x-cloak class="popover fields w-60">
               <p class="popover-title">Assigned to</p>
-              <select name="owner" class="w-full"><option value="">Everyone</option>{% for o in owners %}<option value="{{ o.pk }}" {% if get.owner == o.pk|stringformat:"s" %}selected{% endif %}>{{ o.display_name }}</option>{% endfor %}</select>
+              <select name="owner" class="w-full"><option value="">Everyone</option><option value="none" {% if get.owner == "none" %}selected{% endif %}>Unassigned</option>{% for o in owners %}<option value="{{ o.pk }}" {% if get.owner == o.pk|stringformat:"s" %}selected{% endif %}>{{ o.display_name }}</option>{% endfor %}</select>
               <div class="popover-foot"><button type="button" class="clear" @click="clear()">Clear</button></div></div></div></th>
         </tr>
       </thead>
@@ -205,7 +205,7 @@
             <td class="p-2">{{ f.tag_label }}</td>
             <td class="p-2 whitespace-nowrap">{{ f.person.lead_received_on|date:"d/m/Y"|default:"—" }}</td>
             {% include "hiring/_status.html" %}
-            <td class="p-2">{{ f.owner.display_name }}</td>
+            <td class="p-2">{{ f.owner.display_name|default:"Unassigned" }}</td>
           </tr>
         {% empty %}
           <tr><td colspan="{% if can_bulk %}8{% else %}7{% endif %}" class="p-6 text-gray-500">{% if filtered %}No candidates match those filters.{% else %}Nothing to call. New numbers from Sourcing land here.{% endif %}</td></tr>

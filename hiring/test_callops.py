@@ -68,6 +68,7 @@ def test_call_alarm_rings_until_snoozed_or_done(req, user, client):
 
     source_number(req, "Ravi", "99999 11111", user)
     call = FollowUp.objects.get()
+    call.owner = user
     call.due = timezone.now() - timedelta(minutes=1)
     call.save()
     assert list(due_call_alarms(user)) == [call]

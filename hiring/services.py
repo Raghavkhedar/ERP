@@ -325,7 +325,7 @@ def source_number(
                     person=person,
                     requisition=requisition,
                     due=next_day(),
-                    owner=user,
+                    owner=None,  # unassigned until a supervisor gives it out
                 )
             else:
                 # A call still waiting follows the latest requisition it was
@@ -493,6 +493,47 @@ def log_call(
                 reverse("people:detail", args=[person.pk]),
             )
         return call
+
+
+class StaleCall(FollowUpError):
+    """Someone saved the call after this form was opened."""
+
+
+def edit_call_log(log, user, version, **fields):
+    """Correct a logged call. The follow-up it completed or opened is not touched.
+    Newly sending it on (discuss, department change, a whereabout) tells the
+    caller's supervisor, as logging it would."""
+    mini, major = fields["mini_whereabout"], fields["major_whereabout"]
+    with transaction.atomic():
+        current = CallLog.objects.select_for_update().get(pk=log.pk)
+        if version != current.version:
+            raise StaleCall("Someone changed this call while you were editing it.")
+        new = (
+            (fields["discuss"] and not current.discussed)
+            or (fields["department_changed"] and not current.department_changed)
+            or (mini and mini != current.mini_whereabout)
+            or (major and major != current.major_whereabout)
+        )
+        boss = current.caller.supervisor if new else None
+        if new and not boss:
+            raise NoSupervisor("The caller has no supervisor set to send this to.")
+        current.outcome = fields["outcome"]
+        current.notes = fields["notes"]
+        current.call_type = fields["call_type"]
+        current.rescheduled = fields["rescheduled"]
+        current.reschedule_reason = fields["reschedule_reason"]
+        current.department_changed = fields["department_changed"]
+        current.discussed = fields["discuss"]
+        current.mini_whereabout, current.major_whereabout = mini, major
+        current.version += 1
+        current.save()
+        if boss:
+            notify(
+                boss,
+                f"{user.display_name} sent a call for a look: {current.person.name}",
+                reverse("people:detail", args=[current.person_id]),
+            )
+        return current
 
 
 def reschedule(followup, due, reason):
@@ -1085,7 +1126,7 @@ def timeline(person, with_hr=False):
                     (
                         rec.history_date,
                         rec.history_user,
-                        f"{label.capitalize()} given to {rec.owner}",
+                        f"{label.capitalize()} given to {rec.owner or 'nobody'}",
                     )
                 )
             if rec.status != prev.status and rec.status in ("cancelled", "not_done"):

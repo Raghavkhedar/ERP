@@ -155,7 +155,9 @@ def followups_workbook(followups):
                         f.person.phone,
                         f.get_purpose_display(),
                         timezone.localtime(f.due).date(),
-                        f.owner.get_full_name() or f.owner.get_username(),
+                        f.owner
+                        and (f.owner.get_full_name() or f.owner.get_username())
+                        or "Unassigned",
                         str(f.requisition) if f.requisition else "",
                         f.reschedule_count,
                         f.original_due and timezone.localtime(f.original_due).date(),

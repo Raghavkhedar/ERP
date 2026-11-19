@@ -249,8 +249,13 @@ class FollowUp(models.Model):
     # What the caller typed when the intention is "Other".
     purpose_other = models.CharField(max_length=200, blank=True)
     due = models.DateTimeField()
+    # Empty = unassigned: a newly sourced number waits for a supervisor to give it out.
     owner = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="followups"
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="followups",
     )
     status = models.CharField(max_length=20, choices=Status, default=Status.PENDING)
     notes = models.TextField(blank=True)
@@ -362,6 +367,7 @@ class CallLog(models.Model):
     major_whereabout = models.JSONField(default=dict, blank=True)
     # Bulk shifts and on-demand moves imported from the old system aren't real calls.
     not_a_call = models.BooleanField(default=False)
+    version = models.PositiveIntegerField(default=1)
 
     history = HistoricalRecords()
 

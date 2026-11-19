@@ -266,15 +266,23 @@ class CallForm(forms.Form):
     mini_on = forms.BooleanField(required=False)
     major_on = forms.BooleanField(required=False)
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, mini_initial=None, major_initial=None, **kwargs):
         super().__init__(*args, **kwargs)
         data = self.data if self.is_bound else None
-        self.mini = whereabouts.WhereaboutForm(whereabouts.MINI, data, prefix="mini")
+        self.mini = whereabouts.WhereaboutForm(
+            whereabouts.MINI, data, prefix="mini", initial=mini_initial
+        )
         self.major = whereabouts.WhereaboutForm(
-            whereabouts.COMMON, data, prefix="major", department=True
+            whereabouts.COMMON,
+            data,
+            prefix="major",
+            department=True,
+            initial=major_initial,
         )
         self.groups = {
-            key: whereabouts.WhereaboutForm(keys, data, prefix=key)
+            key: whereabouts.WhereaboutForm(
+                keys, data, prefix=key, initial=major_initial
+            )
             for key, (_, keys) in whereabouts.GROUPS.items()
         }
         for key, (label, _) in whereabouts.GROUPS.items():
@@ -300,7 +308,11 @@ class CallForm(forms.Form):
             data["next_due"], data["intention"] = None, FollowUp.Purpose.CALL
         else:
             for name in ("next_due", "intention"):
-                if not data.get(name) and name not in self.errors:
+                if (
+                    name in self.fields
+                    and not data.get(name)
+                    and name not in self.errors
+                ):
                     self.add_error(name, "This field is required.")
         for flag, text, message in (
             (
@@ -330,6 +342,38 @@ class CallForm(forms.Form):
             else:
                 self.add_error(None, "Check the major whereabout.")
         return data
+
+
+class CallLogEditForm(CallForm):
+    """Fix a call after it was logged: the same questions, without the next call
+    (the follow-up it opened is left alone)."""
+
+    version = forms.IntegerField(widget=forms.HiddenInput, required=False)
+
+    def __init__(self, *args, log, **kwargs):
+        kwargs.setdefault(
+            "initial",
+            dict(
+                outcome=log.outcome,
+                notes=log.notes,
+                call_type=log.call_type,
+                rescheduled=log.rescheduled,
+                reschedule_reason=log.reschedule_reason,
+                department_changed=log.department_changed,
+                discuss=log.discussed,
+                mini_on=bool(log.mini_whereabout),
+                major_on=bool(log.major_whereabout),
+                version=log.version,
+            ),
+        )
+        super().__init__(
+            *args,
+            mini_initial=log.mini_whereabout,
+            major_initial=log.major_whereabout,
+            **kwargs,
+        )
+        for name in ("next_due", "intention", "intention_other", "tbd"):
+            del self.fields[name]
 
 
 class IncomingCallForm(CallForm):

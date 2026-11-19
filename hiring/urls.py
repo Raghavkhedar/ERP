@@ -36,6 +36,11 @@ urlpatterns = [
     path("calling/export/", screening_views.export_calling, name="calling_export"),
     path("calling/logs/", screening_views.call_logs, name="call_logs"),
     path(
+        "calling/logs/<int:pk>/edit/",
+        screening_views.call_log_edit,
+        name="call_log_edit",
+    ),
+    path(
         "calling/logs/export/",
         screening_views.export_call_logs,
         name="call_logs_export",

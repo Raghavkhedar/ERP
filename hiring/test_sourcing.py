@@ -351,3 +351,8 @@ def test_duplicate_outcome_edge_cases(req, caller):
     out = dict(duplicate_breakdown(req)["outcome"])
     assert out["Rejected"] == out["Accepted, not joined"] == out["Offered"] == 1
     assert out["Joined"] == 1 and out["Waiting for HR"] == 0
+
+
+def test_a_sourced_number_is_not_assigned_to_who_sourced_it(req, caller):
+    source_number(req, "Asha", "9876543210", caller)
+    assert FollowUp.objects.get().owner is None
