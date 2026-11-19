@@ -1,3 +1,4 @@
+from datetime import timedelta
 from io import BytesIO
 
 import pytest
@@ -262,10 +263,11 @@ def test_duplicate_popup_counts_followups_outcome_and_preference(client, req, ca
 
     a = source_number(req, "A", "9000000001", caller).person
     b = source_number(req, "B", "9000000002", caller).person
-    c = source_number(req, "C", "9000000003", caller).person
+    source_number(req, "C", "9000000003", caller)
     for n in ("9000000001", "9000000001", "9000000002", "9000000003"):
         source_number(req, "again", n, caller)  # A twice over still counts once
-    FollowUp.objects.filter(person=c).delete()  # C has no follow-up
+    FollowUp.objects.filter(person__in=[a, b]).update(status="completed")
+    # C's follow-up stays pending: no call completed
     Interview.objects.create(
         person=a,
         requisition=req,
@@ -285,10 +287,12 @@ def test_duplicate_popup_counts_followups_outcome_and_preference(client, req, ca
     b.save()
     html = client.get(reverse("hiring:duplicates", args=[req.pk])).content.decode()
     assert "3 duplicate candidates" in html
+    assert "4 duplicate numbers" in html  # the list counts rows, so say both
     from .services import duplicate_breakdown
 
     d = duplicate_breakdown(req)
     assert (d["followed"], d["not_followed"]) == (2, 1)
+    assert d["numbers"] == 4
     assert dict(d["outcome"])["CFTL"] == dict(d["outcome"])["Joined"] == 1
     assert dict(d["outcome"])["No result yet"] == 1
     assert (
@@ -300,7 +304,50 @@ def test_duplicate_popup_counts_followups_outcome_and_preference(client, req, ca
 def test_duplicate_popup_is_company_scoped(client, req, django_user_model):
     other = django_user_model.objects.create_user(username="X1", password="pw")
     client.force_login(other)
-    assert client.get(reverse("hiring:duplicates", args=[req.pk])).status_code in (
-        403,
-        404,
+    assert client.get(reverse("hiring:duplicates", args=[req.pk])).status_code == 403
+
+
+def test_duplicate_outcome_edge_cases(req, caller):
+    from django.utils import timezone
+
+    from .models import Interview, Offer
+    from .services import duplicate_breakdown
+
+    people = {}
+    for n, name in enumerate(("rej", "acc", "off", "joined")):
+        phone = f"900000010{n}"
+        people[name] = source_number(req, name, phone, caller).person
+        source_number(req, name, phone, caller)
+    now = timezone.now()
+    for result, when in (
+        ("rejected", now),
+        ("pending", now + timedelta(days=2)),
+    ):
+        Interview.objects.create(
+            person=people["rej"],
+            requisition=req,
+            scheduled_at=when,
+            result=result,
+            interviewer=caller,
+        )
+    day = timezone.localdate()
+    Offer.objects.create(
+        person=people["acc"],
+        requisition=req,
+        state="accepted",
+        joining_date=day,
+        made_by=caller,
     )
+    Offer.objects.create(person=people["off"], requisition=req, made_by=caller)
+    Offer.objects.create(
+        person=people["joined"],
+        requisition=req,
+        state="accepted",
+        joining_date=day,
+        joined_on=day,
+        made_by=caller,
+    )
+    Offer.objects.create(person=people["joined"], requisition=req, made_by=caller)
+    out = dict(duplicate_breakdown(req)["outcome"])
+    assert out["Rejected"] == out["Accepted, not joined"] == out["Offered"] == 1
+    assert out["Joined"] == 1 and out["Waiting for HR"] == 0
