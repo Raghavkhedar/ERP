@@ -372,13 +372,12 @@ class CallLogEditForm(CallForm):
             major_initial=log.major_whereabout,
             **kwargs,
         )
-        del self.fields["tbd"]
         if followup:
             self.fields["next_due"].initial = timezone.localtime(followup.due).date()
             self.fields["intention"].initial = followup.purpose
             self.fields["intention_other"].initial = followup.purpose_other
         else:
-            for name in ("next_due", "intention", "intention_other"):
+            for name in ("next_due", "intention", "intention_other", "tbd"):
                 del self.fields[name]
 
 

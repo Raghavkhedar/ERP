@@ -843,3 +843,23 @@ def test_editing_a_call_moves_the_next_follow_up_it_opened_while_pending(
     data.pop("next_due"), data.pop("intention")
     data["version"] = log.version
     assert client.post(url, data).status_code == 302
+
+
+def test_editing_a_call_to_tbd_cancels_the_next_follow_up_it_opened(
+    client, senken, todo, caller
+):
+    log_call(
+        todo, user=caller, outcome="reg_touch", next_due=tomorrow(), intention="call"
+    )
+    log = CallLog.objects.get()
+    data = {
+        "outcome": "reg_touch",
+        "call_type": "outbound",
+        "version": log.version,
+        "tbd": "on",
+    }
+    url = reverse("hiring:call_log_edit", args=[log.pk])
+    assert b'name="tbd"' in client.get(url).content
+    assert client.post(url, data).status_code == 302
+    log.opened_followup.refresh_from_db()
+    assert log.opened_followup.status == "cancelled"
