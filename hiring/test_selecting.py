@@ -7,6 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 from openpyxl import load_workbook
 
+from core.dates import skip_sunday
 from core.models import AccessGrant, Company
 
 from .models import FollowUp, HRAssessment, Interview, Requisition
@@ -546,7 +547,7 @@ def test_hold_tenure_is_the_days_entered_and_survives_a_resave(
     client, booked, caller, django_user_model
 ):
     url = _filed(client, booked, caller, django_user_model)
-    day = (timezone.localdate() + timedelta(days=9)).isoformat()
+    day = skip_sunday(timezone.localdate() + timedelta(days=9)).isoformat()
     post = {"which": "hr", "decision": "hold", "next_follow_up": day}
     client.post(url, post)
     first = Interview.objects.get().hr.hold_tenure
