@@ -6,7 +6,9 @@ from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_GET, require_POST
 
 from core.access import companies_with_access, require_section
@@ -92,6 +94,7 @@ def _filed(request):
 
 @section
 def selecting(request):
+    filed = narrow(_filed(request), request.GET)
     return render(
         request,
         "hiring/selecting.html",
@@ -103,7 +106,8 @@ def selecting(request):
                 ),
                 param="wpage",
             ),
-            "done": narrow(_filed(request), request.GET)[:100],
+            "done": filed[:100],
+            "done_count": filed.count(),
             "requisitions": open_requisitions(request.companies),
             "filters": filter_query(request.GET),
             "can_assign": _can_reassign(request.user),
@@ -141,17 +145,26 @@ def reassign_interview(request, pk):
     followup = get_object_or_404(
         interviews_waiting(request.user, request.companies), pk=pk
     )
-    owner = _assignees(request).filter(pk=request.POST.get("owner") or 0).first()
+    back = request.POST.get("next", "")
+    if not url_has_allowed_host_and_scheme(back, {request.get_host()}):
+        back = reverse("hiring:selecting")
+    pick = request.POST.get("owner", "")
+    # isascii: str.isdigit() also accepts digits like "²", which crash the query.
+    owner = (
+        _assignees(request).filter(pk=pick).first()
+        if pick.isascii() and pick.isdigit()
+        else None
+    )
     if owner is None:
         messages.error(request, "Pick a person who has Selecting.")
-        return redirect("hiring:selecting")
+        return redirect(back)
     try:
         reassign(followup, owner, request.user)
     except FollowUpError as exc:
         messages.error(request, str(exc))
     else:
         messages.success(request, f"Interview given to {owner.display_name}.")
-    return redirect("hiring:selecting")
+    return redirect(back)
 
 
 @section
@@ -323,12 +336,12 @@ def record(request, pk):
 
 
 @filed_section
-def review(request, pk, selecting=False):
+def review(request, pk, from_selecting=False):
     """Open a filed interview: edit it, and (for those allowed) fill the HR form.
-    From Selecting (`selecting`) it is the interview form alone, no HR panel."""
+    From Selecting (`from_selecting`) it is the interview form alone, no HR panel."""
     interview = get_object_or_404(_filed(request), pk=pk)
-    has_hr = not selecting and _has_hr(request, interview)
-    here = "hiring:interview_edit" if selecting else "hiring:interview_review"
+    has_hr = not from_selecting and _has_hr(request, interview)
+    here = "hiring:interview_edit" if from_selecting else "hiring:interview_review"
     existing = getattr(interview, "hr", None)
     posted = request.method == "POST"
     hr = bool(posted and request.POST.get("which") == "hr")
@@ -410,5 +423,5 @@ def review(request, pk, selecting=False):
         interview=interview,
         hr_form=hr_form,
         editing=True,
-        selecting=selecting,
+        selecting=from_selecting,
     )

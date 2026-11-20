@@ -656,3 +656,20 @@ def test_supervisor_gives_a_booked_interview_to_someone_with_selecting(
     client.post(url, {"owner": other.pk})
     booked.refresh_from_db()
     assert booked.owner == other
+
+
+def test_reassign_is_for_supervisors_and_ignores_a_bad_owner(
+    client, booked, caller, django_user_model, senken
+):
+    other = member(django_user_model, senken, "S12", "selecting")
+    url = reverse("hiring:interview_reassign", args=[booked.pk])
+    assert client.post(url, {"owner": other.pk}).status_code == 403
+    other.supervisor = caller
+    other.save()
+    assert client.post(url, {"owner": "abc"}).status_code == 302
+    assert client.post(url, {"owner": "²"}).status_code == 302
+    booked.refresh_from_db()
+    assert booked.owner != other
+    client.post(url, {"owner": other.pk, "next": "https://evil.example/"})
+    booked.refresh_from_db()
+    assert booked.owner == other

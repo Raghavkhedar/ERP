@@ -96,7 +96,7 @@ urlpatterns = [
     path(
         "selecting/interviews/<int:pk>/",
         selecting_views.review,
-        {"selecting": True},
+        {"from_selecting": True},
         name="interview_edit",
     ),
     path(

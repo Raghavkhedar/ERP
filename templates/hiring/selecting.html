@@ -6,10 +6,10 @@
 
 {% block page %}
   {% include "hiring/_filter_bar.html" %}
-  <div x-data="{ tab: 'waiting' }">
+  <div x-data="{ tab: sessionStorage.getItem('selectingTab') || 'waiting' }" x-init="$watch('tab', t => sessionStorage.setItem('selectingTab', t))">
   <div class="flex gap-2" role="tablist">
     <button type="button" role="tab" @click="tab = 'waiting'" :aria-selected="tab === 'waiting'" :class="tab === 'waiting' ? 'bg-blue-600' : 'border border-ink bg-white'" class="inline-flex h-9 items-center rounded-lg px-3 text-sm font-medium">To interview ({{ waiting.paginator.count }})</button>
-    <button type="button" role="tab" @click="tab = 'filed'" :aria-selected="tab === 'filed'" :class="tab === 'filed' ? 'bg-blue-600' : 'border border-ink bg-white'" class="inline-flex h-9 items-center rounded-lg px-3 text-sm font-medium">Filed ({{ done|length }})</button>
+    <button type="button" role="tab" @click="tab = 'filed'" :aria-selected="tab === 'filed'" :class="tab === 'filed' ? 'bg-blue-600' : 'border border-ink bg-white'" class="inline-flex h-9 items-center rounded-lg px-3 text-sm font-medium">Filed ({{ done_count }})</button>
   </div>
   <div x-show="tab === 'waiting'">
   {% if waiting %}
@@ -18,12 +18,13 @@
         <li class="flex items-center gap-4 py-3">
           <div class="min-w-0 flex-1">
             <p class="truncate font-medium">{{ f.person.name }}</p>
-            <p class="truncate text-sm text-gray-500">{{ f.person.phone }} · {{ f.due|date:"d/m/Y" }}{% if f.requisition %} · {{ f.requisition }}{% endif %}</p>
+            <p class="truncate text-sm text-gray-500">{{ f.person.phone }} · {{ f.due|date:"d/m/Y" }}{% if f.owner %} · {{ f.owner.display_name }}{% endif %}{% if f.requisition %} · {{ f.requisition }}{% endif %}</p>
           </div>
           {% if can_assign %}
           <form method="post" action="{% url 'hiring:interview_reassign' f.pk %}" class="flex shrink-0 items-center gap-1">
             {% csrf_token %}
-            <select name="owner" aria-label="Give to" class="h-9 text-sm"><option value="">{{ f.owner.display_name|default:"Give to…" }}</option>{% for u in assignees %}<option value="{{ u.pk }}">{{ u.display_name }}</option>{% endfor %}</select>
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <select name="owner" aria-label="Give to" class="h-9 text-sm"><option value="">Give to…</option>{% for u in assignees %}<option value="{{ u.pk }}">{{ u.display_name }}</option>{% endfor %}</select>
             <button class="inline-flex h-9 items-center rounded-lg border border-ink bg-white px-3 text-sm font-medium">Give</button>
           </form>
           {% endif %}
