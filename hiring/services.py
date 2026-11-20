@@ -283,12 +283,9 @@ def source_number(
         # One sourcing of a number at a time, so a double submit can't make two cards.
         lock_numbers(requisition.company_id, [key])
         cards = Person.objects.filter(company=requisition.company, phone_key=key)
-        # The card used last time; an archived card is hidden from every list, so
-        # it is only used when the number has no other card.
-        person = (
-            cards.filter(archived_at__isnull=True).order_by("-pk").first()
-            or cards.order_by("-pk").first()
-        )
+        # The card used last time. An archived card is hidden from every list, so
+        # a number with only archived cards gets a fresh card instead.
+        person = cards.filter(archived_at__isnull=True).order_by("-pk").first()
         duplicate = person is not None
         if not duplicate:
             person = Person.objects.create(
@@ -677,12 +674,23 @@ def reassign(followup, owner, by):
         return current
 
 
+def extra_phones(text):
+    """The second, third and fourth numbers a candidate gave."""
+    return (
+        Q(person__alternate_phone__icontains=text)
+        | Q(person__phone_3__icontains=text)
+        | Q(person__phone_4__icontains=text)
+    )
+
+
 def narrow(items, get):
     """Filter any list of rows that has a person and a requisition: ?q= matches
     the name or number, ?requisition= one opening."""
     if q := get.get("q", "").strip():
         items = items.filter(
-            Q(person__name__icontains=q) | Q(person__phone__icontains=q)
+            Q(person__name__icontains=q)
+            | Q(person__phone__icontains=q)
+            | extra_phones(q)
         )
     # isascii: str.isdigit() also accepts digits like "²", which crash the query.
     if (r := get.get("requisition", "")).isascii() and r.isdigit():

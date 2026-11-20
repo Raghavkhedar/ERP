@@ -36,6 +36,7 @@ from .services import (
     bulk_reassign,
     cancel,
     edit_call_log,
+    extra_phones,
     log_call,
     reassign,
     reschedule,
@@ -49,15 +50,6 @@ section = require_section("recruitment", "screening")
 calling_section = require_section("recruitment", "calling")
 # Working one follow-up (the Call button on Calling, the actions on Screening).
 followup_section = require_section("recruitment", "screening", "calling")
-
-
-def extra_phones(text):
-    """The second, third and fourth numbers a candidate gave."""
-    return (
-        Q(person__alternate_phone__icontains=text)
-        | Q(person__phone_3__icontains=text)
-        | Q(person__phone_4__icontains=text)
-    )
 
 
 def _followup(request, pk):

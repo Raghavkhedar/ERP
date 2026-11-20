@@ -674,3 +674,10 @@ def test_reassign_is_for_supervisors_and_ignores_a_bad_owner(
     client.post(url, {"owner": other.pk, "next": "https://evil.example/"})
     booked.refresh_from_db()
     assert booked.owner == other
+
+
+def test_narrow_search_finds_the_extra_numbers():
+    from .services import narrow
+
+    q = narrow(FollowUp.objects.all(), {"q": "8285424619"})
+    assert "alternate_phone" in str(q.query) and "phone_4" in str(q.query)
