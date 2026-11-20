@@ -131,3 +131,11 @@ def test_card_lists_archived_cards_that_share_its_number(client, caller, senken)
     gone.save()
     page = client.get(reverse("people:detail", args=[main.pk])).content.decode()
     assert "Old copy" in page
+
+
+def test_list_searches_the_extra_numbers(client, caller, senken):
+    make(
+        senken, "Ravi", "9111111111", alternate_phone="8285424619", phone_3="7000000001"
+    )
+    for n in ("8285424619", "7000000001"):
+        assert "Ravi" in client.get(reverse("people:list"), {"q": n}).content.decode()

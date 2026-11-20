@@ -889,3 +889,16 @@ def test_edit_with_a_follow_up_closed_meanwhile_shows_an_error_not_a_500(
     response = client.post(reverse("hiring:call_log_edit", args=[log.pk]), data)
     assert response.status_code == 200
     assert b"already closed" in response.content
+
+
+def test_calling_and_call_log_search_find_the_extra_numbers(client, todo, caller):
+    todo.person.alternate_phone = "8285424619"
+    todo.person.phone_4 = "7000000004"
+    todo.person.save()
+    FollowUp.objects.update(due=timezone.now())
+    for n in ("8285424619", "7000000004"):
+        assert len(client.get(reverse("hiring:calling"), {"phone": n}).context["rows"])
+    log_call(todo, "reg_touch", caller)
+    # the call log's ?q= is the other search that reads the extra numbers
+    page = client.get(reverse("hiring:call_logs"), {"q": "8285424619"})
+    assert todo.person.name in page.content.decode()

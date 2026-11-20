@@ -36,6 +36,7 @@ from .services import (
     bulk_reassign,
     cancel,
     edit_call_log,
+    extra_phones,
     log_call,
     reassign,
     reschedule,
@@ -149,7 +150,7 @@ def _sheet(rows, get):
     elif get.get("owner") == "none":
         rows = rows.filter(owner__isnull=True)
     if phone := get.get("phone", "").strip():
-        match = Q(person__phone__icontains=phone)
+        match = Q(person__phone__icontains=phone) | extra_phones(phone)
         if digits := phone_key(phone):  # spaces and +91 differ between spellings
             match |= Q(person__phone_key__contains=digits)
         rows = rows.filter(match)
@@ -376,7 +377,11 @@ def _logs(request):
             logs = logs.filter(cond)
     q = g.get("q", "").strip()
     if q:
-        match = Q(person__name__icontains=q) | Q(person__phone__icontains=q)
+        match = (
+            Q(person__name__icontains=q)
+            | Q(person__phone__icontains=q)
+            | extra_phones(q)
+        )
         digits = phone_key(q)
         if digits:
             match |= Q(person__phone_key__contains=digits)
