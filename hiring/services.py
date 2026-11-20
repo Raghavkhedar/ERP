@@ -283,7 +283,12 @@ def source_number(
         # One sourcing of a number at a time, so a double submit can't make two cards.
         lock_numbers(requisition.company_id, [key])
         cards = Person.objects.filter(company=requisition.company, phone_key=key)
-        person = cards.order_by("-pk").first()  # the card used last time
+        # The card used last time; an archived card is hidden from every list, so
+        # it is only used when the number has no other card.
+        person = (
+            cards.filter(archived_at__isnull=True).order_by("-pk").first()
+            or cards.order_by("-pk").first()
+        )
         duplicate = person is not None
         if not duplicate:
             person = Person.objects.create(

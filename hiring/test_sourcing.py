@@ -356,3 +356,17 @@ def test_duplicate_outcome_edge_cases(req, caller):
 def test_a_sourced_number_is_not_assigned_to_who_sourced_it(req, caller):
     source_number(req, "Asha", "9876543210", caller)
     assert FollowUp.objects.get().owner is None
+
+
+def test_a_repeat_number_skips_an_archived_card(req, caller):
+    from django.utils import timezone
+
+    live = source_number(req, "Asha", "9876543210", caller).person
+    newer = Person.objects.create(
+        company=req.company,
+        name="Asha",
+        phone="9876543210",
+        archived_at=timezone.now(),
+    )
+    assert newer.pk > live.pk
+    assert source_number(req, "Asha", "9876543210", caller).person == live

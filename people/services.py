@@ -66,6 +66,9 @@ def visible_people(companies, search="", status=""):
             Q(name__icontains=word)
             | Q(phone__icontains=word)
             | Q(phone_key__icontains=word)
+            | Q(alternate_phone__icontains=word)
+            | Q(phone_3__icontains=word)
+            | Q(phone_4__icontains=word)
             | Q(email__icontains=word)
         )
     return people

@@ -51,6 +51,15 @@ calling_section = require_section("recruitment", "calling")
 followup_section = require_section("recruitment", "screening", "calling")
 
 
+def extra_phones(text):
+    """The second, third and fourth numbers a candidate gave."""
+    return (
+        Q(person__alternate_phone__icontains=text)
+        | Q(person__phone_3__icontains=text)
+        | Q(person__phone_4__icontains=text)
+    )
+
+
 def _followup(request, pk):
     return get_object_or_404(visible_followups(request.user, request.companies), pk=pk)
 
@@ -149,7 +158,7 @@ def _sheet(rows, get):
     elif get.get("owner") == "none":
         rows = rows.filter(owner__isnull=True)
     if phone := get.get("phone", "").strip():
-        match = Q(person__phone__icontains=phone)
+        match = Q(person__phone__icontains=phone) | extra_phones(phone)
         if digits := phone_key(phone):  # spaces and +91 differ between spellings
             match |= Q(person__phone_key__contains=digits)
         rows = rows.filter(match)
@@ -376,7 +385,11 @@ def _logs(request):
             logs = logs.filter(cond)
     q = g.get("q", "").strip()
     if q:
-        match = Q(person__name__icontains=q) | Q(person__phone__icontains=q)
+        match = (
+            Q(person__name__icontains=q)
+            | Q(person__phone__icontains=q)
+            | extra_phones(q)
+        )
         digits = phone_key(q)
         if digits:
             match |= Q(person__phone_key__contains=digits)
