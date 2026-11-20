@@ -511,9 +511,12 @@ def _change_next(call, user, due, purpose, other):
         raise FollowUpError(
             "The next follow-up was already closed, so it can't change."
         )
-    if (nxt.due, nxt.purpose, nxt.purpose_other) == (due, purpose, other):
+    if due is None:  # TBD: no date yet, so no follow-up waits
+        nxt.status = FollowUp.Status.CANCELLED
+    elif (nxt.due, nxt.purpose, nxt.purpose_other) == (due, purpose, other):
         return
-    nxt.due, nxt.purpose, nxt.purpose_other = due, purpose, other
+    else:
+        nxt.due, nxt.purpose, nxt.purpose_other = due, purpose, other
     nxt.version += 1
     try:
         with transaction.atomic():
@@ -525,7 +528,8 @@ def _change_next(call, user, due, purpose, other):
     if nxt.owner_id and nxt.owner_id != user.pk:
         notify(
             nxt.owner,
-            f"{user.display_name} changed your next call: {nxt.person.name}",
+            f"{user.display_name} {'cancelled' if due is None else 'changed'} "
+            f"your next call: {nxt.person.name}",
             reverse("hiring:screening"),
         )
 

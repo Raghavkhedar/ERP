@@ -360,13 +360,17 @@ def _logs(request):
         logs = logs.filter(called_at__date__gte=start)
     if end:
         logs = logs.filter(called_at__date__lte=end)
-    caller = g.get("caller", "")
-    if caller.isascii() and caller.isdigit() and len(caller) < 10:
-        logs = logs.filter(caller_id=caller)
-    if g.get("tag") in CallLog.Outcome.values:
-        logs = logs.filter(outcome=g["tag"])
-    if g.get("type") in CallLog.Kind.values:
-        logs = logs.filter(call_type=g["type"])
+    callers = [
+        c for c in g.getlist("caller") if c.isascii() and c.isdigit() and len(c) < 10
+    ]
+    if callers:
+        logs = logs.filter(caller_id__in=callers)
+    tags = [t for t in g.getlist("tag") if t in CallLog.Outcome.values]
+    if tags:
+        logs = logs.filter(outcome__in=tags)
+    kinds = [k for k in g.getlist("type") if k in CallLog.Kind.values]
+    if kinds:
+        logs = logs.filter(call_type__in=kinds)
     for name, (_, cond) in LOG_FLAGS.items():
         if g.get(name) == "1":
             logs = logs.filter(cond)
@@ -396,6 +400,7 @@ def call_logs(request):
         page_no = request.GET.get("page")
         extra = f"&page={page_no}" if page_no else ""
         return redirect(f"{reverse('hiring:call_logs')}?{saved}{extra}")
+    got = request.GET.getlist
     logs = _logs(request)
     # Callers who appear in the unfiltered list, so the dropdown stays in scope.
     callers = (
@@ -414,13 +419,22 @@ def call_logs(request):
         {
             "rows": rows,
             "page": page,
-            "callers": callers,
+            "caller_opts": [
+                (u.pk, u.get_full_name() or u.get_username()) for u in callers
+            ],
             "tags": CallLog.Outcome.choices,
             "kinds": CallLog.Kind.choices,
             "flags": [(k, v[0]) for k, v in LOG_FLAGS.items()],
             "export_limit": EXPORT_LIMIT,
             "can_edit_all": _can_reassign(request.user),
             "f": request.GET,
+            "sel": {
+                "caller": [
+                    c for c in got("caller") if c in {str(u.pk) for u in callers}
+                ],
+                "tag": [t for t in got("tag") if t in CallLog.Outcome.values],
+                "type": [k for k in got("type") if k in CallLog.Kind.values],
+            },
         },
     )
 
@@ -458,6 +472,8 @@ def call_log_edit(request, pk):
         except StaleCall as e:
             messages.error(request, str(e))
             return redirect("hiring:call_log_edit", pk=pk)
+        except FollowUpError as e:  # the next follow-up closed since the form opened
+            form.add_error(None, str(e))
         else:
             messages.success(request, "Call updated.")
             return redirect("hiring:call_logs")

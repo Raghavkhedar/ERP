@@ -643,6 +643,10 @@ def test_call_log_filters_flags_search_and_bad_input(
     assert notes(discussed="1") == {"nt-talk"}
     assert notes(whereabout="1") == {"nt-form"}
     assert notes(type="inbound") == {"nt-form"}
+    assert len(notes(type=["inbound", "outbound"])) == 5  # several values at once
+    assert len(notes(tag=["x", "y"])) == 5  # unknown tags are ignored
+    assert len(notes(caller=["abc", str(caller.pk)])) == 5  # junk mixed with a real id
+    assert notes(caller=["abc", "999999"]) == set()  # a real but absent id filters
     assert len(notes(q="9876543210")) == 5  # phone matches across spellings
     assert notes(q="nobody") == set()
     # bad values are ignored, never a 500; an inverted range is swapped
@@ -839,3 +843,48 @@ def test_editing_a_call_moves_the_next_follow_up_it_opened_while_pending(
     data.pop("next_due"), data.pop("intention")
     data["version"] = log.version
     assert client.post(url, data).status_code == 302
+
+
+def test_editing_a_call_to_tbd_cancels_the_next_follow_up_it_opened(
+    client, senken, todo, caller
+):
+    log_call(
+        todo, user=caller, outcome="reg_touch", next_due=tomorrow(), intention="call"
+    )
+    log = CallLog.objects.get()
+    data = {
+        "outcome": "reg_touch",
+        "call_type": "outbound",
+        "version": log.version,
+        "tbd": "on",
+    }
+    url = reverse("hiring:call_log_edit", args=[log.pk])
+    assert b'name="tbd"' in client.get(url).content
+    assert client.post(url, data).status_code == 302
+    log.opened_followup.refresh_from_db()
+    assert log.opened_followup.status == "cancelled"
+
+
+def test_edit_with_a_follow_up_closed_meanwhile_shows_an_error_not_a_500(
+    client, senken, todo, caller, monkeypatch
+):
+    log_call(
+        todo, user=caller, outcome="reg_touch", next_due=tomorrow(), intention="call"
+    )
+    log = CallLog.objects.get()
+
+    def closed(*args, **kwargs):  # the follow-up closes after the view loaded it
+        raise FollowUpError(
+            "The next follow-up was already closed, so it can't change."
+        )
+
+    monkeypatch.setattr("hiring.screening_views.edit_call_log", closed)
+    data = {
+        "outcome": "reg_touch",
+        "call_type": "outbound",
+        "version": log.version,
+        "tbd": "on",
+    }
+    response = client.post(reverse("hiring:call_log_edit", args=[log.pk]), data)
+    assert response.status_code == 200
+    assert b"already closed" in response.content
