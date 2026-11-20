@@ -7,6 +7,7 @@ from django.utils import timezone
 from openpyxl import load_workbook
 
 from core.access import MODULES
+from core.dates import skip_sunday
 from core.models import AccessGrant, Company
 from notifications.models import Notification
 from people.models import Person
@@ -821,7 +822,7 @@ def test_editing_a_call_moves_the_next_follow_up_it_opened_while_pending(
     assert nxt and nxt.status == "pending"
     url = reverse("hiring:call_log_edit", args=[log.pk])
     assert b"next_due" in client.get(url).content
-    day = (timezone.localdate() + timedelta(days=9)).isoformat()
+    day = skip_sunday(timezone.localdate() + timedelta(days=9)).isoformat()
     data = {
         "outcome": "reg_touch",
         "call_type": "outbound",

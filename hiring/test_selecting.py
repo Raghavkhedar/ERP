@@ -7,6 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 from openpyxl import load_workbook
 
+from core.dates import skip_sunday
 from core.models import AccessGrant, Company
 
 from .models import FollowUp, HRAssessment, Interview, Requisition
@@ -546,7 +547,7 @@ def test_hold_tenure_is_the_days_entered_and_survives_a_resave(
     client, booked, caller, django_user_model
 ):
     url = _filed(client, booked, caller, django_user_model)
-    day = (timezone.localdate() + timedelta(days=9)).isoformat()
+    day = skip_sunday(timezone.localdate() + timedelta(days=9)).isoformat()
     post = {"which": "hr", "decision": "hold", "next_follow_up": day}
     client.post(url, post)
     first = Interview.objects.get().hr.hold_tenure
@@ -623,3 +624,53 @@ def test_odd_digits_in_the_requisition_filter_are_ignored(client, booked):
             client.get(reverse(f"hiring:{name}"), {"requisition": "²"}).status_code
             == 200
         )
+
+
+def test_filed_list_links_to_the_interview(client, booked, caller):
+    client.post(
+        reverse("hiring:interview", args=[booked.pk]), {**FORM, "assessor": caller.pk}
+    )
+    pk = Interview.objects.get().pk
+    page = client.get(reverse("hiring:selecting"))
+    assert reverse("hiring:interview_edit", args=[pk]) in page.content.decode()
+    edit = client.get(reverse("hiring:interview_edit", args=[pk]))
+    assert edit.status_code == 200 and edit.context["hr_form"] is None
+    assert (
+        client.post(
+            reverse("hiring:interview_edit", args=[pk]), {"which": "hr"}
+        ).status_code
+        == 403
+    )
+
+
+def test_supervisor_gives_a_booked_interview_to_someone_with_selecting(
+    client, booked, caller, django_user_model, senken
+):
+    caller.is_superuser = True
+    caller.save()
+    other = member(django_user_model, senken, "S10", "selecting")
+    nobody = member(django_user_model, senken, "S11", "screening")
+    url = reverse("hiring:interview_reassign", args=[booked.pk])
+    client.post(url, {"owner": nobody.pk})
+    booked.refresh_from_db()
+    assert booked.owner != nobody
+    client.post(url, {"owner": other.pk})
+    booked.refresh_from_db()
+    assert booked.owner == other
+
+
+def test_reassign_is_for_supervisors_and_ignores_a_bad_owner(
+    client, booked, caller, django_user_model, senken
+):
+    other = member(django_user_model, senken, "S12", "selecting")
+    url = reverse("hiring:interview_reassign", args=[booked.pk])
+    assert client.post(url, {"owner": other.pk}).status_code == 403
+    other.supervisor = caller
+    other.save()
+    assert client.post(url, {"owner": "abc"}).status_code == 302
+    assert client.post(url, {"owner": "²"}).status_code == 302
+    booked.refresh_from_db()
+    assert booked.owner != other
+    client.post(url, {"owner": other.pk, "next": "https://evil.example/"})
+    booked.refresh_from_db()
+    assert booked.owner == other

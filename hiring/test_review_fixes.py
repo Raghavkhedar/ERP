@@ -8,6 +8,7 @@ from django.urls import reverse
 from django.utils import timezone
 from openpyxl import Workbook, load_workbook
 
+from core.dates import skip_sunday
 from core.models import AccessGrant, Company
 from people.models import Person
 
@@ -520,7 +521,7 @@ def test_bulk_move_says_when_it_left_interviews_alone(
             "scope": "ticked",
             "do": "move",
             "ids": [booked.pk],
-            "day": (timezone.localdate() + timedelta(days=2)).isoformat(),
+            "day": skip_sunday(timezone.localdate() + timedelta(days=2)).isoformat(),
             "reason": "holiday",
             "filters": "",
         },

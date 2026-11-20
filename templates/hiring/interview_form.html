@@ -2,7 +2,7 @@
 
 {% block title %}Interview · Senken ERP{% endblock %}
 {% block heading %}Interview form{% endblock %}
-{% block actions %}<a href="{% url 'people:detail' person.pk %}" class="text-gray-500 hover:text-gray-900">Card</a><a href="{% if editing %}{% url 'hiring:offers' %}{% else %}{% url 'hiring:selecting' %}{% endif %}" class="text-gray-500 hover:text-gray-900">Back</a>{% endblock %}
+{% block actions %}<a href="{% url 'people:detail' person.pk %}" class="text-gray-500 hover:text-gray-900">Card</a><a href="{% if selecting %}{% url 'hiring:selecting' %}{% elif editing %}{% url 'hiring:offers' %}{% else %}{% url 'hiring:selecting' %}{% endif %}" class="text-gray-500 hover:text-gray-900">Back</a>{% endblock %}
 
 {% block page %}
   {{ tables|json_script:"tables-data" }}

@@ -82,11 +82,22 @@ urlpatterns = [
     path(
         "selecting/export/", selecting_views.export_interviews, name="selecting_export"
     ),
+    path(
+        "selecting/<int:pk>/reassign/",
+        selecting_views.reassign_interview,
+        name="interview_reassign",
+    ),
     path("selecting/<int:pk>/interview/", selecting_views.record, name="interview"),
     path(
         "hiring/interviews/<int:pk>/<str:name>/",
         selecting_views.interview_file,
         name="interview_file",
+    ),
+    path(
+        "selecting/interviews/<int:pk>/",
+        selecting_views.review,
+        {"from_selecting": True},
+        name="interview_edit",
     ),
     path(
         "hiring/interviews/<int:pk>/",
