@@ -7,14 +7,16 @@ from django.db.models import Q
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 
 from core.access import companies_with_access, require_section
 from core.pagination import paginate
+from tasks.services import can_assign
 
 from . import interview_form
 from .departments import SUB_DEPARTMENTS
 from .export import interviews_workbook
+from .forms import ReassignForm
 from .interview_form import (
     COLUMN_TYPES,
     PROFILE_OF,
@@ -34,6 +36,7 @@ from .services import (
     interviews_waiting,
     narrow,
     open_requisitions,
+    reassign,
     record_interview,
     save_assessment,
     visible_interviews,
@@ -103,8 +106,52 @@ def selecting(request):
             "done": narrow(_filed(request), request.GET)[:100],
             "requisitions": open_requisitions(request.companies),
             "filters": filter_query(request.GET),
+            "can_assign": _can_reassign(request.user),
+            "assignees": _assignees(request),
         },
     )
+
+
+def _can_reassign(user):
+    return user.is_superuser or can_assign(user)
+
+
+def _assignees(request):
+    # Only people who hold Selecting there: others couldn't open the form.
+    return (
+        ReassignForm(companies=request.companies)
+        .fields["owner"]
+        .queryset.filter(
+            Q(is_superuser=True)
+            | Q(
+                access_grants__module="recruitment",
+                access_grants__section="selecting",
+                access_grants__company__in=request.companies,
+            )
+        )
+        .distinct()
+    )
+
+
+@section
+@require_POST
+def reassign_interview(request, pk):
+    if not _can_reassign(request.user):
+        raise PermissionDenied
+    followup = get_object_or_404(
+        interviews_waiting(request.user, request.companies), pk=pk
+    )
+    owner = _assignees(request).filter(pk=request.POST.get("owner") or 0).first()
+    if owner is None:
+        messages.error(request, "Pick a person who has Selecting.")
+        return redirect("hiring:selecting")
+    try:
+        reassign(followup, owner, request.user)
+    except FollowUpError as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, f"Interview given to {owner.display_name}.")
+    return redirect("hiring:selecting")
 
 
 @section
@@ -276,10 +323,12 @@ def record(request, pk):
 
 
 @filed_section
-def review(request, pk):
-    """Open a filed interview: edit it, and (for those allowed) fill the HR form."""
+def review(request, pk, selecting=False):
+    """Open a filed interview: edit it, and (for those allowed) fill the HR form.
+    From Selecting (`selecting`) it is the interview form alone, no HR panel."""
     interview = get_object_or_404(_filed(request), pk=pk)
-    has_hr = _has_hr(request, interview)
+    has_hr = not selecting and _has_hr(request, interview)
+    here = "hiring:interview_edit" if selecting else "hiring:interview_review"
     existing = getattr(interview, "hr", None)
     posted = request.method == "POST"
     hr = bool(posted and request.POST.get("which") == "hr")
@@ -339,7 +388,7 @@ def review(request, pk):
             answers=answers,
         )
         messages.success(request, "HR assessment saved.")
-        return redirect("hiring:interview_review", pk=pk)
+        return redirect(here, pk=pk)
     if posted and not hr and form.is_valid():
         edit_interview(
             interview,
@@ -351,7 +400,7 @@ def review(request, pk):
         )
         _files(request, interview)
         messages.success(request, "Interview updated.")
-        return redirect("hiring:interview_review", pk=pk)
+        return redirect(here, pk=pk)
     return _page(
         request,
         form,
@@ -361,4 +410,5 @@ def review(request, pk):
         interview=interview,
         hr_form=hr_form,
         editing=True,
+        selecting=selecting,
     )

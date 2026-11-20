@@ -6,7 +6,12 @@
 
 {% block page %}
   {% include "hiring/_filter_bar.html" %}
-  <h2 class="font-semibold">To interview <span class="font-normal text-gray-500">({{ waiting.paginator.count }})</span></h2>
+  <div x-data="{ tab: 'waiting' }">
+  <div class="flex gap-2" role="tablist">
+    <button type="button" role="tab" @click="tab = 'waiting'" :aria-selected="tab === 'waiting'" :class="tab === 'waiting' ? 'bg-blue-600' : 'border border-ink bg-white'" class="inline-flex h-9 items-center rounded-lg px-3 text-sm font-medium">To interview ({{ waiting.paginator.count }})</button>
+    <button type="button" role="tab" @click="tab = 'filed'" :aria-selected="tab === 'filed'" :class="tab === 'filed' ? 'bg-blue-600' : 'border border-ink bg-white'" class="inline-flex h-9 items-center rounded-lg px-3 text-sm font-medium">Filed ({{ done|length }})</button>
+  </div>
+  <div x-show="tab === 'waiting'">
   {% if waiting %}
     <ul class="mt-1 divide-y divide-gray-100 border-y border-gray-100">
       {% for f in waiting %}
@@ -15,6 +20,13 @@
             <p class="truncate font-medium">{{ f.person.name }}</p>
             <p class="truncate text-sm text-gray-500">{{ f.person.phone }} · {{ f.due|date:"d/m/Y" }}{% if f.requisition %} · {{ f.requisition }}{% endif %}</p>
           </div>
+          {% if can_assign %}
+          <form method="post" action="{% url 'hiring:interview_reassign' f.pk %}" class="flex shrink-0 items-center gap-1">
+            {% csrf_token %}
+            <select name="owner" aria-label="Give to" class="h-9 text-sm"><option value="">{{ f.owner.display_name|default:"Give to…" }}</option>{% for u in assignees %}<option value="{{ u.pk }}">{{ u.display_name }}</option>{% endfor %}</select>
+            <button class="inline-flex h-9 items-center rounded-lg border border-ink bg-white px-3 text-sm font-medium">Give</button>
+          </form>
+          {% endif %}
           <a href="{% url 'hiring:interview' f.pk %}" class="inline-flex h-9 shrink-0 items-center rounded-lg bg-blue-600 px-3 text-sm font-medium">Record</a>
         </li>
       {% endfor %}
@@ -23,14 +35,15 @@
   {% else %}
     <p class="mt-1 border-y border-gray-100 py-4 text-sm text-gray-500">No interviews booked. They appear when a call ends with "Interview booked".</p>
   {% endif %}
+  </div>
 
-  <h2 class="mt-8 font-semibold">Filed</h2>
+  <div x-show="tab === 'filed'" x-cloak>
   {% if done %}
     <ul class="mt-1 divide-y divide-gray-100 border-y border-gray-100">
       {% for i in done %}
         <li class="flex items-center gap-4 py-3">
           <div class="min-w-0 flex-1">
-            <p class="truncate font-medium">{{ i.person.name }}</p>
+            <a href="{% url 'hiring:interview_edit' i.pk %}" class="block truncate font-medium hover:underline">{{ i.person.name }}</a>
             <p class="truncate text-sm text-gray-500">{{ i.scheduled_at|date:"d/m/Y" }}{% if i.requisition %} · {{ i.requisition }}{% endif %}</p>
           </div>
           <span class="shrink-0 rounded-full border border-ink px-2.5 py-0.5 text-xs {% if i.result == 'selected' %}bg-pop{% endif %}">{{ i.get_result_display }}</span>
@@ -40,4 +53,6 @@
   {% else %}
     <p class="mt-1 border-y border-gray-100 py-4 text-sm text-gray-500">Nothing recorded yet.</p>
   {% endif %}
+  </div>
+  </div>
 {% endblock %}

@@ -623,3 +623,36 @@ def test_odd_digits_in_the_requisition_filter_are_ignored(client, booked):
             client.get(reverse(f"hiring:{name}"), {"requisition": "²"}).status_code
             == 200
         )
+
+
+def test_filed_list_links_to_the_interview(client, booked, caller):
+    client.post(
+        reverse("hiring:interview", args=[booked.pk]), {**FORM, "assessor": caller.pk}
+    )
+    pk = Interview.objects.get().pk
+    page = client.get(reverse("hiring:selecting"))
+    assert reverse("hiring:interview_edit", args=[pk]) in page.content.decode()
+    edit = client.get(reverse("hiring:interview_edit", args=[pk]))
+    assert edit.status_code == 200 and edit.context["hr_form"] is None
+    assert (
+        client.post(
+            reverse("hiring:interview_edit", args=[pk]), {"which": "hr"}
+        ).status_code
+        == 403
+    )
+
+
+def test_supervisor_gives_a_booked_interview_to_someone_with_selecting(
+    client, booked, caller, django_user_model, senken
+):
+    caller.is_superuser = True
+    caller.save()
+    other = member(django_user_model, senken, "S10", "selecting")
+    nobody = member(django_user_model, senken, "S11", "screening")
+    url = reverse("hiring:interview_reassign", args=[booked.pk])
+    client.post(url, {"owner": nobody.pk})
+    booked.refresh_from_db()
+    assert booked.owner != nobody
+    client.post(url, {"owner": other.pk})
+    booked.refresh_from_db()
+    assert booked.owner == other
