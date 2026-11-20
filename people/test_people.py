@@ -139,3 +139,13 @@ def test_list_searches_the_extra_numbers(client, caller, senken):
     )
     for n in ("8285424619", "7000000001"):
         assert "Ravi" in client.get(reverse("people:list"), {"q": n}).content.decode()
+
+
+def test_search_and_card_page_reach_archived_cards(client, caller, senken):
+    from django.utils import timezone
+
+    old = make(senken, "Hidden", "8285424619", archived_at=timezone.now())
+    assert "Hidden" not in client.get(reverse("people:list")).content.decode()
+    page = client.get(reverse("people:list"), {"q": "8285424619"}).content.decode()
+    assert "Hidden" in page and "Archived" in page
+    assert client.get(reverse("people:detail", args=[old.pk])).status_code == 200

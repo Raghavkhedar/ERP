@@ -57,8 +57,12 @@ def card_rows(person):
     ]
 
 
-def visible_people(companies, search="", status=""):
-    people = Person.objects.filter(company__in=companies, archived_at__isnull=True)
+def visible_people(companies, search="", status="", archived=False):
+    """`archived=True` also returns archived cards: a search must still find the
+    card that calls and interviews were filed on."""
+    people = Person.objects.filter(company__in=companies)
+    if not archived:
+        people = people.filter(archived_at__isnull=True)
     if status:
         people = people.filter(contact_status=status)
     for word in search.split():

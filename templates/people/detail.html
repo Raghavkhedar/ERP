@@ -8,6 +8,7 @@
 {% endblock %}
 
 {% block page %}
+{% if person.archived_at %}<p class="mb-3 rounded-lg border border-ink bg-pop px-3 py-2 text-sm">This card is archived, so it only shows up when you search for it.</p>{% endif %}
 <p class="mb-6"><span class="sticker inline-block rounded-full border border-ink bg-pop px-3 py-1 text-sm font-medium">{{ stage }}</span></p>
 <div class="lg:grid lg:grid-cols-[1fr_20rem] lg:gap-10">
 <div>

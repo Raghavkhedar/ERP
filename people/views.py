@@ -17,11 +17,15 @@ section = require_section("recruitment", "people")
 def _shown(request):
     search = request.GET.get("q", "").strip()
     status = request.GET.get("status", "")
-    return search, status, visible_people(request.companies, search, status)
+    return (
+        search,
+        status,
+        visible_people(request.companies, search, status, archived=bool(search)),
+    )
 
 
 def _card(request, pk):
-    return get_object_or_404(visible_people(request.companies), pk=pk)
+    return get_object_or_404(visible_people(request.companies, archived=True), pk=pk)
 
 
 @section

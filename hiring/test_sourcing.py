@@ -1,5 +1,5 @@
 from datetime import timedelta
-from io import BytesIO
+from io import BytesIO, StringIO
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -384,3 +384,21 @@ def test_a_number_with_only_archived_cards_gets_a_fresh_live_card(req, caller):
     row = source_number(req, "Asha", "9876543210", caller)
     assert row.person != old and row.person.archived_at is None
     assert FollowUp.objects.get().person == row.person
+
+
+def test_unarchive_command_restores_only_cards_with_work(req, caller):
+    from django.core.management import call_command
+    from django.utils import timezone
+
+    mk = lambda name, phone: Person.objects.create(  # noqa: E731
+        company=req.company, name=name, phone=phone, archived_at=timezone.now()
+    )
+    busy, idle = mk("Busy", "9000000001"), mk("Idle", "9000000002")
+    FollowUp.objects.create(person=busy, requisition=req, due=timezone.now())
+    call_command("unarchive_active_cards", stdout=StringIO())
+    busy.refresh_from_db()
+    assert busy.archived_at  # dry run saves nothing
+    call_command("unarchive_active_cards", "--apply")
+    busy.refresh_from_db()
+    idle.refresh_from_db()
+    assert busy.archived_at is None and idle.archived_at is not None
