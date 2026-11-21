@@ -10,7 +10,7 @@ from openpyxl import load_workbook
 from core.access import MODULES
 from core.models import AccessGrant, Company
 
-from .models import FollowUp, Requisition
+from .models import FollowUp, Offer, Requisition
 from .services import (
     accept,
     funnel,
@@ -146,5 +146,13 @@ def test_call_form_shows_timeline_with_calls_on_hover(client, senken, boss):
         reverse("hiring:followup", args=[person.followups.get(status="pending").pk])
     )
     body = page.content.decode()
-    assert "Timeline" in body and "Card created" in body
-    assert "Keen on night shift" in body and "group-hover:block" in body
+    assert "Card created" in body
+    # headline in the line, full notes only in the hover card
+    assert ">Call: Reg Call Not Attended</p>" in body
+    assert "Call: Reg Call Not Attended. Keen on night shift</div>" in body
+    # offers stay off the call page but show on the card
+    Offer.objects.create(person=person, requisition=req, made_by=boss)
+    call = reverse("hiring:followup", args=[person.followups.get(status="pending").pk])
+    assert "Offer made" not in client.get(call).content.decode()
+    card = client.get(reverse("people:detail", args=[person.pk])).content.decode()
+    assert "Offer made" in card and "Keen on night shift</div>" in card

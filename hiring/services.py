@@ -1170,6 +1170,10 @@ class Event(str):
 
     short = ""
 
+    @property
+    def expandable(self):
+        return bool(self.short) and self.short != str(self)
+
 
 def _event(text, short):
     e = Event(text)
@@ -1177,7 +1181,7 @@ def _event(text, short):
     return e
 
 
-def timeline(person, with_hr=False):
+def timeline(person, with_hr=False, with_offers=True):
     """Everything that has happened around a card, newest first, as
     (when, who, text). Built from the records and their history, not stored."""
     events = [(person.created_at, None, "Card created")]
@@ -1271,7 +1275,7 @@ def timeline(person, with_hr=False):
                 )
             )
 
-    for o in person.offers.select_related("made_by"):
+    for o in person.offers.select_related("made_by") if with_offers else ():
         events.append((o.created_at, o.made_by, "Offer made"))
         for r in o.rounds.select_related("by"):
             text = f"Offer round: {r.amount}"
@@ -1294,6 +1298,8 @@ def timeline(person, with_hr=False):
                 )
             )
 
+    # One shape for every entry, so a new event type never loses the hover card.
+    events = [(w, u, t if isinstance(t, Event) else Event(t)) for w, u, t in events]
     return sorted(events, key=lambda e: e[0], reverse=True)
 
 

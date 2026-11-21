@@ -601,7 +601,7 @@ def _detail(request, followup, **forms):
         "hiring/followup.html",
         {
             "f": followup,
-            "events": timeline(followup.person),
+            "events": timeline(followup.person, with_offers=False),
             "call_action": reverse("hiring:followup_call", args=[followup.pk]),
             "call_form": forms.get("call_form") or CallForm(),
             "reschedule_form": forms.get("reschedule_form") or RescheduleForm(),
