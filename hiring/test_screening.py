@@ -932,6 +932,13 @@ def test_a_major_whereabout_keeps_several_earlier_jobs(
         },
     )
     assert bad.status_code == 200
+    odd = post_call(
+        client,
+        todo,
+        major_on="on",
+        **{"major-department": "hhe", "job-time_period_months": ["\u00b2"]},
+    )
+    assert odd.status_code == 200  # an error, not a crash
     post_call(
         client,
         todo,

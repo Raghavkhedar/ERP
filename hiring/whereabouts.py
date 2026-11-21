@@ -291,7 +291,7 @@ def read_jobs(data):
         if not job:
             continue
         months = job.get("time_period_months", "0")
-        if not months.isdigit() or int(months) > 1200:
+        if not (months.isascii() and months.isdigit()) or int(months) > 1200:
             return jobs, "Time period must be whole months, up to 1200."
         jobs.append(job)
     return jobs, None
