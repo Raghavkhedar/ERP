@@ -190,3 +190,21 @@ def test_admin_lists_archived_cards_and_is_read_only(client, django_user_model, 
     for model in ("requisition", "followup", "calllog", "interview", "offer"):
         page = client.get(reverse(f"admin:hiring_{model}_changelist"), {"q": "x"})
         assert page.status_code == 200
+
+
+@pytest.mark.django_db
+def test_backfill_numbers_empty_cards_after_the_highest(django_db_blocker):
+    import importlib
+
+    from django.apps import apps as real_apps
+
+    from core.models import Company
+
+    mod = importlib.import_module("people.migrations.0006_backfill_candidate_ids")
+    senken = Company.objects.get(slug="senken")
+    Person.objects.create(company=senken, name="Old", phone="1", candidate_id="WJ7")
+    a = Person.objects.create(company=senken, name="A", phone="2")
+    b = Person.objects.create(company=senken, name="B", phone="3")
+    mod.backfill(real_apps, None)
+    a.refresh_from_db(), b.refresh_from_db()
+    assert (a.candidate_id, b.candidate_id) == ("WJ8", "WJ9")

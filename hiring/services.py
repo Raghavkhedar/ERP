@@ -10,13 +10,14 @@ from django.db.models import (
     Count,
     F,
     IntegerField,
+    Max,
     Min,
     OuterRef,
     Q,
     Subquery,
     When,
 )
-from django.db.models.functions import Coalesce, TruncDate
+from django.db.models.functions import Cast, Coalesce, Substr, TruncDate
 from django.urls import reverse
 from django.utils import timezone
 from simple_history.utils import bulk_update_with_history
@@ -249,6 +250,17 @@ def lock_numbers(company_id, keys):
             )
 
 
+def next_candidate_id():
+    """The next WJ number after the highest one in use (old cards keep theirs).
+    Callers hold the transaction-wide lock taken in source_number."""
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT pg_advisory_xact_lock(hashtext('candidate_id'))")
+    top = Person.objects.filter(candidate_id__regex=r"^WJ[0-9]+$").aggregate(
+        top=Max(Cast(Substr("candidate_id", 3), IntegerField()))
+    )["top"]
+    return f"WJ{(top or 0) + 1}"
+
+
 def _not_to_call(cards):
     """Cards that must not get a recruiter call: asked not to be called, closed,
     or holding an open or accepted offer (so also anyone already working)."""
@@ -290,6 +302,7 @@ def source_number(
         if not duplicate:
             person = Person.objects.create(
                 company=requisition.company,
+                candidate_id=next_candidate_id(),
                 name=name,
                 phone=phone,
                 email=email,

@@ -113,3 +113,14 @@ def test_sourcing_page_shows_duplicate_rate_by_source(req, user, client):
     source_number(req, "Ravi", "99999 11111", user, "Naukri")
     page = client.get(reverse("hiring:sourcing"))
     assert b"By source" in page.content and b"50%" in page.content
+
+
+def test_new_cards_get_the_next_candidate_id(req, user, senken):
+    from people.models import Person
+
+    Person.objects.create(company=senken, name="Old", phone="1", candidate_id="WJ41")
+    a = source_number(req, "A", "90000 00001", user).person
+    b = source_number(req, "B", "90000 00002", user).person
+    again = source_number(req, "A", "90000 00001", user).person
+    assert (a.candidate_id, b.candidate_id) == ("WJ42", "WJ43")
+    assert again == a
