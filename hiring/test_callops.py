@@ -50,17 +50,25 @@ def test_shift_calls_keeps_time_and_counts_the_move(req, user):
         assert f.reschedule_count == 1 and f.original_due
 
 
-def test_shift_leaves_interviews_alone(req, user):
+def test_shift_moves_interviews_but_not_joinings(req, user):
     person = source_number(req, "Ravi", "99999 11111", user).person
-    interview = FollowUp.objects.create(
-        person=person, purpose="interview", due=timezone.now(), owner=user
-    )
+    made = {
+        p: FollowUp.objects.create(
+            person=person, purpose=p, due=timezone.now(), owner=user
+        )
+        for p in ("interview", "offer", "joining")
+    }
     assert (
-        bulk_move(FollowUp.objects.filter(pk=interview.pk), date(2031, 5, 1), "holiday")
-        == 0
+        bulk_move(
+            FollowUp.objects.filter(pk__in=[f.pk for f in made.values()]),
+            date(2031, 5, 1),
+            "holiday",
+        )
+        == 2
     )
-    interview.refresh_from_db()
-    assert interview.reschedule_count == 0
+    for p, f in made.items():
+        f.refresh_from_db()
+        assert f.reschedule_count == (p != "joining")
 
 
 def test_call_alarm_rings_until_snoozed_or_done(req, user, client):
@@ -132,7 +140,7 @@ def test_move_preview_lists_who_moves_and_writes_nothing(req, user, client):
     source_number(req, "Asha", "99999 22222", user)
     before = list(FollowUp.objects.order_by("pk").values_list("due", flat=True))
     page = client.post(reverse("hiring:bulk"), _all(preview="1", filters="q=Ravi"))
-    assert b"1 call will move" in page.content and b"Asha" not in page.content
+    assert b"1 follow-up will move" in page.content and b"Asha" not in page.content
     assert list(FollowUp.objects.order_by("pk").values_list("due", flat=True)) == before
     client.post(reverse("hiring:bulk"), _all(filters="q=Ravi"))
     assert _due("Ravi") == date(2031, 5, 1) and _due("Asha") != date(2031, 5, 1)
@@ -147,11 +155,11 @@ def test_preview_and_move_obey_the_preference_and_when_filters(req, user, client
     page = client.post(
         reverse("hiring:bulk"), _all(preview="1", filters="priority=preferred")
     )
-    assert b"1 call will move" in page.content and b"Asha" not in page.content
+    assert b"1 follow-up will move" in page.content and b"Asha" not in page.content
     page = client.post(
         reverse("hiring:bulk"), _all(preview="1", filters="when=overdue")
     )
-    assert b"0 calls will move" in page.content
+    assert b"0 follow-ups will move" in page.content
     client.post(reverse("hiring:bulk"), _all(filters="priority=preferred"))
     assert _due("Ravi") == date(2031, 5, 1) and _due("Asha") != date(2031, 5, 1)
 
@@ -166,7 +174,7 @@ def test_preview_of_ticked_calls_carries_their_ids_to_the_confirm(req, user, cli
         reverse("hiring:bulk"),
         _all(scope="ticked", preview="1", ids=[ravi.pk]),
     )
-    assert b"1 call will move" in page.content
+    assert b"1 follow-up will move" in page.content
     assert f'name="ids" value="{ravi.pk}"'.encode() in page.content
 
 

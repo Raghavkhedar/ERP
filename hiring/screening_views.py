@@ -29,6 +29,7 @@ from .forms import (
 )
 from .models import CallLog, FollowUp, Interview, Offer, Requisition
 from .services import (
+    MOVABLE,
     FollowUpError,
     NoSupervisor,
     StaleCall,
@@ -451,7 +452,13 @@ def call_log_edit(request, pk):
         raise PermissionDenied
     nxt = log.opened_followup
     nxt = nxt if nxt and nxt.status == FollowUp.Status.PENDING else None
-    form = CallLogEditForm(request.POST or None, log=log, followup=nxt)
+    form = CallLogEditForm(
+        request.POST or None,
+        log=log,
+        followup=nxt,
+        open_next=not log.opened_followup
+        or log.opened_followup.status == FollowUp.Status.CANCELLED,
+    )
     if request.method == "POST" and form.is_valid():
         d = form.cleaned_data
         try:
@@ -528,7 +535,7 @@ def bulk(request):
     rows = FollowUp.objects.filter(pk__in=pks, status=FollowUp.Status.PENDING)
     if "preview" in request.POST:
         # The confirm dialog: who would move, nothing written yet.
-        calls = rows.filter(purpose=FollowUp.Purpose.CALL).order_by("due", "pk")
+        calls = rows.filter(purpose__in=MOVABLE).order_by("due", "pk")
         count = calls.count()
         return render(
             request,
@@ -555,17 +562,18 @@ def bulk(request):
         n = bulk_move(rows, d["day"], d["reason"], by=request.user)
         left = len(pks) - n
         note = (
-            f" {left} interview, offer or joining dates were left as they are."
+            f" {left} other follow-up{'s' if left != 1 else ''} left as they are."
             if left
             else ""
         )
         if n:
             messages.success(
                 request,
-                f"Moved {n} call{'s' if n != 1 else ''} to {d['day']:%d/%m/%Y}.{note}",
+                f"Moved {n} follow-up{'s' if n != 1 else ''} "
+                f"to {d['day']:%d/%m/%Y}.{note}",
             )
         else:
-            messages.error(request, f"No calls to move.{note}")
+            messages.error(request, f"Nothing to move.{note}")
     return redirect(back)
 
 

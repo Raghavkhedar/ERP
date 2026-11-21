@@ -586,8 +586,26 @@ def edit_call_log(log, user, version, next_due=None, intention=None, **fields):
         current.mini_whereabout, current.major_whereabout = mini, major
         current.version += 1
         current.save()
-        if intention:
+        opened = current.opened_followup
+        if intention and opened and opened.status != FollowUp.Status.CANCELLED:
             _change_next(current, user, next_due, intention, fields["intention_other"])
+        elif intention and next_due:  # a TBD call that now has a date
+            after = current.followup or SimpleNamespace(
+                person=current.person, requisition=None, owner=current.caller
+            )
+            if FollowUp.objects.filter(
+                person=current.person,
+                purpose=intention,
+                status=FollowUp.Status.PENDING,
+            ).exists():
+                raise FollowUpError(
+                    "That candidate already has a pending follow-up "
+                    "with that intention."
+                )
+            current.opened_followup = _open(
+                after, intention, next_due, fields["intention_other"]
+            )
+            current.save(update_fields=["opened_followup"])
         if boss:
             notify(
                 boss,
@@ -647,12 +665,12 @@ def bulk_reassign(followups, owner, by):
 
 
 def bulk_move(followups, day, reason, by=None):
-    """Move many pending calls to `day`, keeping each one's first date and
-    counting the move. Interviews, offers and joinings are other people's dates and
+    """Move many pending calls, interviews and offers to `day`, keeping each one's
+    first date and counting the move. Joinings are the candidate's own date and
     never move in bulk. One bulk write, not one save per follow-up."""
     with transaction.atomic():
         rows = list(
-            followups.filter(purpose=FollowUp.Purpose.CALL)
+            followups.filter(purpose__in=MOVABLE)
             .select_related(None)
             .select_for_update(of=("self",))
         )
@@ -1316,6 +1334,7 @@ def schedule_call(person, due, user):
 
 
 RINGING = (FollowUp.Purpose.CALL, FollowUp.Purpose.INTERVIEW)
+MOVABLE = (FollowUp.Purpose.CALL, FollowUp.Purpose.INTERVIEW, FollowUp.Purpose.OFFER)
 
 
 def _alarmed(user):

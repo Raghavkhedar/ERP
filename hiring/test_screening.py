@@ -760,6 +760,7 @@ def test_a_logged_call_can_be_edited_by_its_caller_and_supervisors(
         "notes": "fixed",
         "call_type": "outbound",
         "version": log.version,
+        "tbd": "on",
     }
     assert client.post(url, data).status_code == 302
     log.refresh_from_db()
@@ -911,3 +912,110 @@ def test_call_picker_reaches_an_archived_card(client, todo):
     todo.person.save()
     found = client.get(reverse("hiring:calling_people"), {"q": "Asha"}).json()
     assert [p["name"] for p in found["people"]] == ["Asha"]
+
+
+def test_a_major_whereabout_keeps_several_earlier_jobs(
+    client, todo, caller, django_user_model
+):
+    caller.supervisor = django_user_model.objects.create_user(
+        username="BOSS3", password="pw"
+    )
+    caller.save()
+    bad = post_call(
+        client,
+        todo,
+        major_on="on",
+        **{
+            "major-department": "hhe",
+            "job-company_name": ["A", "B", "C"],
+            "job-time_period_months": ["1", "x", "3"],
+        },
+    )
+    assert bad.status_code == 200
+    page = bad.content.decode()
+    assert page.count("whole months") == 1 and "Check the major" not in page
+    assert bad.context["call_form"].earlier[2] == {
+        "company_name": "C",
+        "time_period_months": "3",
+    }
+    odd = post_call(
+        client,
+        todo,
+        major_on="on",
+        **{"major-department": "hhe", "job-time_period_months": ["\u00b2"]},
+    )
+    assert odd.status_code == 200  # an error, not a crash
+    post_call(
+        client,
+        todo,
+        major_on="on",
+        **{
+            "major-department": "hhe",
+            "job-company_name": ["Acme", "", "Zed"],
+            "job-time_period_months": ["12", "", "6"],
+            "job-designation": ["Fitter", "", ""],
+            "job-rfl": ["", "", "Better pay"],
+        },
+    )
+    from .whereabouts import summary
+
+    answers = CallLog.objects.get().major_whereabout
+    assert (
+        "Company name: Acme, Time period (months): 12, Designation: Fitter"
+        in summary(answers)
+    )
+    jobs = answers["earlier_jobs"]
+    assert jobs == [
+        {"company_name": "Acme", "time_period_months": "12", "designation": "Fitter"},
+        {"company_name": "Zed", "time_period_months": "6", "rfl": "Better pay"},
+    ]
+
+
+def test_a_tbd_call_can_be_given_a_next_follow_up_date_when_edited(
+    client, senken, todo, caller
+):
+    log_call(todo, user=caller, outcome="reg_touch")
+    log = CallLog.objects.get()
+    assert log.opened_followup is None
+    url = reverse("hiring:call_log_edit", args=[log.pk])
+    page = client.get(url).content
+    assert b'name="next_due"' in page and b'name="tbd"' in page
+    day = skip_sunday(timezone.localdate() + timedelta(days=5)).isoformat()
+    data = {
+        "outcome": "reg_touch",
+        "call_type": "outbound",
+        "version": log.version,
+        "next_due": day,
+        "intention": "call",
+    }
+    assert client.post(url, data).status_code == 302
+    log.refresh_from_db()
+    assert log.opened_followup.status == "pending"
+    # back to TBD cancels it, and a date can be set again
+    data = {**data, "version": log.version, "tbd": "on"}
+    client.post(url, data)
+    log.opened_followup.refresh_from_db()
+    assert log.opened_followup.status == "cancelled"
+    assert b'name="next_due"' in client.get(url).content
+
+
+def test_a_tbd_call_cannot_adopt_a_follow_up_that_already_waits(
+    client, senken, todo, caller
+):
+    log_call(todo, user=caller, outcome="reg_touch")
+    log = CallLog.objects.get()
+    FollowUp.objects.create(
+        person=log.person, purpose="call", due=timezone.now(), owner=caller
+    )
+    day = skip_sunday(timezone.localdate() + timedelta(days=5)).isoformat()
+    data = {
+        "outcome": "reg_touch",
+        "call_type": "outbound",
+        "version": log.version,
+        "next_due": day,
+        "intention": "call",
+    }
+    page = client.post(reverse("hiring:call_log_edit", args=[log.pk]), data)
+    assert page.status_code == 200 and b"already has a pending" in page.content
+    log.refresh_from_db()
+    assert log.opened_followup is None and log.version == 1
