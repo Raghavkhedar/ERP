@@ -122,3 +122,29 @@ def test_timeline_and_card(client, senken, boss):
     assert "Edited name" in texts
     page = client.get(reverse("people:detail", args=[person.pk]))
     assert page.status_code == 200 and b"Timeline" in page.content
+
+
+def test_call_form_shows_timeline_with_calls_on_hover(client, senken, boss):
+    req = Requisition.objects.create(
+        company=senken, department="sales", profile="Rep", headcount=1, opened_by=boss
+    )
+    for tab in MODULES["recruitment"].sections:
+        AccessGrant.objects.get_or_create(
+            user=boss, company=senken, module="recruitment", section=tab
+        )
+    person = source_number(req, "Ravi", "99999 11111", boss, "Naukri").person
+    log_call(
+        person.followups.get(),
+        "reg_not_attended",
+        boss,
+        notes="Keen on night shift",
+        next_due=timezone.now() + timedelta(days=1),
+    )
+    person.followups.filter(status="pending").update(owner=boss)
+    client.force_login(boss)
+    page = client.get(
+        reverse("hiring:followup", args=[person.followups.get(status="pending").pk])
+    )
+    body = page.content.decode()
+    assert "Timeline" in body and "Card created" in body
+    assert "Keen on night shift" in body and "group-hover:block" in body

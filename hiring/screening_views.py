@@ -46,6 +46,7 @@ from .services import (
     reschedule,
     schedule_call,
     snooze_call,
+    timeline,
     visible_followups,
 )
 from .whereabouts import parse_day
@@ -600,6 +601,7 @@ def _detail(request, followup, **forms):
         "hiring/followup.html",
         {
             "f": followup,
+            "events": timeline(followup.person),
             "call_action": reverse("hiring:followup_call", args=[followup.pk]),
             "call_form": forms.get("call_form") or CallForm(),
             "reschedule_form": forms.get("reschedule_form") or RescheduleForm(),

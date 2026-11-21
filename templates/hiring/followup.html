@@ -21,5 +21,8 @@
     </details>
   </dl>
 
-  {% include "hiring/_call_form.html" with action=call_action %}
+  <div class="lg:grid lg:grid-cols-[1fr_20rem] lg:gap-10">
+    <div>{% include "hiring/_call_form.html" with action=call_action %}</div>
+    <aside class="mt-10 lg:mt-4">{% include "hiring/_timeline.html" %}</aside>
+  </div>
 {% endblock %}

@@ -1165,6 +1165,18 @@ def _at(when):
     return f"{timezone.localtime(when):%d/%m/%Y}"
 
 
+class Event(str):
+    """Timeline text; `short` is the one-line headline shown before hovering."""
+
+    short = ""
+
+
+def _event(text, short):
+    e = Event(text)
+    e.short = short
+    return e
+
+
 def timeline(person, with_hr=False):
     """Everything that has happened around a card, newest first, as
     (when, who, text). Built from the records and their history, not stored."""
@@ -1231,7 +1243,7 @@ def timeline(person, with_hr=False):
                 )
 
     for c in person.calls.select_related("caller"):
-        text = f"Call: {c.get_outcome_display()}"
+        text = short = f"Call: {c.get_outcome_display()}"
         if c.notes:
             text += f". {c.notes}"
         for name, answers in (
@@ -1240,15 +1252,14 @@ def timeline(person, with_hr=False):
         ):
             if answers:
                 text += f" {name}: {whereabouts.summary(answers)}."
-        events.append((c.called_at, c.caller, text))
+        events.append((c.called_at, c.caller, _event(text, short)))
 
     for i in person.interviews.select_related("interviewer"):
         text = f"Interview: {i.get_result_display().lower()}"
         if i.profile or i.answers.get("department"):
             text += f" ({interview_form.label(i)})"
-        events.append(
-            (i.scheduled_at, i.interviewer, f"{text}. {i.notes}" if i.notes else text)
-        )
+        full = f"{text}. {i.notes}" if i.notes else text
+        events.append((i.scheduled_at, i.interviewer, _event(full, text)))
         if with_hr and hasattr(i, "hr"):
             h = i.hr
             events.append(

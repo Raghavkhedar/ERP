@@ -1,0 +1,13 @@
+<h2 class="title text-xl">Timeline</h2>
+<ol class="mt-4 border-l-2 border-ink pl-5">
+  {% for when, who, text in events %}
+      <li class="group relative pb-4">
+        <span class="absolute -left-[27px] top-1.5 size-3 rounded-full border border-ink bg-pop"></span>
+        {% if text.short and text.short != text|stringformat:"s" %}
+          <p tabindex="0" class="cursor-help truncate underline decoration-dotted underline-offset-2">{{ text.short }}</p>
+          <div class="pointer-events-none absolute left-0 top-7 z-20 hidden w-[min(24rem,85vw)] whitespace-pre-line rounded-xl border border-ink bg-surface p-5 text-sm leading-relaxed shadow-xl group-hover:block group-focus-within:block lg:left-auto lg:right-full lg:top-0 lg:mr-6">{{ text }}</div>
+        {% else %}<p>{{ text }}</p>{% endif %}
+        <p class="text-sm text-gray-500">{{ when|date:"d/m/Y, H:i" }}{% if who %} · {{ who }}{% endif %}</p>
+      </li>
+  {% endfor %}
+</ol>
