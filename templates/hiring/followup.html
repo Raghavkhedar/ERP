@@ -23,6 +23,6 @@
 
   <div class="lg:grid lg:grid-cols-[1fr_20rem] lg:gap-10">
     <div>{% include "hiring/_call_form.html" with action=call_action %}</div>
-    <aside class="mt-10 lg:mt-4">{% include "hiring/_timeline.html" %}</aside>
+    <aside class="mt-10 lg:sticky lg:top-20 lg:mt-4 lg:max-h-[calc(100dvh-6rem)] lg:self-start lg:overflow-y-auto lg:px-2">{% include "hiring/_timeline.html" %}</aside>
   </div>
 {% endblock %}
