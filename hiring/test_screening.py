@@ -760,6 +760,7 @@ def test_a_logged_call_can_be_edited_by_its_caller_and_supervisors(
         "notes": "fixed",
         "call_type": "outbound",
         "version": log.version,
+        "tbd": "on",
     }
     assert client.post(url, data).status_code == 302
     log.refresh_from_db()
@@ -948,3 +949,31 @@ def test_a_major_whereabout_keeps_several_earlier_jobs(
         {"company_name": "Acme", "time_period_months": "12", "designation": "Fitter"},
         {"company_name": "Zed", "time_period_months": "6", "rfl": "Better pay"},
     ]
+
+
+def test_a_tbd_call_can_be_given_a_next_follow_up_date_when_edited(
+    client, senken, todo, caller
+):
+    log_call(todo, user=caller, outcome="reg_touch")
+    log = CallLog.objects.get()
+    assert log.opened_followup is None
+    url = reverse("hiring:call_log_edit", args=[log.pk])
+    page = client.get(url).content
+    assert b'name="next_due"' in page and b'name="tbd"' in page
+    day = skip_sunday(timezone.localdate() + timedelta(days=5)).isoformat()
+    data = {
+        "outcome": "reg_touch",
+        "call_type": "outbound",
+        "version": log.version,
+        "next_due": day,
+        "intention": "call",
+    }
+    assert client.post(url, data).status_code == 302
+    log.refresh_from_db()
+    assert log.opened_followup.status == "pending"
+    # back to TBD cancels it, and a date can be set again
+    data = {**data, "version": log.version, "tbd": "on"}
+    client.post(url, data)
+    log.opened_followup.refresh_from_db()
+    assert log.opened_followup.status == "cancelled"
+    assert b'name="next_due"' in client.get(url).content

@@ -452,7 +452,13 @@ def call_log_edit(request, pk):
         raise PermissionDenied
     nxt = log.opened_followup
     nxt = nxt if nxt and nxt.status == FollowUp.Status.PENDING else None
-    form = CallLogEditForm(request.POST or None, log=log, followup=nxt)
+    form = CallLogEditForm(
+        request.POST or None,
+        log=log,
+        followup=nxt,
+        open_next=not log.opened_followup
+        or log.opened_followup.status == FollowUp.Status.CANCELLED,
+    )
     if request.method == "POST" and form.is_valid():
         d = form.cleaned_data
         try:

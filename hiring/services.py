@@ -586,8 +586,17 @@ def edit_call_log(log, user, version, next_due=None, intention=None, **fields):
         current.mini_whereabout, current.major_whereabout = mini, major
         current.version += 1
         current.save()
-        if intention:
+        opened = current.opened_followup
+        if intention and opened and opened.status != FollowUp.Status.CANCELLED:
             _change_next(current, user, next_due, intention, fields["intention_other"])
+        elif intention and next_due:  # a TBD call that now has a date
+            after = current.followup or SimpleNamespace(
+                person=current.person, requisition=None, owner=current.caller
+            )
+            current.opened_followup = _open(
+                after, intention, next_due, fields["intention_other"]
+            )
+            current.save(update_fields=["opened_followup"])
         if boss:
             notify(
                 boss,
