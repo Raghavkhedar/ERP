@@ -524,7 +524,9 @@ def test_a_logged_call_leaves_my_calling_list_until_its_next_day(client, todo):
         reverse("hiring:followup_call", args=[todo.pk]),
         {
             **CALL,
-            "next_due": (timezone.localdate() + timedelta(days=1)).isoformat(),
+            "next_due": skip_sunday(
+                timezone.localdate() + timedelta(days=1)
+            ).isoformat(),
             "intention": "call",
         },
     )
