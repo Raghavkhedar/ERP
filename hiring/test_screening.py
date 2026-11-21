@@ -524,7 +524,9 @@ def test_a_logged_call_leaves_my_calling_list_until_its_next_day(client, todo):
         reverse("hiring:followup_call", args=[todo.pk]),
         {
             **CALL,
-            "next_due": (timezone.localdate() + timedelta(days=1)).isoformat(),
+            "next_due": skip_sunday(
+                timezone.localdate() + timedelta(days=1)
+            ).isoformat(),
             "intention": "call",
         },
     )
@@ -902,3 +904,10 @@ def test_calling_and_call_log_search_find_the_extra_numbers(client, todo, caller
     # the call log's ?q= is the other search that reads the extra numbers
     page = client.get(reverse("hiring:call_logs"), {"q": "8285424619"})
     assert todo.person.name in page.content.decode()
+
+
+def test_call_picker_reaches_an_archived_card(client, todo):
+    todo.person.archived_at = timezone.now()
+    todo.person.save()
+    found = client.get(reverse("hiring:calling_people"), {"q": "Asha"}).json()
+    assert [p["name"] for p in found["people"]] == ["Asha"]

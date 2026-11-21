@@ -23,7 +23,7 @@
         <li>
           <a href="{% url 'people:detail' p.pk %}" class="flex items-center gap-4 py-3 hover:bg-canvas/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pop">
             <div class="min-w-0 flex-1">
-              <p class="truncate font-medium">{{ p.name }}</p>
+              <p class="truncate font-medium">{{ p.name }}{% if p.archived_at %} <span class="rounded-full border border-ink bg-pop px-2 py-0.5 text-xs font-normal">Archived</span>{% endif %}</p>
               <p class="truncate text-sm text-gray-500">{{ p.phone }}{% if p.current_employer %} · {{ p.current_employer }}{% endif %}</p>
             </div>
             <span class="shrink-0 rounded-full border border-ink px-2.5 py-0.5 text-xs">{{ p.get_contact_status_display }}</span>

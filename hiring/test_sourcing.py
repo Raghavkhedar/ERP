@@ -1,5 +1,5 @@
 from datetime import timedelta
-from io import BytesIO
+from io import BytesIO, StringIO
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -384,3 +384,54 @@ def test_a_number_with_only_archived_cards_gets_a_fresh_live_card(req, caller):
     row = source_number(req, "Asha", "9876543210", caller)
     assert row.person != old and row.person.archived_at is None
     assert FollowUp.objects.get().person == row.person
+
+
+def test_unarchive_command_restores_only_cards_with_work(req, caller):
+    from django.core.management import call_command
+    from django.utils import timezone
+
+    mk = lambda name, phone: Person.objects.create(  # noqa: E731
+        company=req.company, name=name, phone=phone, archived_at=timezone.now()
+    )
+    busy, idle = mk("Busy", "9000000001"), mk("Idle", "9000000002")
+    FollowUp.objects.create(person=busy, requisition=req, due=timezone.now())
+    call_command("unarchive_active_cards", stdout=StringIO())
+    busy.refresh_from_db()
+    assert busy.archived_at  # dry run saves nothing
+    call_command("unarchive_active_cards", "--apply")
+    busy.refresh_from_db()
+    idle.refresh_from_db()
+    assert busy.archived_at is None and idle.archived_at is not None
+
+
+def test_a_call_waiting_on_an_archived_card_does_not_stop_the_fresh_card_being_called(
+    req, caller
+):
+    from django.utils import timezone
+
+    old = Person.objects.create(
+        company=req.company,
+        name="Asha",
+        phone="9876543210",
+        archived_at=timezone.now(),
+    )
+    FollowUp.objects.create(person=old, requisition=req, due=timezone.now())
+    fresh = source_number(req, "Asha", "9876543210", caller).person
+    assert FollowUp.objects.filter(person=fresh, status="pending").count() == 1
+
+
+def test_unarchive_command_skips_a_number_that_has_a_live_card(req, caller):
+    from django.core.management import call_command
+    from django.utils import timezone
+
+    old = Person.objects.create(
+        company=req.company,
+        name="Old",
+        phone="9000000001",
+        archived_at=timezone.now(),
+    )
+    FollowUp.objects.create(person=old, requisition=req, due=timezone.now())
+    Person.objects.create(company=req.company, name="Live", phone="9000000001")
+    call_command("unarchive_active_cards", "--apply", stdout=StringIO())
+    old.refresh_from_db()
+    assert old.archived_at is not None

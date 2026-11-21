@@ -139,3 +139,54 @@ def test_list_searches_the_extra_numbers(client, caller, senken):
     )
     for n in ("8285424619", "7000000001"):
         assert "Ravi" in client.get(reverse("people:list"), {"q": n}).content.decode()
+
+
+def test_search_and_card_page_reach_archived_cards(client, caller, senken):
+    from django.utils import timezone
+
+    old = make(senken, "Hidden", "8285424619", archived_at=timezone.now())
+    assert "Hidden" not in client.get(reverse("people:list")).content.decode()
+    page = client.get(reverse("people:list"), {"q": "8285424619"}).content.decode()
+    assert "Hidden" in page and "Archived" in page
+    assert client.get(reverse("people:detail", args=[old.pk])).status_code == 200
+
+
+def test_archived_card_can_be_restored_but_not_edited_and_export_skips_it(
+    client, caller, senken
+):
+    from django.utils import timezone
+
+    old = make(senken, "Hidden", "8285424619", archived_at=timezone.now())
+    assert client.get(reverse("people:edit", args=[old.pk])).status_code == 404
+    export = client.get(reverse("people:export"), {"q": "8285424619"})
+    from io import BytesIO
+
+    from openpyxl import load_workbook
+
+    cells = [c.value for r in load_workbook(BytesIO(export.content)).active for c in r]
+    assert "Hidden" not in cells
+    client.post(reverse("people:unarchive", args=[old.pk]))
+    old.refresh_from_db()
+    assert old.archived_at is None
+
+
+def test_admin_lists_archived_cards_and_is_read_only(client, django_user_model, senken):
+    from django.utils import timezone
+
+    admin = django_user_model.objects.create_superuser("root", password="pw")
+    client.force_login(admin)
+    old = make(senken, "Hidden", "8285424619", archived_at=timezone.now())
+    url = reverse("admin:people_person_changelist")
+    assert "Hidden" in client.get(url, {"q": "8285424619"}).content.decode()
+    assert (
+        client.get(reverse("admin:people_person_change", args=[old.pk])).status_code
+        == 200
+    )
+    assert client.get(reverse("admin:people_person_add")).status_code == 403
+    assert (
+        client.post(reverse("admin:people_person_delete", args=[old.pk])).status_code
+        == 403
+    )
+    for model in ("requisition", "followup", "calllog", "interview", "offer"):
+        page = client.get(reverse(f"admin:hiring_{model}_changelist"), {"q": "x"})
+        assert page.status_code == 200

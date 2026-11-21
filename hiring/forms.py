@@ -392,7 +392,7 @@ class IncomingCallForm(CallForm):
 
     def __init__(self, *args, companies, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["person"].queryset = visible_people(companies)
+        self.fields["person"].queryset = visible_people(companies, archived=True)
         self.fields["call_type"].initial = CallLog.Kind.INBOUND
 
 

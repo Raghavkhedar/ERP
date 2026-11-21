@@ -11,4 +11,5 @@ urlpatterns = [
     path("<int:pk>/", views.person_detail, name="detail"),
     path("<int:pk>/edit/", views.edit_person, name="edit"),
     path("<int:pk>/archive/", views.archive_person, name="archive"),
+    path("<int:pk>/unarchive/", views.unarchive_person, name="unarchive"),
 ]

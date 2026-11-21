@@ -5,6 +5,8 @@ from django.core.exceptions import PermissionDenied
 from django.urls import reverse
 from django.utils import timezone
 
+from core.dates import skip_sunday
+
 from .models import Repeat, Status, Task
 from .services import (
     TaskError,
@@ -183,7 +185,8 @@ def test_snooze_through_the_endpoint(client, task, alice):
 def test_set_and_clear_from_the_detail_page(client, task, alice):
     client.force_login(alice)
     url = reverse("tasks:alarm", args=[task.pk])
-    later = (timezone.localtime() + timedelta(days=1)).strftime("%Y-%m-%dT%H:%M")
+    later = skip_sunday(timezone.localtime() + timedelta(days=1))
+    later = later.strftime("%Y-%m-%dT%H:%M")
     client.post(url, {"action": "set", "remind_at": later, "remind_every": "daily"})
     task.refresh_from_db()
     assert task.remind_at and task.remind_every == "daily"

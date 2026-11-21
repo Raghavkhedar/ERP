@@ -4,10 +4,11 @@
 {% block heading %}{{ person.name }}{% endblock %}
 {% block actions %}
   <a href="{% url 'people:list' %}" class="text-gray-500 hover:text-gray-900">All candidates</a>
-  <a href="{% url 'people:edit' person.pk %}" class="inline-flex h-10 items-center rounded-lg bg-blue-600 px-4 font-medium">Edit</a>
+  {% if not person.archived_at %}<a href="{% url 'people:edit' person.pk %}" class="inline-flex h-10 items-center rounded-lg bg-blue-600 px-4 font-medium">Edit</a>{% endif %}
 {% endblock %}
 
 {% block page %}
+{% if person.archived_at %}<p class="mb-3 rounded-lg border border-ink bg-pop px-3 py-2 text-sm">This card is archived, so it only shows up when you search for it.</p>{% endif %}
 <p class="mb-6"><span class="sticker inline-block rounded-full border border-ink bg-pop px-3 py-1 text-sm font-medium">{{ stage }}</span></p>
 <div class="lg:grid lg:grid-cols-[1fr_20rem] lg:gap-10">
 <div>
@@ -50,8 +51,15 @@
 </aside>
 </div>
 
+  {% if person.archived_at %}
+  <form method="post" action="{% url 'people:unarchive' person.pk %}" class="mt-10">
+    {% csrf_token %}
+    <button type="submit" class="inline-flex h-10 items-center rounded-lg bg-blue-600 px-4 font-medium">Restore card</button>
+  </form>
+  {% else %}
   <form method="post" action="{% url 'people:archive' person.pk %}" class="mt-10" onsubmit="return confirm('Archive this card? It leaves the lists but is kept.')">
     {% csrf_token %}
     <button type="submit" class="text-sm text-red-600 hover:underline">Archive card</button>
   </form>
+  {% endif %}
 {% endblock %}
