@@ -28,3 +28,9 @@ def plan_gate_off(request, monkeypatch):
     """
     if not request.node.get_closest_marker("real_plan_gate"):
         monkeypatch.setattr("core.middleware.has_plan_today", lambda user: True)
+
+
+@pytest.fixture(autouse=True)
+def fast_password_hasher(settings):
+    """Tests create hundreds of users; the real hasher is slow on purpose."""
+    settings.PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
