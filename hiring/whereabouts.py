@@ -310,7 +310,10 @@ def summary(answers, spec=None):
         if key == "department":
             value = GROUPS.get(value, (value,))[0]
         if key == "earlier_jobs":
-            value = " | ".join(", ".join(j.values()) for j in value)
+            value = " | ".join(
+                ", ".join(f"{SPEC[k][1]}: {j[k]}" for k in JOB_KEYS if k in j)
+                for j in value
+            )
         elif isinstance(value, list):
             value = ", ".join(value)
         parts.append(f"{label}: {value}")

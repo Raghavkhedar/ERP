@@ -957,7 +957,14 @@ def test_a_major_whereabout_keeps_several_earlier_jobs(
             "job-rfl": ["", "", "Better pay"],
         },
     )
-    jobs = CallLog.objects.get().major_whereabout["earlier_jobs"]
+    from .whereabouts import summary
+
+    answers = CallLog.objects.get().major_whereabout
+    assert (
+        "Company name: Acme, Time period (months): 12, Designation: Fitter"
+        in summary(answers)
+    )
+    jobs = answers["earlier_jobs"]
     assert jobs == [
         {"company_name": "Acme", "time_period_months": "12", "designation": "Fitter"},
         {"company_name": "Zed", "time_period_months": "6", "rfl": "Better pay"},
