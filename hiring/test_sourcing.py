@@ -435,3 +435,14 @@ def test_unarchive_command_skips_a_number_that_has_a_live_card(req, caller):
     call_command("unarchive_active_cards", "--apply", stdout=StringIO())
     old.refresh_from_db()
     assert old.archived_at is not None
+
+
+def test_a_new_card_gets_the_sourcing_day_and_a_repeat_keeps_it(req, caller):
+    from django.utils import timezone
+
+    card = source_number(req, "Asha", "9876543210", caller).person
+    assert card.lead_received_on == timezone.localdate()
+    Person.objects.filter(pk=card.pk).update(lead_received_on="2026-01-05")
+    source_number(req, "Asha", "9876543210", caller)
+    card.refresh_from_db()
+    assert str(card.lead_received_on) == "2026-01-05"
