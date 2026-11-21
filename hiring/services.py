@@ -593,6 +593,15 @@ def edit_call_log(log, user, version, next_due=None, intention=None, **fields):
             after = current.followup or SimpleNamespace(
                 person=current.person, requisition=None, owner=current.caller
             )
+            if FollowUp.objects.filter(
+                person=current.person,
+                purpose=intention,
+                status=FollowUp.Status.PENDING,
+            ).exists():
+                raise FollowUpError(
+                    "That candidate already has a pending follow-up "
+                    "with that intention."
+                )
             current.opened_followup = _open(
                 after, intention, next_due, fields["intention_other"]
             )
