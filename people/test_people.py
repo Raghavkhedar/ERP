@@ -190,3 +190,30 @@ def test_admin_lists_archived_cards_and_is_read_only(client, django_user_model, 
     for model in ("requisition", "followup", "calllog", "interview", "offer"):
         page = client.get(reverse(f"admin:hiring_{model}_changelist"), {"q": "x"})
         assert page.status_code == 200
+
+
+@pytest.mark.django_db
+def test_backfill_numbers_empty_cards_after_the_highest():
+    import importlib
+    from types import SimpleNamespace
+
+    from django.db import connection
+    from django.db.migrations.executor import MigrationExecutor
+
+    from core.models import Company
+
+    mod = importlib.import_module("people.migrations.0006_backfill_candidate_ids")
+    senken = Company.objects.get(slug="senken")
+    Person.objects.create(company=senken, name="Old", phone="1", candidate_id="WJ7")
+    Person.objects.create(company=senken, name="Odd", phone="4", candidate_id="X-1")
+    a = Person.objects.create(company=senken, name="A", phone="2")
+    b = Person.objects.create(company=senken, name="B", phone="3")
+    # Run it on the historical models, the way migrate does.
+    state = MigrationExecutor(connection).loader.project_state(
+        ("people", "0006_backfill_candidate_ids")
+    )
+    mod.backfill(state.apps, SimpleNamespace(connection=connection))
+    a.refresh_from_db(), b.refresh_from_db()
+    assert (a.candidate_id, b.candidate_id) == ("WJ8", "WJ9")
+    assert Person.objects.get(name="Odd").candidate_id == "X-1"
+    assert a.history.filter(history_change_reason="Candidate ID backfill").exists()

@@ -39,7 +39,7 @@ from .models import (
     SourcedNumber,
     day_start,
 )
-from .services import apply_to_person
+from .services import apply_to_person, lock_candidate_ids
 
 csv.field_size_limit(10**9)
 
@@ -861,6 +861,7 @@ def _run(data, files, apply, stats, review, log, saved):
         if fields["phone_3"]:
             stats["cards with a third number"] += 1
     with keep_dates((Person, "created_at")):
+        lock_candidate_ids()
         Person.objects.bulk_create(rows, batch_size=BATCH)
     person_of = {r["ID"]: p for r, p in zip(cards, rows, strict=True)}
     stats["cards"] = len(rows)
