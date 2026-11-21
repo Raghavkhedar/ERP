@@ -250,12 +250,18 @@ def lock_numbers(company_id, keys):
             )
 
 
-def next_candidate_id():
-    """The next WJ number after the highest one in use (old cards keep theirs).
-    Callers hold the transaction-wide lock taken in source_number."""
+def lock_candidate_ids():
+    """Hold the candidate-id lock until the transaction ends. Taken by everything
+    that hands out WJ numbers in bulk, so two writers can't pick the same one."""
     with connection.cursor() as cursor:
         cursor.execute("SELECT pg_advisory_xact_lock(hashtext('candidate_id'))")
-    top = Person.objects.filter(candidate_id__regex=r"^WJ[0-9]+$").aggregate(
+
+
+def next_candidate_id():
+    """The next WJ number after the highest one in use (old cards keep theirs)."""
+    lock_candidate_ids()
+    # At most 9 digits, so the cast can't overflow on an odd legacy id.
+    top = Person.objects.filter(candidate_id__regex=r"^WJ[0-9]{1,9}$").aggregate(
         top=Max(Cast(Substr("candidate_id", 3), IntegerField()))
     )["top"]
     return f"WJ{(top or 0) + 1}"

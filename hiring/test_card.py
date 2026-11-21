@@ -124,3 +124,12 @@ def test_new_cards_get_the_next_candidate_id(req, user, senken):
     again = source_number(req, "A", "90000 00001", user).person
     assert (a.candidate_id, b.candidate_id) == ("WJ42", "WJ43")
     assert again == a
+
+
+def test_a_huge_legacy_id_does_not_break_sourcing(req, user, senken):
+    from people.models import Person
+
+    Person.objects.create(
+        company=senken, name="Odd", phone="1", candidate_id="WJ20240101123456"
+    )
+    assert source_number(req, "A", "90000 00001", user).person.candidate_id == "WJ1"
