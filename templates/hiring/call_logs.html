@@ -10,9 +10,6 @@
       <input type="search" name="q" value="{{ f.q }}" placeholder="Candidate or phone" aria-label="Search" class="rounded-md border border-ink bg-white px-2 py-1">
       <label class="text-gray-500">From <input type="date" name="from" value="{{ f.from }}" class="rounded-md border border-ink bg-white px-2 py-1"></label>
       <label class="text-gray-500">To <input type="date" name="to" value="{{ f.to }}" class="rounded-md border border-ink bg-white px-2 py-1"></label>
-      {% for key, label in flags %}
-        <label class="flex items-center gap-1 text-gray-600"><input type="checkbox" name="{{ key }}" value="1"{% if key == "rescheduled" and f.rescheduled == "1" or key == "department_changed" and f.department_changed == "1" or key == "discussed" and f.discussed == "1" or key == "whereabout" and f.whereabout == "1" %} checked{% endif %}> {{ label }}</label>
-      {% endfor %}
       <button class="inline-flex h-9 items-center rounded-lg bg-blue-600 px-3 font-medium">Filter</button>
       <a href="{% url 'hiring:call_logs' %}?clear=1" class="text-gray-500 hover:text-gray-900">Clear</a>
       {# formaction submits the same filters, so Export always matches the page #}
@@ -23,7 +20,7 @@
       <thead>
         <tr class="bg-ink text-white">
           <th class="p-2">When</th><th class="p-2">{% include "hiring/_col_filter.html" with label="Caller" name="caller" options=caller_opts picked=sel.caller %}</th><th class="p-2">Candidate</th><th class="p-2">{% include "hiring/_col_filter.html" with label="Tag" name="tag" options=tags picked=sel.tag %}</th>
-          <th class="p-2">{% include "hiring/_col_filter.html" with label="Type" name="type" options=kinds picked=sel.type %}</th><th class="p-2">Status</th><th class="p-2">Details</th><th class="p-2"></th>
+          <th class="p-2">{% include "hiring/_col_filter.html" with label="Type" name="type" options=kinds picked=sel.type %}</th><th class="p-2">Status</th><th class="p-2">{% include "hiring/_col_filter.html" with label="Details" name="detail" options=details picked=sel.detail %}</th><th class="p-2"></th>
         </tr>
       </thead>
       <tbody>

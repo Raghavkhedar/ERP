@@ -1,4 +1,4 @@
-{# Column-header multi-select; its boxes belong to the #logfilter form and apply with Filter. #}
+{# Column-header multi-select; its boxes belong to the #logfilter form. Every call-log filter applies only on the Filter button, so several boxes can be ticked first. #}
 <div x-data="{ open: false, pos: '' }" @click.outside="open = false" @keydown.escape="open = false" class="relative font-bold">
   <button type="button" x-ref="b" @click="open = !open; const r = $refs.b.getBoundingClientRect(); pos = `top:${r.bottom + 4}px;left:${Math.max(8, Math.min(r.left, innerWidth - 200))}px`" :aria-expanded="open" class="inline-flex items-center gap-1">
     {{ label }}{% if picked %} <span class="rounded-full bg-pop px-1.5 text-xs text-ink">{{ picked|length }}</span>{% endif %}

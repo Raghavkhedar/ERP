@@ -641,10 +641,12 @@ def test_call_log_filters_flags_search_and_bad_input(
             if n in body
         }
 
-    assert notes(rescheduled="1") == {"nt-moved"}
-    assert notes(department_changed="1") == {"nt-dept"}
-    assert notes(discussed="1") == {"nt-talk"}
-    assert notes(whereabout="1") == {"nt-form"}
+    assert notes(detail="rescheduled") == {"nt-moved"}
+    assert notes(detail="department_changed") == {"nt-dept"}
+    assert notes(detail="discussed") == {"nt-talk"}
+    assert notes(detail="whereabout") == {"nt-form"}
+    assert notes(detail=["rescheduled", "discussed"]) == {"nt-moved", "nt-talk"}
+    assert len(notes(detail=["bogus"])) == 5  # unknown details are ignored
     assert notes(type="inbound") == {"nt-form"}
     assert len(notes(type=["inbound", "outbound"])) == 5  # several values at once
     assert len(notes(tag=["x", "y"])) == 5  # unknown tags are ignored
@@ -660,7 +662,7 @@ def test_call_log_filters_flags_search_and_bad_input(
     assert len(notes(**swapped)) == 5
     # the export honours the filters and names the range
     export = client.get(
-        reverse("hiring:call_logs_export"), {"rescheduled": "1", **swapped}
+        reverse("hiring:call_logs_export"), {"detail": "rescheduled", **swapped}
     )
     rows = list(load_workbook(BytesIO(export.content)).active.values)
     assert len(rows) == 2 and rows[1][6] == "nt-moved"
