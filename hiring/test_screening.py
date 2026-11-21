@@ -646,6 +646,7 @@ def test_call_log_filters_flags_search_and_bad_input(
     assert notes(detail="discussed") == {"nt-talk"}
     assert notes(detail="whereabout") == {"nt-form"}
     assert notes(detail=["rescheduled", "discussed"]) == {"nt-moved", "nt-talk"}
+    assert notes(rescheduled="1") == {"nt-moved"}  # old bookmarked links still work
     assert len(notes(detail=["bogus"])) == 5  # unknown details are ignored
     assert notes(type="inbound") == {"nt-form"}
     assert len(notes(type=["inbound", "outbound"])) == 5  # several values at once

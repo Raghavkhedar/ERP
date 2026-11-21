@@ -446,3 +446,26 @@ def test_a_new_card_gets_the_sourcing_day_and_a_repeat_keeps_it(req, caller):
     source_number(req, "Asha", "9876543210", caller)
     card.refresh_from_db()
     assert str(card.lead_received_on) == "2026-01-05"
+
+
+def test_backfill_dates_blank_cards_from_their_first_sourcing(req, caller):
+    from importlib import import_module
+
+    from django.apps import apps
+    from django.utils import timezone
+
+    mod = import_module("hiring.migrations.0021_backfill_lead_received_on")
+    blank = source_number(req, "Asha", "9876543210", caller)
+    source_number(req, "Asha", "9876543210", caller)  # a later repeat
+    kept = source_number(req, "Ben", "9876500000", caller).person
+    day = timezone.localdate() - timedelta(days=9)
+    SourcedNumber.objects.filter(pk=blank.pk).update(
+        created_at=timezone.now() - timedelta(days=9)
+    )
+    Person.objects.update(lead_received_on=None)
+    Person.objects.filter(pk=kept.pk).update(lead_received_on="2026-01-05")
+    mod.backfill(apps, None)
+    blank.person.refresh_from_db()
+    kept.refresh_from_db()
+    assert blank.person.lead_received_on == day  # the oldest sourcing wins
+    assert str(kept.lead_received_on) == "2026-01-05"  # a set date is kept
