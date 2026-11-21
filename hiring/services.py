@@ -324,6 +324,8 @@ def source_number(
                     else None
                 ),
                 expected_salary=expected_salary,
+                # Only a new card: a repeat keeps the day the lead first arrived.
+                lead_received_on=timezone.localdate(),
             )
         elif payment:
             # A repeat number tells us more: the latest answer wins, on every card

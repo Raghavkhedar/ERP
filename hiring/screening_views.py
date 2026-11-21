@@ -1,3 +1,6 @@
+from functools import reduce
+from operator import or_
+
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
@@ -332,7 +335,7 @@ def _log_base(request):
     return logs.filter(Q(caller=request.user) | Q(person__in=mine))
 
 
-# What the Yes/No filters on the page test.
+# What the Details column filter tests.
 LOG_FLAGS = {
     "rescheduled": ("Rescheduled", Q(rescheduled=True)),
     "department_changed": ("Department changed", Q(department_changed=True)),
@@ -344,6 +347,12 @@ LOG_FLAGS = {
 }
 # shortcut: the export holds the newest rows only, upgrade to a streamed file.
 EXPORT_LIMIT = 5000
+
+
+def _details(g):
+    """The picked Details, plus old ?rescheduled=1-style links and saved filters."""
+    picked = [d for d in g.getlist("detail") if d in LOG_FLAGS]
+    return picked + [k for k in LOG_FLAGS if g.get(k) == "1" and k not in picked]
 
 
 def _logs(request):
@@ -373,9 +382,9 @@ def _logs(request):
     kinds = [k for k in g.getlist("type") if k in CallLog.Kind.values]
     if kinds:
         logs = logs.filter(call_type__in=kinds)
-    for name, (_, cond) in LOG_FLAGS.items():
-        if g.get(name) == "1":
-            logs = logs.filter(cond)
+    conds = [LOG_FLAGS[d][1] for d in _details(g)]
+    if conds:  # any of the picked details, like the other multi-selects
+        logs = logs.filter(reduce(or_, conds))
     q = g.get("q", "").strip()
     if q:
         match = (
@@ -430,7 +439,7 @@ def call_logs(request):
             ],
             "tags": CallLog.Outcome.choices,
             "kinds": CallLog.Kind.choices,
-            "flags": [(k, v[0]) for k, v in LOG_FLAGS.items()],
+            "details": [(k, v[0]) for k, v in LOG_FLAGS.items()],
             "export_limit": EXPORT_LIMIT,
             "can_edit_all": _can_reassign(request.user),
             "f": request.GET,
@@ -440,6 +449,7 @@ def call_logs(request):
                 ],
                 "tag": [t for t in got("tag") if t in CallLog.Outcome.values],
                 "type": [k for k in got("type") if k in CallLog.Kind.values],
+                "detail": _details(request.GET),
             },
         },
     )
