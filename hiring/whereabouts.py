@@ -5,6 +5,8 @@ answers (COMMON) plus the questions of the chosen department group (GROUPS).
 Answers are stored as plain dicts on the CallLog, so a question can change
 without a migration."""
 
+from itertools import zip_longest
+
 from django import forms
 from django.utils.dateparse import parse_date, parse_time
 
@@ -66,6 +68,7 @@ SPEC = {
     "in_hand_salary": ("int", "In-hand salary (monthly)"),
     "current_working_status": ("text", "Current working status"),
     "salary_expectation": ("int", "Salary expectation (monthly)"),
+    "earlier_jobs": ("text", "Earlier jobs"),
     # department questions
     "affiliation": (
         "choice:Previous|Present",
@@ -272,6 +275,28 @@ class WhereaboutForm(forms.Form):
         return {k: v for k, v in self.cleaned_data.items() if v not in ("", None, [])}
 
 
+# One earlier job of the major whereabout; a candidate may have several.
+JOB_KEYS = ["company_name", "time_period_months", "designation", "rfl"]
+
+
+def read_jobs(data):
+    """The earlier jobs from posted lists (`job-<key>`), blank rows dropped.
+    Returns (jobs, error)."""
+    columns = [data.getlist(f"job-{k}") for k in JOB_KEYS]
+    jobs = []
+    for row in zip_longest(*columns, fillvalue=""):
+        job = {
+            k: v.strip()[:200] for k, v in zip(JOB_KEYS, row, strict=True) if v.strip()
+        }
+        if not job:
+            continue
+        months = job.get("time_period_months", "0")
+        if not months.isdigit() or int(months) > 1200:
+            return jobs, "Time period must be whole months, up to 1200."
+        jobs.append(job)
+    return jobs, None
+
+
 def summary(answers, spec=None):
     """One readable line for the timeline and the export."""
     parts = []
@@ -283,7 +308,9 @@ def summary(answers, spec=None):
         )
         if key == "department":
             value = GROUPS.get(value, (value,))[0]
-        if isinstance(value, list):
+        if key == "earlier_jobs":
+            value = " | ".join(", ".join(j.values()) for j in value)
+        elif isinstance(value, list):
             value = ", ".join(value)
         parts.append(f"{label}: {value}")
     return "; ".join(parts)

@@ -1,5 +1,5 @@
   <form id="call-form" method="post" action="{{ action }}"
-        x-data="{ mini: {{ call_form.mini_on.value|yesno:'true,false' }}, major: {{ call_form.major_on.value|yesno:'true,false' }}, dept: '{{ call_form.major.department.value|default:'' }}', moved: {{ call_form.rescheduled.value|yesno:'true,false' }}, other: '{{ call_form.intention.value|default:'' }}' === 'other', tbd: {{ call_form.tbd.value|yesno:'true,false' }} }"
+        x-data="{ mini: {{ call_form.mini_on.value|yesno:'true,false' }}, major: {{ call_form.major_on.value|yesno:'true,false' }}, dept: '{{ call_form.major.department.value|default:'' }}', moved: {{ call_form.rescheduled.value|yesno:'true,false' }}, other: '{{ call_form.intention.value|default:'' }}' === 'other', tbd: {{ call_form.tbd.value|yesno:'true,false' }}, jobs: {{ call_form.earlier_json }} }"
         class="fields mt-4 max-w-4xl [&_input[type=date]]:w-full [&_input[type=text]]:w-full [&_input[type=number]]:w-full [&_select]:w-full [&_textarea]:w-full">
     {% csrf_token %}
     {% if call_form.version %}{{ call_form.version }}{% endif %}
@@ -68,6 +68,22 @@
       <div class="min-w-0">
         <div class="max-w-xs" @change="dept = $event.target.value">{% include "tasks/_field.html" with field=call_form.major.department %}</div>
         <div class="mt-4">{% include "hiring/_whereabout_fields.html" with form=call_form.major skip="department" %}</div>
+      </div>
+    </section>
+
+    <section x-show="major" x-cloak class="grid gap-x-8 gap-y-3 border-t border-gray-200 py-6 sm:grid-cols-[9rem_minmax(0,1fr)]">
+      <div><h2 class="title text-lg">Earlier jobs</h2><p class="text-sm text-gray-500">Other companies worked at</p></div>
+      <div class="min-w-0 space-y-3">
+        <template x-for="(job, i) in jobs" :key="i">
+          <div class="grid gap-3 rounded-lg border border-gray-200 p-3 sm:grid-cols-[1fr_8rem_1fr_1fr_auto] sm:items-end">
+            <label class="text-sm">Company name<input type="text" maxlength="200" name="job-company_name" x-model="job.company_name"></label>
+            <label class="text-sm">Months<input type="number" min="0" max="1200" name="job-time_period_months" x-model="job.time_period_months"></label>
+            <label class="text-sm">Designation<input type="text" maxlength="200" name="job-designation" x-model="job.designation"></label>
+            <label class="text-sm">Reason for leaving<input type="text" maxlength="200" name="job-rfl" x-model="job.rfl"></label>
+            <button type="button" class="h-10 rounded-lg border border-gray-300 px-3 text-sm" @click="jobs.splice(i, 1)">Remove</button>
+          </div>
+        </template>
+        <button type="button" class="h-10 rounded-lg border border-ink bg-white px-4 text-sm" @click="jobs.push({})">Add another company</button>
       </div>
     </section>
 

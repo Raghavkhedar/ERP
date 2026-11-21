@@ -1,3 +1,4 @@
+import json
 from datetime import timedelta
 
 from django import forms
@@ -279,6 +280,11 @@ class CallForm(forms.Form):
             department=True,
             initial=major_initial,
         )
+        self.earlier = (
+            whereabouts.read_jobs(self.data)[0]
+            if self.is_bound
+            else (major_initial or {}).get("earlier_jobs", [])
+        )
         self.groups = {
             key: whereabouts.WhereaboutForm(
                 keys, data, prefix=key, initial=major_initial
@@ -293,6 +299,10 @@ class CallForm(forms.Form):
         )
         self.fields["next_due"].widget.attrs["min"] = timezone.localdate().isoformat()
         self.fields["next_due"].widget.attrs["data-no-sunday"] = ""
+
+    @property
+    def earlier_json(self):
+        return json.dumps(self.earlier)
 
     def clean_next_due(self):
         day = self.cleaned_data["next_due"]
@@ -337,8 +347,15 @@ class CallForm(forms.Form):
                 self.add_error(None, "Check the mini whereabout.")
         if data.get("major_on"):
             group = self.groups.get(self.major.data.get("major-department"))
-            if self.major.is_valid() and group and group.is_valid():
-                data["major_whereabout"] = {**self.major.answers(), **group.answers()}
+            jobs, error = whereabouts.read_jobs(self.data)
+            if error:
+                self.add_error(None, error)
+            if self.major.is_valid() and group and group.is_valid() and not error:
+                data["major_whereabout"] = {
+                    **self.major.answers(),
+                    **group.answers(),
+                    **({"earlier_jobs": jobs} if jobs else {}),
+                }
             else:
                 self.add_error(None, "Check the major whereabout.")
         return data

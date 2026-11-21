@@ -911,3 +911,40 @@ def test_call_picker_reaches_an_archived_card(client, todo):
     todo.person.save()
     found = client.get(reverse("hiring:calling_people"), {"q": "Asha"}).json()
     assert [p["name"] for p in found["people"]] == ["Asha"]
+
+
+def test_a_major_whereabout_keeps_several_earlier_jobs(
+    client, todo, caller, django_user_model
+):
+    caller.supervisor = django_user_model.objects.create_user(
+        username="BOSS3", password="pw"
+    )
+    caller.save()
+    bad = post_call(
+        client,
+        todo,
+        major_on="on",
+        **{
+            "major-department": "hhe",
+            "job-company_name": ["A"],
+            "job-time_period_months": ["x"],
+        },
+    )
+    assert bad.status_code == 200
+    post_call(
+        client,
+        todo,
+        major_on="on",
+        **{
+            "major-department": "hhe",
+            "job-company_name": ["Acme", "", "Zed"],
+            "job-time_period_months": ["12", "", "6"],
+            "job-designation": ["Fitter", "", ""],
+            "job-rfl": ["", "", "Better pay"],
+        },
+    )
+    jobs = CallLog.objects.get().major_whereabout["earlier_jobs"]
+    assert jobs == [
+        {"company_name": "Acme", "time_period_months": "12", "designation": "Fitter"},
+        {"company_name": "Zed", "time_period_months": "6", "rfl": "Better pay"},
+    ]
