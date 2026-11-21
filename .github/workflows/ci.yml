@@ -1,10 +1,10 @@
 name: CI
 
-# Disabled for now (manual only). To re-enable, restore:
-#   pull_request: {branches: [production]}
-#   push: {branches: [production]}
 on:
-  workflow_dispatch:
+  pull_request:
+    branches: [production]
+  push:
+    branches: [production]
 
 jobs:
   test:
