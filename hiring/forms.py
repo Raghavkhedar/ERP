@@ -356,7 +356,7 @@ class CallForm(forms.Form):
                     **group.answers(),
                     **({"earlier_jobs": jobs} if jobs else {}),
                 }
-            else:
+            elif not error:
                 self.add_error(None, "Check the major whereabout.")
         return data
 

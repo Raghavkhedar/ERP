@@ -927,11 +927,17 @@ def test_a_major_whereabout_keeps_several_earlier_jobs(
         major_on="on",
         **{
             "major-department": "hhe",
-            "job-company_name": ["A"],
-            "job-time_period_months": ["x"],
+            "job-company_name": ["A", "B", "C"],
+            "job-time_period_months": ["1", "x", "3"],
         },
     )
     assert bad.status_code == 200
+    page = bad.content.decode()
+    assert page.count("whole months") == 1 and "Check the major" not in page
+    assert bad.context["call_form"].earlier[2] == {
+        "company_name": "C",
+        "time_period_months": "3",
+    }
     odd = post_call(
         client,
         todo,

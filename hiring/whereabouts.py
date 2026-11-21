@@ -281,9 +281,10 @@ JOB_KEYS = ["company_name", "time_period_months", "designation", "rfl"]
 
 def read_jobs(data):
     """The earlier jobs from posted lists (`job-<key>`), blank rows dropped.
-    Returns (jobs, error)."""
+    Returns (jobs, error); every row is kept, so a form with an error can show
+    them all again."""
     columns = [data.getlist(f"job-{k}") for k in JOB_KEYS]
-    jobs = []
+    jobs, error = [], None
     for row in zip_longest(*columns, fillvalue=""):
         job = {
             k: v.strip()[:200] for k, v in zip(JOB_KEYS, row, strict=True) if v.strip()
@@ -292,9 +293,9 @@ def read_jobs(data):
             continue
         months = job.get("time_period_months", "0")
         if not (months.isascii() and months.isdigit()) or int(months) > 1200:
-            return jobs, "Time period must be whole months, up to 1200."
+            error = "Time period must be whole months, up to 1200."
         jobs.append(job)
-    return jobs, None
+    return jobs, error
 
 
 def summary(answers, spec=None):
