@@ -4,6 +4,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from core.access import companies_with_access, require_section
 from hiring.forms import ScheduleCallForm
+from hiring.models import Requisition
 from hiring.services import stage, timeline
 
 from .export import people_workbook
@@ -25,13 +26,13 @@ def _shown(request, archived=False):
     """`archived`: a search also returns archived cards (the list, not the export)."""
     search = request.GET.get("q", "").strip()
     status = request.GET.get("status", "")
-    return (
-        search,
-        status,
-        visible_people(
-            request.companies, search, status, archived=archived and bool(search)
-        ),
+    people = visible_people(
+        request.companies, search, status, archived=archived and bool(search)
     )
+    for field in ("priority", "department"):
+        if value := request.GET.get(field, ""):
+            people = people.filter(**{field: value})
+    return search, status, people
 
 
 def _card(request, pk, archived=False):
@@ -52,6 +53,10 @@ def person_list(request):
             "search": search,
             "status": status,
             "statuses": Person.ContactStatus.choices,
+            "priorities": Person.Priority.choices,
+            "departments": Requisition.Department.choices,
+            "priority": request.GET.get("priority", ""),
+            "department": request.GET.get("department", ""),
         },
     )
 
