@@ -90,6 +90,14 @@ def save_person(form, version=None):
         return form.save()
 
 
+def unarchive(person):
+    with transaction.atomic():
+        current = Person.objects.select_for_update().get(pk=person.pk)
+        current.archived_at = None
+        current.version += 1
+        current.save(update_fields=["archived_at", "version"])
+
+
 def archive(person):
     # Cards are archived, never deleted: calls and interviews will point at them.
     person.archived_at = timezone.now()

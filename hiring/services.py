@@ -319,8 +319,11 @@ def source_number(
         # number counts, not only the one chosen above. Nobody is called who asked
         # not to be, or who has an offer or a job with us.
         if not _not_to_call(cards):
+            # Only live cards: a call waiting on an archived card must not stop the
+            # fresh card (made above when every card was archived) being called.
             waiting = FollowUp.objects.filter(
-                status=FollowUp.Status.PENDING, person__in=cards
+                status=FollowUp.Status.PENDING,
+                person__in=cards.filter(archived_at__isnull=True),
             )
             if not waiting.exists():
                 FollowUp.objects.create(

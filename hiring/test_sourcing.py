@@ -402,3 +402,36 @@ def test_unarchive_command_restores_only_cards_with_work(req, caller):
     busy.refresh_from_db()
     idle.refresh_from_db()
     assert busy.archived_at is None and idle.archived_at is not None
+
+
+def test_a_call_waiting_on_an_archived_card_does_not_stop_the_fresh_card_being_called(
+    req, caller
+):
+    from django.utils import timezone
+
+    old = Person.objects.create(
+        company=req.company,
+        name="Asha",
+        phone="9876543210",
+        archived_at=timezone.now(),
+    )
+    FollowUp.objects.create(person=old, requisition=req, due=timezone.now())
+    fresh = source_number(req, "Asha", "9876543210", caller).person
+    assert FollowUp.objects.filter(person=fresh, status="pending").count() == 1
+
+
+def test_unarchive_command_skips_a_number_that_has_a_live_card(req, caller):
+    from django.core.management import call_command
+    from django.utils import timezone
+
+    old = Person.objects.create(
+        company=req.company,
+        name="Old",
+        phone="9000000001",
+        archived_at=timezone.now(),
+    )
+    FollowUp.objects.create(person=old, requisition=req, due=timezone.now())
+    Person.objects.create(company=req.company, name="Live", phone="9000000001")
+    call_command("unarchive_active_cards", "--apply", stdout=StringIO())
+    old.refresh_from_db()
+    assert old.archived_at is not None

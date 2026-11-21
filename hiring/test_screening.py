@@ -902,3 +902,10 @@ def test_calling_and_call_log_search_find_the_extra_numbers(client, todo, caller
     # the call log's ?q= is the other search that reads the extra numbers
     page = client.get(reverse("hiring:call_logs"), {"q": "8285424619"})
     assert todo.person.name in page.content.decode()
+
+
+def test_call_picker_reaches_an_archived_card(client, todo):
+    todo.person.archived_at = timezone.now()
+    todo.person.save()
+    found = client.get(reverse("hiring:calling_people"), {"q": "Asha"}).json()
+    assert [p["name"] for p in found["people"]] == ["Asha"]

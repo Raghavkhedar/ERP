@@ -9,28 +9,40 @@ from hiring.services import stage, timeline
 from .export import people_workbook
 from .forms import PersonForm
 from .models import Person
-from .services import StaleCard, archive, card_rows, save_person, visible_people
+from .services import (
+    StaleCard,
+    archive,
+    card_rows,
+    save_person,
+    unarchive,
+    visible_people,
+)
 
 section = require_section("recruitment", "people")
 
 
-def _shown(request):
+def _shown(request, archived=False):
+    """`archived`: a search also returns archived cards (the list, not the export)."""
     search = request.GET.get("q", "").strip()
     status = request.GET.get("status", "")
     return (
         search,
         status,
-        visible_people(request.companies, search, status, archived=bool(search)),
+        visible_people(
+            request.companies, search, status, archived=archived and bool(search)
+        ),
     )
 
 
-def _card(request, pk):
-    return get_object_or_404(visible_people(request.companies, archived=True), pk=pk)
+def _card(request, pk, archived=False):
+    return get_object_or_404(
+        visible_people(request.companies, archived=archived), pk=pk
+    )
 
 
 @section
 def person_list(request):
-    search, status, people = _shown(request)
+    search, status, people = _shown(request, archived=True)
     return render(
         request,
         "people/list.html",
@@ -60,7 +72,7 @@ def _has_hr(request):
 
 @section
 def person_detail(request, pk):
-    person = _card(request, pk)
+    person = _card(request, pk, archived=True)
     return render(
         request,
         "people/detail.html",
@@ -116,3 +128,11 @@ def archive_person(request, pk):
     archive(_card(request, pk))
     messages.success(request, "Card archived.")
     return redirect("people:list")
+
+
+@section
+@require_POST
+def unarchive_person(request, pk):
+    unarchive(_card(request, pk, archived=True))
+    messages.success(request, "Card restored.")
+    return redirect("people:detail", pk=pk)

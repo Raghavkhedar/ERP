@@ -679,9 +679,11 @@ def call_new(request):
 @require_GET
 def calling_people(request):
     q = request.GET.get("q", "").strip()
-    found = visible_people(request.companies, q)
+    found = visible_people(request.companies, q, archived=True)
     if q.isdigit():
-        found = found | visible_people(request.companies).filter(pk=int(q))
+        found = found | visible_people(request.companies, archived=True).filter(
+            pk=int(q)
+        )
     return JsonResponse(
         {
             "people": [
@@ -737,7 +739,7 @@ def cancel_followup(request, pk):
 @followup_section
 @require_POST
 def schedule_for_person(request, pk):
-    person = get_object_or_404(visible_people(request.companies), pk=pk)
+    person = get_object_or_404(visible_people(request.companies, archived=True), pk=pk)
     form = ScheduleCallForm(request.POST)
     if form.is_valid():
         try:

@@ -2,20 +2,22 @@ from django.core.management.base import BaseCommand
 from django.db.models import Q
 
 from people.models import Person
+from people.services import unarchive
 
 
 class Command(BaseCommand):
     help = (
         "Unarchive archived cards that have follow-ups, calls, interviews or offers: "
-        "archived cards are hidden from Candidates, so that work could not be found. "
-        "Without --apply nothing is saved."
+        "archived cards were hidden from Candidates, so that work could not be found. "
+        "A number that already has a live card is skipped. Without --apply nothing "
+        "is saved."
     )
 
     def add_arguments(self, parser):
         parser.add_argument("--apply", action="store_true", help="save for real")
 
     def handle(self, apply, **options):
-        cards = list(
+        cards = (
             Person.objects.filter(archived_at__isnull=False)
             .filter(
                 Q(followups__isnull=False)
@@ -24,12 +26,26 @@ class Command(BaseCommand):
                 | Q(offers__isnull=False)
             )
             .distinct()
+            .order_by("pk")
         )
+        # (company, number) pairs that have a live card, or get one from this run.
+        taken = set(
+            Person.objects.filter(archived_at__isnull=True).values_list(
+                "company_id", "phone_key"
+            )
+        )
+        done = skipped = 0
         for p in cards:
+            if (p.company_id, p.phone_key) in taken:
+                skipped += 1
+                self.stdout.write(
+                    f"skip {p.pk} {p.name} {p.phone}: number has a live card"
+                )
+                continue
+            taken.add((p.company_id, p.phone_key))
+            done += 1
             self.stdout.write(f"{p.pk} {p.name} {p.phone}")
             if apply:
-                p.archived_at = None
-                p.version += 1
-                p.save(update_fields=["archived_at", "version"])
+                unarchive(p)
         verb = "unarchived" if apply else "would be unarchived (use --apply)"
-        self.stdout.write(f"{len(cards)} card(s) {verb}")
+        self.stdout.write(f"{done} card(s) {verb}, {skipped} skipped")

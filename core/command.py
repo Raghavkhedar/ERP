@@ -56,7 +56,7 @@ def command(request):
                     "hint": p.phone,
                     "url": reverse("people:detail", args=[p.pk]),
                 }
-                for p in visible_people(people, q)[:LIMIT]
+                for p in visible_people(people, q, archived=True)[:LIMIT]
             ]
         results += [
             {
