@@ -1165,7 +1165,23 @@ def _at(when):
     return f"{timezone.localtime(when):%d/%m/%Y}"
 
 
-def timeline(person, with_hr=False):
+class Event(str):
+    """Timeline text; `short` is the one-line headline shown before hovering."""
+
+    short = ""
+
+    @property
+    def expandable(self):
+        return bool(self.short) and self.short != str(self)
+
+
+def _event(text, short):
+    e = Event(text)
+    e.short = short
+    return e
+
+
+def timeline(person, with_hr=False, with_offers=True):
     """Everything that has happened around a card, newest first, as
     (when, who, text). Built from the records and their history, not stored."""
     events = [(person.created_at, None, "Card created")]
@@ -1231,7 +1247,7 @@ def timeline(person, with_hr=False):
                 )
 
     for c in person.calls.select_related("caller"):
-        text = f"Call: {c.get_outcome_display()}"
+        text = short = f"Call: {c.get_outcome_display()}"
         if c.notes:
             text += f". {c.notes}"
         for name, answers in (
@@ -1240,15 +1256,14 @@ def timeline(person, with_hr=False):
         ):
             if answers:
                 text += f" {name}: {whereabouts.summary(answers)}."
-        events.append((c.called_at, c.caller, text))
+        events.append((c.called_at, c.caller, _event(text, short)))
 
     for i in person.interviews.select_related("interviewer"):
         text = f"Interview: {i.get_result_display().lower()}"
         if i.profile or i.answers.get("department"):
             text += f" ({interview_form.label(i)})"
-        events.append(
-            (i.scheduled_at, i.interviewer, f"{text}. {i.notes}" if i.notes else text)
-        )
+        full = f"{text}. {i.notes}" if i.notes else text
+        events.append((i.scheduled_at, i.interviewer, _event(full, text)))
         if with_hr and hasattr(i, "hr"):
             h = i.hr
             events.append(
@@ -1260,7 +1275,7 @@ def timeline(person, with_hr=False):
                 )
             )
 
-    for o in person.offers.select_related("made_by"):
+    for o in person.offers.select_related("made_by") if with_offers else ():
         events.append((o.created_at, o.made_by, "Offer made"))
         for r in o.rounds.select_related("by"):
             text = f"Offer round: {r.amount}"
@@ -1283,6 +1298,8 @@ def timeline(person, with_hr=False):
                 )
             )
 
+    # One shape for every entry, so a new event type never loses the hover card.
+    events = [(w, u, t if isinstance(t, Event) else Event(t)) for w, u, t in events]
     return sorted(events, key=lambda e: e[0], reverse=True)
 
 

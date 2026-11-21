@@ -10,7 +10,7 @@ from openpyxl import load_workbook
 from core.access import MODULES
 from core.models import AccessGrant, Company
 
-from .models import FollowUp, Requisition
+from .models import FollowUp, Offer, Requisition
 from .services import (
     accept,
     funnel,
@@ -122,3 +122,37 @@ def test_timeline_and_card(client, senken, boss):
     assert "Edited name" in texts
     page = client.get(reverse("people:detail", args=[person.pk]))
     assert page.status_code == 200 and b"Timeline" in page.content
+
+
+def test_call_form_shows_timeline_with_calls_on_hover(client, senken, boss):
+    req = Requisition.objects.create(
+        company=senken, department="sales", profile="Rep", headcount=1, opened_by=boss
+    )
+    for tab in MODULES["recruitment"].sections:
+        AccessGrant.objects.get_or_create(
+            user=boss, company=senken, module="recruitment", section=tab
+        )
+    person = source_number(req, "Ravi", "99999 11111", boss, "Naukri").person
+    log_call(
+        person.followups.get(),
+        "reg_not_attended",
+        boss,
+        notes="Keen on night shift",
+        next_due=timezone.now() + timedelta(days=1),
+    )
+    person.followups.filter(status="pending").update(owner=boss)
+    client.force_login(boss)
+    page = client.get(
+        reverse("hiring:followup", args=[person.followups.get(status="pending").pk])
+    )
+    body = page.content.decode()
+    assert "Card created" in body
+    # headline in the line, full notes only in the hover card
+    assert ">Call: Reg Call Not Attended</p>" in body
+    assert "Call: Reg Call Not Attended. Keen on night shift</div>" in body
+    # offers stay off the call page but show on the card
+    Offer.objects.create(person=person, requisition=req, made_by=boss)
+    call = reverse("hiring:followup", args=[person.followups.get(status="pending").pk])
+    assert "Offer made" not in client.get(call).content.decode()
+    card = client.get(reverse("people:detail", args=[person.pk])).content.decode()
+    assert "Offer made" in card and "Keen on night shift</div>" in card
