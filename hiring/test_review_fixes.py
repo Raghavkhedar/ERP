@@ -360,12 +360,12 @@ def test_hr_offer_with_a_newer_call_waiting_uses_the_offer_task(interview, user)
 
 
 # 13 ------------------------------------------------------------------------
-def test_bulk_move_leaves_interviews_and_joinings_alone(interview, user):
+def test_bulk_move_moves_interviews_and_leaves_joinings_alone(interview, user):
     FollowUp.objects.create(
         person=interview.person, purpose="update", due=timezone.now(), owner=user
     )
     booked = FollowUp.objects.create(
-        person=interview.person, purpose="interview", due=timezone.now(), owner=user
+        person=interview.person, purpose="joining", due=timezone.now(), owner=user
     )
     due = booked.due
     s.bulk_move(FollowUp.objects.filter(status="pending"), date(2031, 5, 1), "holiday")
@@ -508,14 +508,14 @@ def test_requisition_timeline_counts_each_day_once(req, user):
 
 
 # review follow-ups ----------------------------------------------------------
-def test_bulk_move_says_when_it_left_interviews_alone(
+def test_bulk_move_says_when_it_left_joinings_alone(
     client, django_user_model, senken, interview, user
 ):
     boss = django_user_model.objects.create_superuser(username="boss", password="pw")
     grant(boss, senken)
     client.force_login(boss)
     booked = FollowUp.objects.create(
-        person=interview.person, purpose="interview", due=timezone.now(), owner=user
+        person=interview.person, purpose="joining", due=timezone.now(), owner=user
     )
     out = client.post(
         reverse("hiring:bulk"),
@@ -529,7 +529,7 @@ def test_bulk_move_says_when_it_left_interviews_alone(
         },
         follow=True,
     )
-    assert "No calls to move" in out.content.decode()
+    assert "Nothing to move" in out.content.decode()
 
 
 def test_a_malformed_hold_date_gets_one_error_not_two():

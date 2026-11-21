@@ -647,12 +647,12 @@ def bulk_reassign(followups, owner, by):
 
 
 def bulk_move(followups, day, reason, by=None):
-    """Move many pending calls to `day`, keeping each one's first date and
-    counting the move. Interviews, offers and joinings are other people's dates and
+    """Move many pending calls, interviews and offers to `day`, keeping each one's
+    first date and counting the move. Joinings are the candidate's own date and
     never move in bulk. One bulk write, not one save per follow-up."""
     with transaction.atomic():
         rows = list(
-            followups.filter(purpose=FollowUp.Purpose.CALL)
+            followups.filter(purpose__in=MOVABLE)
             .select_related(None)
             .select_for_update(of=("self",))
         )
@@ -1316,6 +1316,7 @@ def schedule_call(person, due, user):
 
 
 RINGING = (FollowUp.Purpose.CALL, FollowUp.Purpose.INTERVIEW)
+MOVABLE = (FollowUp.Purpose.CALL, FollowUp.Purpose.INTERVIEW, FollowUp.Purpose.OFFER)
 
 
 def _alarmed(user):
