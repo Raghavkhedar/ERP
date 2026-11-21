@@ -562,7 +562,7 @@ def bulk(request):
         n = bulk_move(rows, d["day"], d["reason"], by=request.user)
         left = len(pks) - n
         note = (
-            f" {left} joining date{'s' if left != 1 else ''} left as they are."
+            f" {left} other follow-up{'s' if left != 1 else ''} left as they are."
             if left
             else ""
         )

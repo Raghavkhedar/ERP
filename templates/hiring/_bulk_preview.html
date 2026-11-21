@@ -1,5 +1,5 @@
 <h2 class="title mb-1">{{ count }} follow-up{{ count|pluralize }} will move to {{ d.day|date:"d/m/Y" }}</h2>
-{% if skipped %}<p class="mb-2 text-sm text-gray-500">{{ skipped }} joining date{{ skipped|pluralize }} stay as they are.</p>{% endif %}
+{% if skipped %}<p class="mb-2 text-sm text-gray-500">{{ skipped }} other follow-up{{ skipped|pluralize }} (joinings, closed ones) stay as they are.</p>{% endif %}
 {% if count %}
   <div class="max-h-72 overflow-auto rounded-lg border border-ink">
     <table class="w-full text-left text-sm">
@@ -23,5 +23,5 @@
     <button type="submit" class="h-10 rounded-lg bg-blue-600 px-4 font-medium">Move {{ count }} follow-up{{ count|pluralize }}</button>
   </form>
 {% else %}
-  <p class="text-gray-500">Nothing to move. Joining dates never move in bulk.</p>
+  <p class="text-gray-500">Nothing to move. Joining dates and closed follow-ups never move in bulk.</p>
 {% endif %}
