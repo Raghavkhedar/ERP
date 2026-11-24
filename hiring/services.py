@@ -1472,8 +1472,9 @@ def by_employee(rows):
     """Per employee and source: (employee, source, numbers received, duplicates)."""
     return [
         (
+            # Username kept in the label so two people with one name stay apart.
             f"{r['sourced_by__first_name']} {r['sourced_by__last_name']}".strip()
-            or r["sourced_by__username"],
+            + f" ({r['sourced_by__username']})",
             r["source"] or "(none)",
             r["total"],
             r["dups"],
