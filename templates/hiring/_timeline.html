@@ -3,13 +3,13 @@
   {% for when, who, text in events %}
       <li class="relative pb-4" x-data="{ o: false, s: '',
             show(el) { const r = el.getBoundingClientRect(), w = Math.min(448, innerWidth - 16), wide = innerWidth >= 1024;
-              this.s = `width:${w}px;left:${wide ? Math.max(8, r.left - w - 8) : 8}px;top:${wide ? Math.max(8, Math.min(r.top, innerHeight - 280)) : Math.min(r.bottom, innerHeight - 280)}px`; this.o = true } }"
-          @mouseenter="show($el)" @mouseleave="o = false" @focusin="show($el)" @focusout="o = false" @keydown.escape="o = false">
+              this.s = `width:${w}px;left:${wide ? Math.max(8, r.left - w - 8) : 8}px;top:${wide ? Math.max(8, Math.min(r.top, innerHeight - 280)) : Math.max(8, Math.min(r.bottom, innerHeight - 280))}px`; this.o = true } }"
+          @mouseenter="show($el)" @scroll.window.capture.passive="if (!$event.target.closest?.('[data-card]')) o = false" @click.outside="o = false" @mouseleave="o = false" @focusin="show($el)" @focusout="o = false" @keydown.escape="o = false">
         <span class="absolute -left-[27px] top-1.5 size-3 rounded-full border border-ink bg-pop"></span>
         {% if text.expandable %}
-          <p tabindex="0" class="cursor-help truncate underline decoration-dotted underline-offset-2">{{ text.short }}</p>
+          <p tabindex="0" role="button" @click="show($el.parentElement)" class="cursor-help truncate underline decoration-dotted underline-offset-2">{{ text.short }}</p>
           <div x-show="o" x-cloak :style="s" class="fixed z-50 p-2">
-            <div class="max-h-64 overflow-auto whitespace-pre-line rounded-xl border border-ink bg-surface p-5 text-sm leading-relaxed shadow-xl">{{ text }}</div>
+            <div data-card class="max-h-64 overflow-auto whitespace-pre-line rounded-xl border border-ink bg-surface p-5 text-sm leading-relaxed shadow-xl">{{ text }}</div>
           </div>
         {% else %}<p>{{ text }}</p>{% endif %}
         <p class="text-sm text-gray-500">{{ when|date:"d/m/Y, H:i" }}{% if who %} · {{ who }}{% endif %}</p>

@@ -10,7 +10,7 @@ from openpyxl import load_workbook
 from core.access import MODULES
 from core.models import AccessGrant, Company
 
-from .models import FollowUp, Offer, Requisition
+from .models import FollowUp, Interview, Offer, Requisition
 from .services import (
     accept,
     funnel,
@@ -36,6 +36,7 @@ def boss(client, django_user_model, senken):
     AccessGrant.objects.create(
         user=user, company=senken, module="recruitment", section="openings"
     )
+    django_user_model.objects.create_user("under", supervisor=user)  # supervises
     client.force_login(user)
     return user
 
@@ -60,9 +61,8 @@ def walk(req, user, phone, name, to):
     )
     if to == "selected":
         return
-    offer = start_offer(
-        FollowUp.objects.get(person__phone=phone, purpose="offer"), Decimal("1"), user
-    )
+    interview = Interview.objects.get(person__phone=phone)
+    offer = start_offer(interview, Decimal("1"), user, timezone.now())
     if to == "offered":
         return
     accept(offer, date(2030, 1, 6), user)
@@ -153,6 +153,19 @@ def test_call_form_shows_timeline_with_calls_on_hover(client, senken, boss):
     # offers stay off the call page but show on the card
     Offer.objects.create(person=person, requisition=req, made_by=boss)
     call = reverse("hiring:followup", args=[person.followups.get(status="pending").pk])
-    assert "Offer made" not in client.get(call).content.decode()
+    Interview.objects.create(
+        person=person,
+        requisition=req,
+        interviewer=boss,
+        scheduled_at=timezone.now(),
+        result="hold_cftl",
+        notes="Secret",
+    )
+    on_call_page = client.get(call).content.decode()
+    assert "Offer made" not in on_call_page and "Secret" not in on_call_page
     card = client.get(reverse("people:detail", args=[person.pk])).content.decode()
-    assert "Offer made" in card and "Keen on night shift</div>" in card
+    assert (
+        "Offer made" in card
+        and "Secret" in card
+        and "Keen on night shift</div>" in card
+    )

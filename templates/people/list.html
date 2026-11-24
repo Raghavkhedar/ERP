@@ -2,7 +2,7 @@
 
 {% block title %}Candidates · Senken ERP{% endblock %}
 {% block actions %}
-  <a href="{% url 'people:export' %}?q={{ search|urlencode }}&status={{ status }}" class="text-gray-500 hover:text-gray-900">Export</a>
+  <a href="{% url 'people:export' %}?q={{ search|urlencode }}&status={{ status }}&priority={{ priority }}&department={{ department }}" class="text-gray-500 hover:text-gray-900">Export</a>
   <a href="{% url 'people:new' %}" class="inline-flex h-10 items-center rounded-lg bg-blue-600 px-4 font-medium">Add candidate</a>
 {% endblock %}
 
@@ -13,7 +13,15 @@
       <option value="">Any status</option>
       {% for key, label in statuses %}<option value="{{ key }}" {% if key == status %}selected{% endif %}>{{ label }}</option>{% endfor %}
     </select>
-    <button type="submit" class="h-10 rounded-lg border border-ink px-4">Search</button>
+    <select name="priority" aria-label="Priority" onchange="this.form.submit()">
+      <option value="">Any priority</option>
+      {% for key, label in priorities %}<option value="{{ key }}" {% if key == priority %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <select name="department" aria-label="Department" onchange="this.form.submit()">
+      <option value="">Any department</option>
+      {% for key, label in departments %}<option value="{{ key }}" {% if key == department %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <button type="submit" class="inline-flex h-10 items-center rounded-lg bg-blue-600 px-4 font-medium">Search</button>
   </form>
 
   {% if people %}
@@ -32,6 +40,6 @@
       {% endfor %}
     </ul>
   {% else %}
-    <p class="mt-6 border-y border-gray-100 py-6 text-sm text-gray-500">No candidates{% if search or status %} match{% endif %}.</p>
+    <p class="mt-6 border-y border-gray-100 py-6 text-sm text-gray-500">No candidates{% if search or status or priority or department %} match{% endif %}.</p>
   {% endif %}
 {% endblock %}
