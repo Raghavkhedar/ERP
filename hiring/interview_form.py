@@ -451,6 +451,8 @@ class AssessmentForm(forms.Form):
                     label="Hold for (days)", min_value=1, max_value=365, required=False
                 )
             self.fields[key] = whereabouts._field(key, SPEC)
+        # Only asked on hold/selected; clean() drops the error for the other results.
+        self.fields["next_follow_up"].required = True
         # Days and date are two ways to say the same thing; the page keeps them in step.
         self.fields["decision"].widget.attrs["x-model"] = "decision"
         self.fields["hold_days"].widget.attrs.update(
@@ -468,6 +470,8 @@ class AssessmentForm(forms.Form):
         # what counts then.
         if decision != Result.HOLD or whereabouts.parse_day(data.get("next_follow_up")):
             self.errors.pop("hold_days", None)
+        elif data.get("hold_days"):  # hold may give days instead of a date
+            self.errors.pop("next_follow_up", None)
         if decision not in (
             Result.HOLD,
             Result.SELECTED,
