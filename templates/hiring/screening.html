@@ -121,17 +121,10 @@
         </div>
       </div>
       <div x-data="filterPanel" class="relative" @click.outside="o = false" @scroll.window="o = false" @resize.window="o = false" @keydown.escape="o = false">
-        <button type="button" x-ref="btn" @click="toggle()" :aria-expanded="o" :class="has('priority') && 'bg-pop'" class="chip">Preference ▾</button>
+        <button type="button" x-ref="btn" @click="toggle()" :aria-expanded="o" :class="(has('priority') || has('contact')) && 'bg-pop'" class="chip">Preference ▾</button>
         <div x-ref="panel" x-show="o" x-cloak class="popover w-52">
           <p class="popover-title">Preference</p>
           {% for value, name in priorities %}<label class="opt"><input type="checkbox" name="priority" value="{{ value }}" {% if value in get.priority %}checked{% endif %}> {{ name }}</label>{% endfor %}
-          <div class="popover-foot"><button type="button" class="clear" @click="clear()">Clear</button></div>
-        </div>
-      </div>
-      <div x-data="filterPanel" class="relative" @click.outside="o = false" @scroll.window="o = false" @resize.window="o = false" @keydown.escape="o = false">
-        <button type="button" x-ref="btn" @click="toggle()" :aria-expanded="o" :class="has('contact') && 'bg-pop'" class="chip">Contact status ▾</button>
-        <div x-ref="panel" x-show="o" x-cloak class="popover w-52">
-          <p class="popover-title">Contact status</p>
           {% for value, name in contacts %}<label class="opt"><input type="checkbox" name="contact" value="{{ value }}" {% if value in get.contact %}checked{% endif %}> {{ name }}</label>{% endfor %}
           <div class="popover-foot"><button type="button" class="clear" @click="clear()">Clear</button></div>
         </div>

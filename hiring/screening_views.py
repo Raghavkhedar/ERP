@@ -146,10 +146,18 @@ def _sheet(rows, get):
         rows = rows.filter(dept__in=departments)
     if subs := get.getlist("sub"):
         rows = rows.filter(sub__in=subs)
-    if priorities := get.getlist("priority"):
-        rows = rows.filter(person__priority__in=priorities)
-    if contacts := get.getlist("contact"):
-        rows = rows.filter(person__contact_status__in=contacts)
+    # One Preference filter: levels and contact statuses are ORed together.
+    priorities, contacts = get.getlist("priority"), get.getlist("contact")
+    if priorities or contacts:
+        match = Q(person__priority__in=priorities)
+        # "Open" is active with no preference level.
+        match |= (
+            Q(person__contact_status="active", person__priority="")
+            if "active" in contacts
+            else Q()
+        )
+        match |= Q(person__contact_status__in=[c for c in contacts if c != "active"])
+        rows = rows.filter(match)
     if get.get("owner", "").isdigit():
         rows = rows.filter(owner_id=get["owner"])
     elif get.get("owner") == "none":
@@ -251,7 +259,7 @@ def screening(request):
             "filtered": _filtered(request.GET),
             "stages": STAGES,
             "priorities": Person.Priority.choices,
-            "contacts": Person.ContactStatus.choices,
+            "contacts": [("active", "Open"), *list(Person.ContactStatus.choices)[1:]],
             "whens": WHENS,
         },
     )
