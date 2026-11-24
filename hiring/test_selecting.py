@@ -163,6 +163,9 @@ def test_review_and_hr_form_only_for_the_right_people(
         {
             "which": "hr",
             "decision": "selected",
+            "next_follow_up": skip_sunday(
+                timezone.localdate() + timedelta(days=3)
+            ).isoformat(),
             "level": "expert",
             "preference": "preferred",
         },
@@ -569,7 +572,14 @@ def test_hidden_hold_fields_dont_block_a_change_from_hold(
     client.force_login(boss)
     r = client.post(
         reverse("hiring:interview_review", args=[iv.pk]),
-        {"which": "hr", "decision": "selected", "hold_days": "-3"},
+        {
+            "which": "hr",
+            "decision": "selected",
+            "hold_days": "-3",
+            "next_follow_up": skip_sunday(
+                timezone.localdate() + timedelta(days=3)
+            ).isoformat(),
+        },
     )
     assert r.status_code == 302
     assert HRAssessment.objects.get().decision == "selected"
