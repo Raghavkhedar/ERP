@@ -12,6 +12,7 @@ from .export import sourced_workbook
 from .forms import PORTALS, ImportForm, SourceForm
 from .models import Requisition
 from .services import (
+    by_employee,
     by_source,
     source_number,
     sources_in_use,
@@ -36,6 +37,7 @@ def _shown(request):
 @section
 def sourcing(request):
     req, dups, rows = _shown(request)
+    everyone = visible_sourced(request.companies, int(req) if req.isdigit() else None)
     return render(
         request,
         "hiring/sourcing.html",
@@ -44,9 +46,8 @@ def sourcing(request):
             "total": rows.count(),
             "requisition": req,
             "dups": dups,
-            "sources": by_source(
-                visible_sourced(request.companies, int(req) if req.isdigit() else None)
-            ),
+            "sources": by_source(everyone),
+            "employees": by_employee(everyone),
             "requisitions": visible_requisitions(request.companies),
         },
     )

@@ -4,7 +4,7 @@ from core.export import stamp, workbook_response
 
 from . import interview_form, whereabouts
 from .models import CallLog, OfferRound, RequisitionPost
-from .services import by_source
+from .services import by_employee, by_source
 
 
 def requisitions_workbook(requisitions):
@@ -124,6 +124,10 @@ def sourced_workbook(rows):
             "By source": (
                 ("Source", "Sourced", "Duplicates", "Duplicate rate"),
                 by_source(rows),
+            ),
+            "By employee": (
+                ("Employee", "Source", "Sourced", "Duplicates"),
+                by_employee(rows),
             ),
         },
     )

@@ -116,6 +116,13 @@ def test_sourcing_page_shows_duplicate_rate_by_source(req, user, client):
     assert b"By source" in page.content and b"50%" in page.content
 
 
+def test_sourcing_page_shows_numbers_by_employee_and_source(req, user, client):
+    source_number(req, "Ravi", "99999 11111", user, "Naukri")
+    source_number(req, "Sam", "99999 22222", user, "Walk-in")
+    page = client.get(reverse("hiring:sourcing"))
+    assert b"By employee" in page.content and b"Walk-in" in page.content
+
+
 def test_new_cards_get_the_next_candidate_id(req, user, senken):
     from people.models import Person
 
