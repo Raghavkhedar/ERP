@@ -6,6 +6,15 @@
 
 {% block page %}
   {% include "hiring/_filter_bar.html" %}
+  <div x-data="{ v: 'all' }">
+  <label class="mb-4 flex items-center gap-2 text-sm">Show
+    <select x-model="v" class="h-9 rounded-lg border border-ink bg-white px-2">
+      <option value="all">All</option>
+      <option value="expecting">Yet to join</option>
+      <option value="joined">Joined</option>
+    </select>
+  </label>
+  <div x-show="v=='all'||v=='expecting'">
   <h2 class="font-semibold">Yet to join <span class="font-normal text-gray-500">({{ expecting|length }})</span></h2>
   <ul class="mt-1 divide-y divide-gray-100 border-y border-gray-100">
     {% for o in expecting %}
@@ -35,7 +44,9 @@
       </li>
     {% empty %}<li class="py-4 text-sm text-gray-500">No one waiting. Accepted offers from Hiring land here.</li>{% endfor %}
   </ul>
+  </div>
 
+  <div x-show="v=='all'||v=='joined'">
   <h2 class="mt-8 font-semibold">Joined</h2>
   <ul class="mt-1 divide-y divide-gray-100 border-y border-gray-100">
     {% for o in joined %}
@@ -47,4 +58,6 @@
       </li>
     {% empty %}<li class="py-4 text-sm text-gray-500">No one has joined yet.</li>{% endfor %}
   </ul>
+  </div>
+  </div>
 {% endblock %}
