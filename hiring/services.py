@@ -885,20 +885,7 @@ def _follow_up_after_assessment(interview, decision, answers):
         return
     if not due:
         return
-    if current is None:
-        if decision == Interview.Result.HOLD:
-            FollowUp.objects.create(
-                person=person,
-                requisition=interview.requisition,
-                purpose=FollowUp.Purpose.CALL,
-                due=due,
-                owner=_owner_for_new_call(
-                    person,
-                    interview.followup.owner
-                    if interview.followup_id
-                    else interview.interviewer,
-                ),
-            )
+    if current is None:  # no call is opened after an assessment, for now
         return
     current.original_due = current.original_due or current.due
     current.due, current.snoozed_until = due, None
@@ -939,36 +926,11 @@ def _hold_ff_status(person_id, decision, was):
     person.save()
 
 
-def _restore_call(interview, decision, was):
-    """Hold-FF and Hold-CFTL cancel the pending call; moving off them must not leave
-    the candidate with none. A rejected candidate, or one who must not be called,
-    gets nothing."""
-    person = interview.person
-    if (
-        was not in interview_form.NO_DATE
-        or decision in interview_form.NO_DATE
-        or decision == Interview.Result.REJECTED
-        or person.followups.filter(status=FollowUp.Status.PENDING).exists()
-    ):
-        return
-    person.refresh_from_db()  # _hold_ff_status may just have made it active again
-    if _not_to_call(Person.objects.filter(pk=person.pk)):
-        return
-    FollowUp.objects.create(
-        person=person,
-        requisition=interview.requisition,
-        due=next_day(),
-        owner=interview.followup.owner
-        if interview.followup_id
-        else interview.interviewer,
-    )
-
-
 def save_assessment(
     interview, decision, level, user, hold_tenure="", comments="", answers=None
 ):
     """HR's side. The decision becomes the interview's result: selected opens the
-    offer, hold opens a call on the follow-up date if one is given."""
+    offer. A follow-up date only moves a call already pending."""
     answers = answers or {}
     with transaction.atomic():
         was = (
@@ -992,7 +954,6 @@ def save_assessment(
         if interview.result != decision:
             edit_interview(interview, decision, interview.questions, interview.notes)
         _follow_up_after_assessment(interview, decision, answers)
-        _restore_call(interview, decision, was)
         return hr
 
 

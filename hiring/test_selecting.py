@@ -575,7 +575,7 @@ def test_hidden_hold_fields_dont_block_a_change_from_hold(
     assert HRAssessment.objects.get().decision == "selected"
 
 
-def test_leaving_hold_ff_brings_the_call_back(
+def test_leaving_hold_ff_opens_no_call_for_now(
     client, booked, caller, django_user_model
 ):
     url = _filed(client, booked, caller, django_user_model)
@@ -586,7 +586,7 @@ def test_leaving_hold_ff_brings_the_call_back(
     client.post(url, {"which": "hr", "decision": "hold_ff"})
     assert not FollowUp.objects.filter(status="pending", person=person).exists()
     client.post(url, {"which": "hr", "decision": "selected"})
-    assert FollowUp.objects.filter(status="pending", person=person).count() == 1
+    assert not FollowUp.objects.filter(status="pending", person=person).exists()
 
 
 def test_filter_bar_narrows_the_tab_and_tabs_render_in_a_panel(client, booked):
