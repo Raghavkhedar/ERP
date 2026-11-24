@@ -87,6 +87,7 @@ STAGES = [
     ("accepted", "Accepted"),
     ("declined", "Declined"),
 ]
+ACTIVE = Person.ContactStatus.ACTIVE
 WHENS = [("overdue", "Overdue"), ("today", "Due today"), ("later", "Later")]
 TAGS = [*CallLog.Outcome.choices, ("none", "Not called yet")]
 
@@ -152,11 +153,11 @@ def _sheet(rows, get):
         match = Q(person__priority__in=priorities)
         # "Open" is active with no preference level.
         match |= (
-            Q(person__contact_status="active", person__priority="")
-            if "active" in contacts
+            Q(person__contact_status=ACTIVE, person__priority="")
+            if ACTIVE in contacts
             else Q()
         )
-        match |= Q(person__contact_status__in=[c for c in contacts if c != "active"])
+        match |= Q(person__contact_status__in=[c for c in contacts if c != ACTIVE])
         rows = rows.filter(match)
     if get.get("owner", "").isdigit():
         rows = rows.filter(owner_id=get["owner"])
@@ -259,7 +260,10 @@ def screening(request):
             "filtered": _filtered(request.GET),
             "stages": STAGES,
             "priorities": Person.Priority.choices,
-            "contacts": [("active", "Open"), *list(Person.ContactStatus.choices)[1:]],
+            "contacts": [
+                (v, "Open" if v == Person.ContactStatus.ACTIVE else n)
+                for v, n in Person.ContactStatus.choices
+            ],
             "whens": WHENS,
         },
     )

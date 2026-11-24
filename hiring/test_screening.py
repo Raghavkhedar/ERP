@@ -721,6 +721,24 @@ def test_sheet_filters_by_contact_status(client, todo):
     assert len(client.get(url, {"contact": ["active", "closed"]}).context["rows"]) == 0
 
 
+def test_preference_filter_combines_levels_and_statuses(client, todo):
+    url = reverse("hiring:screening")
+
+    def count(**q):
+        return len(client.get(url, q).context["rows"])
+
+    person = Person.objects.get()
+    person.contact_status, person.priority = "active", ""
+    person.save()
+    assert count(contact="active") == 1  # Open: active, no level
+    assert count(priority="preferred") == 0
+    assert count(priority="preferred", contact="active") == 1  # ORed
+    person.priority = "preferred"
+    person.save()
+    assert count(contact="active") == 0  # a level is not "Open"
+    assert count(priority="preferred", contact="hold_ff") == 1
+
+
 def test_a_caller_sees_own_calls_and_calls_on_candidates_they_hold(
     client, django_user_model, senken, todo, caller
 ):
