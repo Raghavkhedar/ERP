@@ -8,10 +8,11 @@ from django.utils import timezone
 from core.access import MODULES
 from core.models import AccessGrant, Company
 
-from .models import FollowUp, Requisition
+from .models import FollowUp, Requisition, SourcedNumber
 from .services import (
     FollowUpError,
     accept,
+    by_employee,
     log_call,
     mark_joined,
     record_interview,
@@ -114,6 +115,17 @@ def test_sourcing_page_shows_duplicate_rate_by_source(req, user, client):
     source_number(req, "Ravi", "99999 11111", user, "Naukri")
     page = client.get(reverse("hiring:sourcing"))
     assert b"By source" in page.content and b"50%" in page.content
+
+
+def test_by_employee_counts_numbers_per_source(req, user):
+    source_number(req, "Ravi", "99999 11111", user, "Naukri")
+    source_number(req, "Sam", "99999 22222", user, "Walk-in")
+    source_number(req, "Sam", "99999 22222", user, "Walk-in")
+    who = f"{user.first_name} {user.last_name}".strip() + f" ({user.username})"
+    assert by_employee(SourcedNumber.objects.all()) == [
+        (who, "Naukri", 1, 0),
+        (who, "Walk-in", 2, 1),
+    ]
 
 
 def test_new_cards_get_the_next_candidate_id(req, user, senken):
