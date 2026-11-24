@@ -768,7 +768,8 @@ def record_interview(
 ):
     """Record how an interview went. It completes the booking, and what happens
     next follows the result: hold opens a call if a date is given, selected and
-    rejected end it. An offer call opens only from the HR form's offer amount."""
+    rejected end it. The HR assessment opens no call; an offer call opens only
+    when a supervisor makes the offer."""
     with transaction.atomic():
         current = _pending(followup)
         interview = Interview.objects.create(
@@ -883,9 +884,8 @@ def _follow_up_after_assessment(interview, decision, answers):
             call.version += 1
             call.save(update_fields=["status", "version"])
         return
-    if not due:
-        return
-    if current is None:  # no call is opened after an assessment, for now
+    # No call is opened after an assessment, for now: only a pending one moves.
+    if not due or current is None:
         return
     current.original_due = current.original_due or current.due
     current.due, current.snoozed_until = due, None
