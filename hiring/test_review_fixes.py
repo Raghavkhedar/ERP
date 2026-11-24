@@ -38,6 +38,7 @@ def grant(user, company, *sections):
 def user(django_user_model, senken):
     u = django_user_model.objects.create_user(username="u", password="pw")
     grant(u, senken)
+    django_user_model.objects.create_user(username="rep", supervisor=u)  # u supervises
     return u
 
 
@@ -65,6 +66,9 @@ def interview(req, user):
     )
 
 
+DUE = timezone.now() + timedelta(days=1)
+
+
 def pending(person, purpose):
     return person.followups.filter(status="pending", purpose=purpose)
 
@@ -84,11 +88,13 @@ def sheet(rows):
 # 1 -------------------------------------------------------------------------
 def test_saving_hr_again_does_not_reopen_an_offer_already_made(interview, user):
     s.save_assessment(interview, "selected", "expert", user, answers={"offer_given": 9})
-    s.start_offer(pending(interview.person, "offer").get(), 9, user)
+    s.start_offer(interview, 9, user, DUE)
     s.save_assessment(
         interview, "selected", "expert", user, comments="x", answers={"offer_given": 9}
     )
-    assert not pending(interview.person, "offer").exists()
+    assert (
+        pending(interview.person, "offer").count() == 1
+    )  # the drafted call, not a second
     assert interview.person.offers.count() == 1
 
 
@@ -157,7 +163,7 @@ def test_a_card_that_must_not_be_called_gets_no_call(senken, req, user, status):
 
 def test_a_candidate_with_an_accepted_offer_gets_no_call(interview, req, user):
     s.save_assessment(interview, "selected", "expert", user, answers={"offer_given": 9})
-    offer = s.start_offer(pending(interview.person, "offer").get(), 9, user)
+    offer = s.start_offer(interview, 9, user, DUE)
     s.accept(offer, date(2031, 6, 1), user)
     s.mark_joined(offer, date(2031, 6, 1))
     s.source_number(req, "Asha", "9876543210", user)
@@ -285,9 +291,11 @@ def test_a_bad_upload_is_refused_and_a_good_one_replaces_the_old(
 
 
 # 9 + 11 --------------------------------------------------------------------
-def test_a_declined_candidate_interviewed_again_gets_an_offer_task(interview, user):
-    s.save_assessment(interview, "selected", "expert", user)
-    s.decline(s.start_offer(pending(interview.person, "offer").get(), 9, user))
+def test_a_declined_candidate_interviewed_again_gets_no_offer_task_from_selecting(
+    interview, user
+):
+    s.save_assessment(interview, "selected", "expert", user, answers={"offer_given": 9})
+    s.decline(s.start_offer(interview, 9, user, DUE))
     again = Interview.objects.create(
         person=interview.person,
         scheduled_at=timezone.now(),
@@ -295,12 +303,12 @@ def test_a_declined_candidate_interviewed_again_gets_an_offer_task(interview, us
         interviewer=user,
     )
     s.edit_interview(again, "selected", "", "")
-    assert pending(interview.person, "offer").count() == 1
+    assert not pending(interview.person, "offer").exists()
 
 
 def test_saving_the_same_interview_again_after_a_decline_opens_nothing(interview, user):
-    s.save_assessment(interview, "selected", "expert", user)
-    s.decline(s.start_offer(pending(interview.person, "offer").get(), 9, user))
+    s.save_assessment(interview, "selected", "expert", user, answers={"offer_given": 9})
+    s.decline(s.start_offer(interview, 9, user, DUE))
     s.edit_interview(interview, "selected", "new notes", "", answers={"email": "a@b.c"})
     s.save_assessment(interview, "selected", "expert", user, answers={"offer_given": 9})
     assert not pending(interview.person, "offer").exists()
@@ -309,16 +317,19 @@ def test_saving_the_same_interview_again_after_a_decline_opens_nothing(interview
 def test_rejecting_cancels_the_offer_task_and_an_amount_alone_is_no_offer(
     interview, user
 ):
-    s.save_assessment(interview, "selected", "expert", user)
-    assert pending(interview.person, "offer").count() == 1
+    s.save_assessment(interview, "selected", "expert", user, answers={"offer_given": 9})
+    assert not pending(interview.person, "offer").exists()  # an amount alone opens none
+    FollowUp.objects.create(
+        person=interview.person, purpose="offer", due=timezone.now(), owner=user
+    )
     s.save_assessment(interview, "rejected", "", user, answers={"offer_given": 500})
     assert not pending(interview.person, "offer").exists()
 
 
 # 10 ------------------------------------------------------------------------
 def test_stage_after_a_decline_follows_the_newer_interview(interview, user):
-    s.save_assessment(interview, "selected", "expert", user)
-    s.decline(s.start_offer(pending(interview.person, "offer").get(), 9, user))
+    s.save_assessment(interview, "selected", "expert", user, answers={"offer_given": 9})
+    s.decline(s.start_offer(interview, 9, user, DUE))
     assert s.stage(interview.person) == "Offer declined"
     Interview.objects.create(
         person=interview.person,
@@ -331,31 +342,24 @@ def test_stage_after_a_decline_follows_the_newer_interview(interview, user):
 
 # 12 ------------------------------------------------------------------------
 def test_a_second_offer_task_cannot_start_a_second_open_offer(interview, user):
-    s.save_assessment(interview, "selected", "expert", user)
-    s.start_offer(pending(interview.person, "offer").get(), 9, user)
-    extra = FollowUp.objects.create(
-        person=interview.person, purpose="offer", due=timezone.now(), owner=user
-    )
+    s.save_assessment(interview, "selected", "expert", user, answers={"offer_given": 9})
+    s.start_offer(interview, 9, user, DUE)
     with pytest.raises(s.OfferError):
-        s.start_offer(extra, 9, user)
+        s.start_offer(interview, 9, user, DUE)
 
 
 def test_an_accepted_candidate_cannot_be_offered_again(interview, user):
-    s.save_assessment(interview, "selected", "expert", user)
-    offer = s.start_offer(pending(interview.person, "offer").get(), 9, user)
+    s.save_assessment(interview, "selected", "expert", user, answers={"offer_given": 9})
+    offer = s.start_offer(interview, 9, user, DUE)
     s.accept(offer, date(2031, 6, 1), user)
-    extra = FollowUp.objects.create(
-        person=interview.person, purpose="offer", due=timezone.now(), owner=user
-    )
     with pytest.raises(s.OfferError):
-        s.start_offer(extra, 9, user)
+        s.start_offer(interview, 9, user, DUE)
 
 
-def test_hr_offer_with_a_newer_call_waiting_uses_the_offer_task(interview, user):
-    s.save_assessment(interview, "selected", "expert", user)
+def test_hr_amount_never_opens_an_offer_call(interview, user):
     s.schedule_call(interview.person, timezone.now() + timedelta(days=1), user)
     s.save_assessment(interview, "selected", "expert", user, answers={"offer_given": 9})
-    assert pending(interview.person, "offer").count() == 1
+    assert not pending(interview.person, "offer").exists()
     assert pending(interview.person, "call").count() == 1
 
 
@@ -443,8 +447,8 @@ def test_sourcing_holds_a_lock_on_the_number_and_a_repeat_finds_the_card(req, us
 
 # 18 ------------------------------------------------------------------------
 def test_did_not_join_ends_the_offer_and_cancels_the_joining_task(interview, user):
-    s.save_assessment(interview, "selected", "expert", user)
-    offer = s.start_offer(pending(interview.person, "offer").get(), 9, user)
+    s.save_assessment(interview, "selected", "expert", user, answers={"offer_given": 9})
+    offer = s.start_offer(interview, 9, user, DUE)
     s.accept(offer, date(2031, 6, 1), user)
     s.did_not_join(offer, "took another job")
     offer.refresh_from_db()
@@ -458,8 +462,8 @@ def test_did_not_join_ends_the_offer_and_cancels_the_joining_task(interview, use
 
 
 def test_mark_joined_keeps_history_on_the_joining_task(interview, user):
-    s.save_assessment(interview, "selected", "expert", user)
-    offer = s.start_offer(pending(interview.person, "offer").get(), 9, user)
+    s.save_assessment(interview, "selected", "expert", user, answers={"offer_given": 9})
+    offer = s.start_offer(interview, 9, user, DUE)
     s.accept(offer, date(2031, 6, 1), user)
     s.mark_joined(offer, date(2031, 6, 1))
     joining = interview.person.followups.get(purpose="joining")

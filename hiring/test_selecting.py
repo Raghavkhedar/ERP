@@ -55,12 +55,12 @@ def booked(senken, caller):
     return FollowUp.objects.get(status="pending", purpose="interview")
 
 
-def test_selected_records_the_interview_and_opens_an_offer(booked, caller):
+def test_selected_records_the_interview_and_opens_no_offer_call(booked, caller):
     record_interview(booked, "selected", caller, questions="PLC?")
     interview = Interview.objects.get()
     assert (interview.result, interview.scheduled_at) == ("selected", booked.due)
     assert interview.requisition == booked.requisition
-    assert FollowUp.objects.filter(status="pending", purpose="offer").count() == 1
+    assert not FollowUp.objects.filter(purpose="offer").exists()
 
 
 def test_hold_needs_a_date_to_open_a_call_and_rejected_opens_nothing(booked, caller):
@@ -173,7 +173,7 @@ def test_review_and_hr_form_only_for_the_right_people(
     interview = Interview.objects.get()
     assert interview.result == "selected"
     assert interview.person.priority == "preferred"
-    assert FollowUp.objects.filter(status="pending", purpose="offer").exists()
+    assert not FollowUp.objects.filter(purpose="offer").exists()  # no amount given
 
 
 def test_review_edit_updates_the_answers_and_the_card(
@@ -372,7 +372,7 @@ def _filed(client, booked, caller, django_user_model):
     return reverse("hiring:interview_review", args=[Interview.objects.get().pk])
 
 
-def test_an_offer_in_the_hr_form_turns_the_call_into_an_offer_call(
+def test_an_offer_in_the_hr_form_moves_the_call_but_never_makes_it_an_offer_call(
     client, booked, caller, django_user_model
 ):
     url = _filed(client, booked, caller, django_user_model)
@@ -392,7 +392,7 @@ def test_an_offer_in_the_hr_form_turns_the_call_into_an_offer_call(
         },
     )
     call = FollowUp.objects.get(status="pending")
-    assert call.purpose == "offer"
+    assert call.purpose == "call"
     assert timezone.localtime(call.due).date().isoformat() == "2031-03-04"
 
 
@@ -449,7 +449,7 @@ def test_the_hr_form_leaves_interview_and_joining_reminders_alone(
     )
     kept = FollowUp.objects.filter(purpose__in=["interview", "joining"])
     assert {f.pk: f.due for f in kept} == kept_before
-    assert FollowUp.objects.filter(purpose="offer", status="pending").count() == 1
+    assert not FollowUp.objects.filter(purpose="offer").exists()
 
 
 def test_selecting_users_open_only_their_own_filed_interviews(

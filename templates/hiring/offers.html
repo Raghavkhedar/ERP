@@ -32,13 +32,13 @@
             <p class="truncate font-medium">{{ f.person.name }}</p>
             <p class="truncate text-sm text-gray-500">{{ f.person.phone }}{% if f.person.expected_salary %} · expects {{ f.person.expected_salary }}{% endif %}{% if f.requisition %} · {{ f.requisition }}{% endif %}</p>
           </div>
-          <a href="{% url 'hiring:offer_start' f.pk %}" class="inline-flex h-9 shrink-0 items-center rounded-lg bg-blue-600 px-3 text-sm font-medium">Make offer</a>
+          {% if can_offer %}<a href="{% url 'hiring:offer_start' f.pk %}" class="inline-flex h-9 shrink-0 items-center rounded-lg bg-blue-600 px-3 text-sm font-medium">Make offer</a>{% endif %}
         </li>
       {% endfor %}
     </ul>
     {% include "_pager.html" with page=waiting %}
   {% else %}
-    <p class="mt-1 border-y border-gray-100 py-4 text-sm text-gray-500">No one waiting. Selected candidates from Selecting land here.</p>
+    <p class="mt-1 border-y border-gray-100 py-4 text-sm text-gray-500">No one waiting. Candidates marked selected land here; a supervisor makes the offer.</p>
   {% endif %}
 
   <h2 class="mt-8 font-semibold">Negotiating <span class="font-normal text-gray-500">({{ open.paginator.count }})</span></h2>

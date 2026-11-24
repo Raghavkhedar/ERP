@@ -1,13 +1,17 @@
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from core.access import require_section
 from core.pagination import paginate
+from tasks.services import can_assign
 
+from . import whereabouts
 from .export import offers_workbook, onboarding_workbook
 from .forms import AcceptForm, DeclineForm, JoinedForm, RoundForm, StartOfferForm
+from .interview_form import offer_amount
 from .services import (
     FollowUpError,
     accept,
@@ -47,6 +51,7 @@ def hiring(request):
             "open": paginate(request, offers.filter(state="offered"), param="opage"),
             "closed": offers.exclude(state="offered")[:100],
             "filters": filter_query(get),
+            "can_offer": can_assign(request.user),
         },
     )
 
@@ -59,17 +64,31 @@ def export_offers(request):
 
 @section
 def begin(request, pk):
-    followup = get_object_or_404(offers_waiting(request.user, request.companies), pk=pk)
-    # Pre-filled with what the candidate expects, so it's usually one tap.
+    if not can_assign(request.user):
+        raise PermissionDenied
+    interview = get_object_or_404(
+        offers_waiting(request.user, request.companies), pk=pk
+    )
+    # What HR wrote in the assessment is the starting point.
+    hr = getattr(interview, "hr", None)
+    answers = hr.answers if hr else {}
+    amount = (
+        offer_amount(answers.get("offer_given")) or interview.person.expected_salary
+    )
     form = StartOfferForm(
-        request.POST or None, initial={"amount": followup.person.expected_salary}
+        request.POST or None,
+        initial={
+            "amount": amount or None,
+            "follow_up": whereabouts.parse_day(answers.get("next_follow_up")),
+        },
     )
     if request.method == "POST" and form.is_valid():
         try:
             offer = start_offer(
-                followup,
+                interview,
                 form.cleaned_data["amount"],
                 request.user,
+                form.cleaned_data["follow_up"],
                 form.cleaned_data["note"],
             )
         except FollowUpError as exc:
@@ -77,7 +96,7 @@ def begin(request, pk):
             return redirect("hiring:offers")
         messages.success(request, "Offer made.")
         return redirect("hiring:offer", pk=offer.pk)
-    return render(request, "hiring/offer_start.html", {"f": followup, "form": form})
+    return render(request, "hiring/offer_start.html", {"f": interview, "form": form})
 
 
 def _offer(request, pk):

@@ -4,10 +4,12 @@ from types import SimpleNamespace
 from urllib.parse import urlencode
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, connection, transaction
 from django.db.models import (
     Case,
     Count,
+    Exists,
     F,
     IntegerField,
     Max,
@@ -437,7 +439,7 @@ def _open(after, purpose, due, other=""):
         defaults=dict(
             requisition=after.requisition,
             due=skip_sunday(due),
-            owner=after.owner,
+            owner=_owner_for_new_call(after.person, after.owner),
             purpose_other=other,
         ),
     )[0]
@@ -765,8 +767,8 @@ def record_interview(
     answers=None,
 ):
     """Record how an interview went. It completes the booking, and what happens
-    next follows the result: selected opens an offer, hold opens a call if a date
-    is given, rejected ends it."""
+    next follows the result: hold opens a call if a date is given, selected and
+    rejected end it. An offer call opens only from the HR form's offer amount."""
     with transaction.atomic():
         current = _pending(followup)
         interview = Interview.objects.create(
@@ -792,7 +794,6 @@ def record_interview(
         current.version += 1
         current.save(update_fields=["status", "version"])
         nxt = {
-            Interview.Result.SELECTED: (FollowUp.Purpose.OFFER, today()),
             Interview.Result.HOLD: (FollowUp.Purpose.CALL, next_due),
         }.get(result)
         if nxt and nxt[1]:
@@ -846,66 +847,61 @@ def _live_offer(person):
     ).exists()
 
 
-def _offer_taken(interview):
-    """No offer task for this interview: an offer is open or accepted, or one was
-    already made after it (even if declined, so saving it again can't reopen it).
-    A new interview after a declined offer is a second chance and may."""
-    return (
-        _live_offer(interview.person)
-        or interview.person.offers.filter(created_at__gte=interview.created_at).exists()
+def _owner_for_new_call(person, default):
+    """Once an offer is made, every later call on the candidate stays with whoever
+    holds the offer call (the caller's supervisor)."""
+    if not person.offers.exists():
+        return default
+    held = (
+        person.followups.filter(purpose=FollowUp.Purpose.OFFER)
+        .exclude(owner=None)
+        .order_by("-created_at", "-id")
+        .first()
     )
+    return held.owner if held else default
 
 
 def _follow_up_after_assessment(interview, decision, answers):
-    """An offer named in the HR form turns the candidate's pending call into an
-    offer call, and the next follow up date, if given, becomes its date. A rejected
-    candidate, or one with an open or accepted offer, is never offered; saving the form
-    again never reopens an offer that was already made."""
+    """The next follow up date from the HR form becomes the date of the candidate's
+    pending call. It never opens an offer call: only a supervisor's Make offer does."""
     person = interview.person
     day = whereabouts.parse_day(answers.get("next_follow_up"))
     due = day_start(day) if day else None
-    offered = (
-        decision != Interview.Result.REJECTED
-        and decision not in interview_form.NO_DATE  # a parked card gets no offer call
-        and not _offer_taken(interview)
-        and interview_form.offer_amount(answers.get("offer_given")) > 0
-    )
     # Interview and joining reminders are other people's work; leave them be.
-    pending = (
+    current = (
         person.followups.filter(status=FollowUp.Status.PENDING)
         .exclude(purpose__in=[FollowUp.Purpose.INTERVIEW, FollowUp.Purpose.JOINING])
         .order_by("-created_at", "-id")
+        .first()
     )
-    # An offer task already waiting is the one to use: a person has only one.
-    current = (
-        pending.filter(purpose=FollowUp.Purpose.OFFER).first() if offered else None
-    ) or pending.first()
-    if decision in interview_form.NO_DATE and not offered:
+    if decision in interview_form.NO_DATE:
         # Waiting on the candidate or the company: no call should come due.
-        for call in pending.filter(purpose=FollowUp.Purpose.CALL):
+        for call in person.followups.filter(
+            status=FollowUp.Status.PENDING, purpose=FollowUp.Purpose.CALL
+        ):
             call.status = FollowUp.Status.CANCELLED
             call.version += 1
             call.save(update_fields=["status", "version"])
         return
-    if not (offered or due):
+    if not due:
         return
     if current is None:
-        if offered or decision == Interview.Result.HOLD:
+        if decision == Interview.Result.HOLD:
             FollowUp.objects.create(
                 person=person,
                 requisition=interview.requisition,
-                purpose=FollowUp.Purpose.OFFER if offered else FollowUp.Purpose.CALL,
-                due=due or today(),
-                owner=interview.followup.owner
-                if interview.followup_id
-                else interview.interviewer,
+                purpose=FollowUp.Purpose.CALL,
+                due=due,
+                owner=_owner_for_new_call(
+                    person,
+                    interview.followup.owner
+                    if interview.followup_id
+                    else interview.interviewer,
+                ),
             )
         return
-    if offered:
-        current.purpose, current.purpose_other = FollowUp.Purpose.OFFER, ""
-    if due:
-        current.original_due = current.original_due or current.due
-        current.due, current.snoozed_until = due, None
+    current.original_due = current.original_due or current.due
+    current.due, current.snoozed_until = due, None
     current.version += 1
     current.save()
 
@@ -1005,7 +1001,23 @@ class OfferError(FollowUpError):
 
 
 def offers_waiting(user, companies):
-    return visible_followups(user, companies).filter(purpose=FollowUp.Purpose.OFFER)
+    """Candidates whose latest interview says selected and who have no offer made
+    since (an open or accepted one counts too). The list a supervisor offers from."""
+    newest = Interview.objects.filter(person=OuterRef("person")).order_by(
+        "-created_at", "-id"
+    )
+    made = Offer.objects.filter(person=OuterRef("person")).filter(
+        Q(created_at__gte=OuterRef("created_at"))
+        | Q(state__in=[Offer.State.OFFERED, Offer.State.ACCEPTED])
+    )
+    return (
+        visible_interviews(companies)
+        .filter(result=Interview.Result.SELECTED)
+        .annotate(newest_id=Subquery(newest.values("id")[:1]))
+        .filter(pk=F("newest_id"))
+        .exclude(Exists(made))
+        .order_by("created_at")
+    )
 
 
 def visible_offers(companies):
@@ -1016,19 +1028,32 @@ def visible_offers(companies):
     )
 
 
-def start_offer(followup, amount, user, note=""):
-    """Make the first offer for a candidate whose interview went well."""
+def start_offer(interview, amount, user, follow_up, note=""):
+    """Make the first offer for a selected candidate and draft the offer call for
+    `follow_up`, owned by the caller's supervisor. Only supervisors and above."""
+    if not can_assign(user):
+        raise PermissionDenied("Only a supervisor or above can make an offer.")
     with transaction.atomic():
-        current = _pending(followup)
-        if _live_offer(current.person):
+        person = Person.objects.select_for_update().get(pk=interview.person_id)
+        if _live_offer(person):
             raise OfferError("This candidate already has an open or accepted offer.")
         offer = Offer.objects.create(
-            person=current.person, requisition=current.requisition, made_by=user
+            person=person, requisition=interview.requisition, made_by=user
         )
         OfferRound.objects.create(offer=offer, amount=amount, note=note, by=user)
-        current.status = FollowUp.Status.COMPLETED
-        current.version += 1
-        current.save(update_fields=["status", "version"])
+        last = (
+            person.followups.exclude(owner=None).order_by("-created_at", "-id").first()
+        )
+        FollowUp.objects.update_or_create(
+            person=person,
+            purpose=FollowUp.Purpose.OFFER,
+            status=FollowUp.Status.PENDING,
+            defaults=dict(
+                requisition=interview.requisition,
+                due=skip_sunday(follow_up),
+                owner=(last and last.owner.supervisor) or user,
+            ),
+        )
         return offer
 
 
@@ -1062,10 +1087,21 @@ def accept(offer, joining_date, user):
             defaults=dict(
                 requisition=current.requisition,
                 due=day_start(joining_date),
-                owner=user,
+                owner=_owner_for_new_call(current.person, user),
             ),
         )
+        _close_offer_call(current.person)
         return current
+
+
+def _close_offer_call(person):
+    """The offer is decided, so its drafted call has nothing left to do."""
+    for f in person.followups.filter(
+        status=FollowUp.Status.PENDING, purpose=FollowUp.Purpose.OFFER
+    ):
+        f.status = FollowUp.Status.CANCELLED
+        f.version += 1
+        f.save(update_fields=["status", "version"])
 
 
 def decline(offer, reason=""):
@@ -1075,6 +1111,7 @@ def decline(offer, reason=""):
         current.decline_reason = reason
         current.decided_at = timezone.now()
         current.save()
+        _close_offer_call(current.person)
         return current
 
 
@@ -1181,7 +1218,7 @@ def _event(text, short):
     return e
 
 
-def timeline(person, with_hr=False, with_offers=True):
+def timeline(person, with_hr=False, brief=False):
     """Everything that has happened around a card, newest first, as
     (when, who, text). Built from the records and their history, not stored."""
     events = [(person.created_at, None, "Card created")]
@@ -1258,7 +1295,8 @@ def timeline(person, with_hr=False, with_offers=True):
                 text += f" {name}: {whereabouts.summary(answers)}."
         events.append((c.called_at, c.caller, _event(text, short)))
 
-    for i in person.interviews.select_related("interviewer"):
+    # brief (the call page): callers see the call history, not interviews or offers.
+    for i in () if brief else person.interviews.select_related("interviewer"):
         text = f"Interview: {i.get_result_display().lower()}"
         if i.profile or i.answers.get("department"):
             text += f" ({interview_form.label(i)})"
@@ -1275,7 +1313,7 @@ def timeline(person, with_hr=False, with_offers=True):
                 )
             )
 
-    for o in person.offers.select_related("made_by") if with_offers else ():
+    for o in () if brief else person.offers.select_related("made_by"):
         events.append((o.created_at, o.made_by, "Offer made"))
         for r in o.rounds.select_related("by"):
             text = f"Offer round: {r.amount}"
@@ -1348,7 +1386,7 @@ def schedule_call(person, due, user):
             requisition=last.requisition if last else None,
             purpose=FollowUp.Purpose.CALL,
             due=skip_sunday(due),
-            owner=user,
+            owner=_owner_for_new_call(person, user),
         )
 
 
@@ -1415,9 +1453,8 @@ def snooze_call(followup, user, length):
 
 
 def edit_interview(interview, result, questions, notes, profile=None, answers=None):
-    """Correct a saved interview. If it now reads "selected", the offer opens as
-    it would have the first time; a move away from selected cancels the offer
-    follow-up if no offer has been made yet."""
+    """Correct a saved interview. A move away from selected cancels the offer
+    follow-up if no offer has been made yet; editing never opens one."""
     with transaction.atomic():
         was = interview.result
         interview.result = result
@@ -1444,17 +1481,6 @@ def edit_interview(interview, result, questions, notes, profile=None, answers=No
                 f.status = FollowUp.Status.CANCELLED
                 f.version += 1
                 f.save(update_fields=["status", "version"])
-        if result == Interview.Result.SELECTED and not _offer_taken(interview):
-            FollowUp.objects.get_or_create(
-                person=person,
-                purpose=FollowUp.Purpose.OFFER,
-                status=FollowUp.Status.PENDING,
-                defaults=dict(
-                    requisition=interview.requisition,
-                    due=today(),
-                    owner=interview.interviewer,
-                ),
-            )
         return interview
 
 

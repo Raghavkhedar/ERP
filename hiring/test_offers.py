@@ -3,6 +3,7 @@ from decimal import Decimal
 from io import BytesIO
 
 import pytest
+from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError
 from django.urls import reverse
 from django.utils import timezone
@@ -11,13 +12,14 @@ from openpyxl import load_workbook
 from core.access import MODULES
 from core.models import AccessGrant, Company
 
-from .models import CallLog, FollowUp, Offer, Requisition
+from .models import CallLog, FollowUp, HRAssessment, Offer, Requisition
 from .services import (
     OfferError,
     accept,
     add_round,
     decline,
     log_call,
+    offers_waiting,
     record_interview,
     source_number,
     start_offer,
@@ -44,33 +46,74 @@ def caller(client, django_user_model, senken):
 
 
 @pytest.fixture
-def waiting(senken, caller):
+def agent(django_user_model, caller):
+    """The recruiter who sourced Asha; `caller` is their supervisor."""
+    return django_user_model.objects.create_user(
+        username="agent", password="pw", supervisor=caller
+    )
+
+
+TOMORROW = timezone.now() + timedelta(days=1)
+
+
+@pytest.fixture
+def waiting(senken, caller, agent):
+    """Asha, selected at interview and waiting for a supervisor to make the offer."""
     req = Requisition.objects.create(
         company=senken, opened_by=caller, department="bo", profile="Fitter", headcount=2
     )
-    source_number(req, "Asha", "9876543210", caller)
-    FollowUp.objects.update(owner=caller)
+    source_number(req, "Asha", "9876543210", agent)
+    FollowUp.objects.update(owner=agent)
     log_call(
         FollowUp.objects.get(),
         "reg_ff",
-        caller,
+        agent,
         next_due=timezone.now() + timedelta(days=1),
         intention="interview",
     )
-    record_interview(FollowUp.objects.get(status="pending"), "selected", caller)
-    return FollowUp.objects.get(status="pending", purpose="offer")
+    return record_interview(FollowUp.objects.get(status="pending"), "selected", caller)
 
 
 @pytest.fixture
 def offer(waiting, caller):
-    return start_offer(waiting, Decimal("30000"), caller)
+    return start_offer(waiting, Decimal("30000"), caller, TOMORROW)
 
 
-def test_start_offer_completes_the_follow_up_and_logs_round_one(waiting, caller):
-    offer = start_offer(waiting, Decimal("30000"), caller)
-    waiting.refresh_from_db()
-    assert waiting.status == "completed"
+def test_make_offer_logs_round_one_and_drafts_the_call_for_the_supervisor(
+    waiting, caller, agent
+):
+    assert waiting in offers_waiting(caller, [waiting.person.company])
+    offer = start_offer(waiting, Decimal("30000"), caller, TOMORROW)
     assert (offer.state, offer.latest.amount) == ("offered", Decimal("30000"))
+    call = FollowUp.objects.get(status="pending", purpose="offer")
+    assert call.owner == caller and call.due.date() >= TOMORROW.date()
+    assert waiting not in offers_waiting(caller, [waiting.person.company])
+    # Later calls on the candidate stay with the supervisor.
+    log_call(call, "reg_ff", agent, next_due=TOMORROW + timedelta(days=2))
+    assert FollowUp.objects.get(status="pending").owner == caller
+
+
+def test_only_a_supervisor_can_make_an_offer(client, waiting, agent):
+    with pytest.raises(PermissionDenied):
+        start_offer(waiting, Decimal("1"), agent, TOMORROW)
+    client.force_login(agent)
+    r = client.post(
+        reverse("hiring:offer_start", args=[waiting.pk]),
+        {"amount": "1", "follow_up": "2031-01-02"},
+    )
+    assert r.status_code == 403 and not Offer.objects.exists()
+
+
+def test_hr_amount_and_date_prefill_the_form(client, waiting, caller):
+    HRAssessment.objects.create(
+        interview=waiting,
+        assessor=caller,
+        level="expert",
+        decision="selected",
+        answers={"offer_given": 21000, "next_follow_up": "2031-01-02"},
+    )
+    page = client.get(reverse("hiring:offer_start", args=[waiting.pk])).content
+    assert b'value="21000' in page and b"2031-01-02" in page
 
 
 def test_rounds_track_the_negotiation(offer, caller):
@@ -111,7 +154,7 @@ def test_pages_prefill_and_flow(client, waiting, caller):
     waiting.person.save()
     url = reverse("hiring:offer_start", args=[waiting.pk])
     assert b'value="28000' in client.get(url).content
-    r = client.post(url, {"amount": "28000"})
+    r = client.post(url, {"amount": "28000", "follow_up": "2031-01-02"})
     offer = Offer.objects.get()
     assert r.status_code == 302 and r.url == reverse("hiring:offer", args=[offer.pk])
     client.post(

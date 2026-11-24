@@ -249,7 +249,11 @@ class CallForm(forms.Form):
         widget=forms.RadioSelect,
     )
     intention = forms.ChoiceField(
-        label="Next call intention", choices=FollowUp.Purpose.choices, required=False
+        label="Next call intention",
+        choices=[
+            c for c in FollowUp.Purpose.choices if c[0] != "offer"
+        ],  # only Make offer opens one
+        required=False,
     )
     # Candidate on hold / CTLF: no date yet, so no next follow-up is opened.
     tbd = forms.BooleanField(label="Date to be decided", required=False)
@@ -488,6 +492,7 @@ class StartOfferForm(forms.Form):
         label="Monthly offer", max_digits=10, decimal_places=2, min_value=1
     )
     note = forms.CharField(required=False, max_length=300)
+    follow_up = _when("Next follow up date (the offer call)")
 
 
 class RoundForm(forms.Form):

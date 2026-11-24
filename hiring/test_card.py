@@ -37,6 +37,7 @@ def user(client, django_user_model, senken):
         AccessGrant.objects.create(
             user=u, company=senken, module="recruitment", section=tab
         )
+    django_user_model.objects.create_user("under", supervisor=u)  # u supervises
     client.force_login(u)
     return u
 
@@ -57,8 +58,10 @@ def test_stage_follows_the_candidate(req, user):
     )
     assert stage(person) == "Selecting"
     record_interview(person.followups.get(purpose="interview"), "selected", user)
+    assert stage(person) == "Selecting"  # selecting alone opens no offer call
+    interview = person.interviews.get()
+    offer = start_offer(interview, Decimal("1"), user, timezone.now())
     assert stage(person) == "Hiring"
-    offer = start_offer(person.followups.get(purpose="offer"), Decimal("1"), user)
     accept(offer, date(2030, 1, 6), user)
     assert stage(person) == "On-Boarding"
     mark_joined(offer, date(2030, 1, 6))
@@ -85,7 +88,7 @@ def test_schedule_call_view(req, user, client):
     assert person.followups.get().purpose == "call"
 
 
-def test_edit_interview_opens_the_offer_when_it_becomes_selected(req, user, client):
+def test_edit_interview_never_opens_an_offer_call(req, user, client):
     from .services import edit_interview
 
     person = source_number(req, "Ravi", "99999 11111", user).person
@@ -103,9 +106,7 @@ def test_edit_interview_opens_the_offer_when_it_becomes_selected(req, user, clie
     edit_interview(interview, "selected", "Q", "Good")
     interview.refresh_from_db()
     assert interview.result == "selected" and interview.notes == "Good"
-    assert person.followups.filter(purpose="offer", status="pending").count() == 1
-    edit_interview(interview, "selected", "Q", "Again")  # repeat-safe
-    assert person.followups.filter(purpose="offer").count() == 1
+    assert not person.followups.filter(purpose="offer").exists()
 
 
 def test_sourcing_page_shows_duplicate_rate_by_source(req, user, client):
