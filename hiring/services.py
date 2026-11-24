@@ -1037,22 +1037,33 @@ def start_offer(interview, amount, user, follow_up, note=""):
         person = Person.objects.select_for_update().get(pk=interview.person_id)
         if _live_offer(person):
             raise OfferError("This candidate already has an open or accepted offer.")
+        # The same rule as the To offer list, so a stale form can't offer someone
+        # who was since rejected or already offered.
+        if not offers_waiting(user, [person.company]).filter(pk=interview.pk).exists():
+            raise OfferError("This candidate is no longer waiting for an offer.")
         offer = Offer.objects.create(
             person=person, requisition=interview.requisition, made_by=user
         )
         OfferRound.objects.create(offer=offer, amount=amount, note=note, by=user)
+        # The caller's supervisor: the owner of the latest call, not of an interview
+        # or joining reminder.
         last = (
-            person.followups.exclude(owner=None).order_by("-created_at", "-id").first()
+            person.followups.filter(purpose=FollowUp.Purpose.CALL)
+            .exclude(owner=None)
+            .select_related("owner")
+            .order_by("-created_at", "-id")
+            .first()
         )
-        FollowUp.objects.update_or_create(
+        due = skip_sunday(follow_up)
+        owner = (last and last.owner.supervisor) or user
+        # Retire any offer call left from before, so there is exactly one.
+        _close_offer_call(person)
+        FollowUp.objects.create(
             person=person,
+            requisition=interview.requisition,
             purpose=FollowUp.Purpose.OFFER,
-            status=FollowUp.Status.PENDING,
-            defaults=dict(
-                requisition=interview.requisition,
-                due=skip_sunday(follow_up),
-                owner=(last and last.owner.supervisor) or user,
-            ),
+            due=due,
+            owner=owner,
         )
         return offer
 
@@ -1162,6 +1173,7 @@ def did_not_join(offer, reason=""):
         current.decided_at = timezone.now()
         current.save()
         _close_joining(current.person, FollowUp.Status.CANCELLED)
+        _close_offer_call(current.person)
         return current
 
 

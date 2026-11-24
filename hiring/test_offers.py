@@ -273,3 +273,16 @@ def test_offer_and_onboarding_exports_follow_the_filters(client, offer, caller):
         assert rows(name, sheet, q="zzz") == 0
         assert rows(name, sheet, requisition=offer.requisition_id) == 1
         assert rows(name, sheet, requisition=offer.requisition_id + 1) == 0
+
+
+def test_a_stale_make_offer_cannot_offer_a_rejected_candidate(waiting, caller):
+    from .models import Interview
+
+    Interview.objects.create(
+        person=waiting.person,
+        scheduled_at=timezone.now(),
+        result="rejected",
+        interviewer=caller,
+    )
+    with pytest.raises(OfferError):
+        start_offer(waiting, Decimal("1"), caller, TOMORROW)

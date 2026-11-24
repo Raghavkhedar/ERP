@@ -1,10 +1,11 @@
 from django.contrib import messages
+from django.db.models import Exists, OuterRef, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
 from core.access import companies_with_access, require_section
 from hiring.forms import ScheduleCallForm
-from hiring.models import Requisition
+from hiring.models import Requisition, SourcedNumber
 from hiring.services import stage, timeline
 
 from .export import people_workbook
@@ -29,9 +30,14 @@ def _shown(request, archived=False):
     people = visible_people(
         request.companies, search, status, archived=archived and bool(search)
     )
-    for field in ("priority", "department"):
-        if value := request.GET.get(field, ""):
-            people = people.filter(**{field: value})
+    if value := request.GET.get("priority", ""):
+        people = people.filter(priority=value)
+    if value := request.GET.get("department", ""):
+        # Most cards take their department from the opening they were sourced for.
+        opening = SourcedNumber.objects.filter(
+            person=OuterRef("pk"), requisition__department=value
+        )
+        people = people.filter(Q(department=value) | Exists(opening))
     return search, status, people
 
 
