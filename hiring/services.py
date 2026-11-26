@@ -445,6 +445,30 @@ def _open(after, purpose, due, other=""):
     )[0]
 
 
+def _take_typed(followup, user, due, other):
+    """What the caller just typed wins over a follow-up that was already waiting."""
+    current = _pending(followup)
+    if current.purpose != FollowUp.Purpose.OTHER:
+        other = current.purpose_other
+    moved = current.due != due
+    if not moved and current.purpose_other == other:
+        return
+    if moved:
+        current.original_due = current.original_due or current.due
+        current.due, current.snoozed_until = due, None
+        current.reschedule_count += 1
+        current.reschedule_reason = ""
+    current.purpose_other = other
+    current.version += 1
+    current.save()
+    if current.owner_id and current.owner_id != user.pk:
+        notify(
+            current.owner,
+            f"{user.display_name} changed your next call: {current.person.name}",
+            reverse("hiring:screening"),
+        )
+
+
 def log_call(
     followup,
     outcome,
@@ -494,8 +518,7 @@ def log_call(
             current.save(update_fields=["status", "version"])
         if next_due:
             # shortcut: an incoming call's next follow-up is filed under the
-            # candidate's latest requisition, and an already-pending follow-up
-            # of the same kind is kept as it is.
+            # candidate's latest requisition.
             sourced = (
                 person.sourced.select_related("requisition")
                 .order_by("-created_at")
@@ -506,7 +529,9 @@ def log_call(
                 requisition=sourced.requisition if sourced else None,
                 owner=user,
             )
-            call.opened_followup = _open(after, intention, next_due, intention_other)
+            nxt = _open(after, intention, next_due, intention_other)
+            _take_typed(nxt, user, skip_sunday(next_due), intention_other)
+            call.opened_followup = nxt
             call.save(update_fields=["opened_followup"])
         if boss:
             why = (
