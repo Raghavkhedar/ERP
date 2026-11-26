@@ -1040,3 +1040,13 @@ def test_a_tbd_call_cannot_adopt_a_follow_up_that_already_waits(
     assert page.status_code == 200 and b"already has a pending" in page.content
     log.refresh_from_db()
     assert log.opened_followup is None and log.version == 1
+
+
+def test_next_follow_up_date_wins_over_an_already_pending_one(todo, caller):
+    other = FollowUp.objects.create(
+        person=todo.person, purpose="interview", due=tomorrow(), owner=caller
+    )
+    later = skip_sunday(tomorrow() + timedelta(days=1))
+    log_call(todo, "reg_touch", caller, next_due=later, intention="interview")
+    other.refresh_from_db()
+    assert other.due == later

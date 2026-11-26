@@ -506,7 +506,12 @@ def log_call(
                 requisition=sourced.requisition if sourced else None,
                 owner=user,
             )
-            call.opened_followup = _open(after, intention, next_due, intention_other)
+            nxt = _open(after, intention, next_due, intention_other)
+            # The date the caller just typed wins over one already waiting.
+            if nxt.due != skip_sunday(next_due):
+                nxt.due, nxt.version = skip_sunday(next_due), nxt.version + 1
+                nxt.save(update_fields=["due", "version"])
+            call.opened_followup = nxt
             call.save(update_fields=["opened_followup"])
         if boss:
             why = (
