@@ -1042,11 +1042,31 @@ def test_a_tbd_call_cannot_adopt_a_follow_up_that_already_waits(
     assert log.opened_followup is None and log.version == 1
 
 
-def test_next_follow_up_date_wins_over_an_already_pending_one(todo, caller):
+def test_next_follow_up_date_wins_over_an_already_pending_one(
+    todo, caller, django_user_model
+):
+    boss = member(django_user_model, todo.person.company, "S134")
+    first = skip_sunday(tomorrow())
     other = FollowUp.objects.create(
-        person=todo.person, purpose="interview", due=tomorrow(), owner=caller
+        person=todo.person,
+        purpose="other",
+        purpose_other="collect documents",
+        due=first,
+        owner=boss,
+        snoozed_until=tomorrow(),
+        reschedule_reason="holiday",
     )
-    later = skip_sunday(tomorrow() + timedelta(days=1))
-    log_call(todo, "reg_touch", caller, next_due=later, intention="interview")
+    later = skip_sunday(first + timedelta(days=1))
+    log_call(
+        todo,
+        "reg_touch",
+        caller,
+        next_due=later,
+        intention="other",
+        intention_other="confirm salary",
+    )
     other.refresh_from_db()
-    assert other.due == later
+    assert (other.due, other.purpose_other) == (later, "confirm salary")
+    assert (other.original_due, other.reschedule_count) == (first, 1)
+    assert other.snoozed_until is None and other.reschedule_reason == ""
+    assert boss.notifications.get().text.endswith(todo.person.name)
